@@ -17,19 +17,36 @@ const oswald = Oswald({
 })
 
 export const metadata: Metadata = {
-  title: 'SANSER Metalúrgica | Tinglados y Galpones a Medida',
+  title: "SANSER Metalúrgica | Tinglados y Estructuras de Acero",
   description:
-    'Fabricación e instalación de tinglados y galpones a medida con perfiles C reticulados. Diseñá tu estructura en 3D y cotizá al instante. SANSER Metalúrgica.',
-  generator: 'v0.app',
+    "Diseñá y configurá tu tinglado o galpón en 3D a medida. Cotización rápida de estructuras metálicas con perfiles C y reticulados.",
+  generator: "v0.app",
   keywords: [
-    'tinglados',
-    'galpones',
-    'estructuras metálicas',
-    'perfiles C',
-    'cabreadas reticuladas',
-    'metalúrgica',
-    'SANSER',
+    "tinglados",
+    "galpones",
+    "estructuras metálicas",
+    "perfiles C",
+    "cabreadas reticuladas",
+    "metalúrgica",
+    "SANSER",
   ],
+  openGraph: {
+    title: "SANSER Metalúrgica | Tinglados y Estructuras de Acero",
+    description:
+      "Diseñá y configurá tu tinglado o galpón en 3D a medida. Cotización rápida de estructuras metálicas con perfiles C y reticulados.",
+    url: "https://sanser-web-eta.vercel.app/",
+    siteName: "SANSER Metalúrgica",
+    images: [
+      {
+        url: "https://sanser-web-eta.vercel.app/sanser-logo.jpeg",
+        width: 1200,
+        height: 630,
+        alt: "SANSER Metalúrgica - Tinglados en 3D",
+      },
+    ],
+    locale: "es_AR",
+    type: "website",
+  },
 }
 
 export const viewport: Viewport = {

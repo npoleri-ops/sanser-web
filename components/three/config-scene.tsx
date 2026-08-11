@@ -41,6 +41,7 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       shadows
       dpr={[1, 1.8]}
       camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
+      style={{ touchAction: "pan-y" }}
     >
       <color attach="background" args={["#12141a"]} />
       <fog attach="fog" args={["#12141a", camDist * 1.6, camDist * 3.4]} />
