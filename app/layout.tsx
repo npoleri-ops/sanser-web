@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     "Diseñá y configurá tu tinglado o galpón en 3D a medida. Cotización rápida de estructuras metálicas con perfiles C y reticulados.",
   generator: "v0.app",
   icons: {
-    icon: "/sanser-logo.jpeg",
+    icon: "/icon.png",
   },
   keywords: [
     "tinglados",
