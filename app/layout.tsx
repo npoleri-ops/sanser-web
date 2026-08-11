@@ -64,8 +64,8 @@ export default function RootLayout({
     <html lang="es" className={`dark ${inter.variable} ${oswald.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-        {process.env.NODE_ENV === 'production' && <SpeedInsights />}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
