@@ -78,13 +78,20 @@ export default function CotizarPage() {
   const generatePDF = async () => {
     setIsGenerating(true)
 
-    // Colores corporativos SANSER
-    const colorNaranja: [number, number, number] = [249, 115, 22]  // #f97316
-    const colorOscuro: [number, number, number] = [17, 24, 39]     // #111827
-    const colorGris: [number, number, number] = [100, 100, 100]
-    const colorTexto: [number, number, number] = [55, 65, 81]      // #374151
+    // ── Paleta corporativa SANSER ───────────────────────────────────────────
+    const C = {
+      naranja:   [249, 115,  22] as [number,number,number], // #f97316
+      oscuro:    [ 17,  24,  39] as [number,number,number], // #111827
+      oscuro2:   [ 31,  41,  55] as [number,number,number], // #1f2937
+      grisClaro: [249, 250, 251] as [number,number,number], // #f9fafb
+      grisBorde: [229, 231, 235] as [number,number,number], // #e5e7eb
+      grisTexto: [107, 114, 128] as [number,number,number], // #6b7280
+      texto:     [ 55,  65,  81] as [number,number,number], // #374151
+      blanco:    [255, 255, 255] as [number,number,number],
+      negro:     [  0,   0,   0] as [number,number,number],
+    }
 
-    // ── Cargar logo como base64 ──────────────────────────────────────────
+    // ── Cargar logo ───────────────────────────────────────────────────
     let logoBase64: string | null = null
     try {
       const resp = await fetch('/sanser-logo.jpeg')
@@ -95,155 +102,223 @@ export default function CotizarPage() {
         reader.onerror = reject
         reader.readAsDataURL(blob)
       })
-    } catch (e) {
-      console.warn('No se pudo cargar el logo', e)
-    }
+    } catch { console.warn('No se pudo cargar el logo') }
 
-    // ── Capturas 3D multi-ángulo ──────────────────────────────────────────
-    let captura3D_1: string | null = null
-    let captura3D_2: string | null = null
-
+    // ── Capturas 3D multi-ángulo ───────────────────────────────────────
+    let cap1: string | null = null
+    let cap2: string | null = null
     const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
-      // Ángulo 1: perspectiva actual del usuario
-      try { captura3D_1 = canvas3d.toDataURL('image/png') } catch {}
-
-      // Ángulo 2: vista lateral/frontal — rotamos la cámara 90° en Y
-      // Accedemos al renderer Three.js a través del objeto __r3f
+      try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       try {
         const fiber = (canvas3d as any).__r3f
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
           const origPos = camera.position.clone()
-          const dist = origPos.length()
-          // Vista lateral: camera sobre el eje X, ligeramente elevada
-          camera.position.set(dist, origPos.y, 0)
+          camera.position.set(origPos.length(), origPos.y, 0)
           camera.lookAt(0, config.height / 2, 0)
           gl.render(scene, camera)
-          captura3D_2 = gl.domElement.toDataURL('image/png')
-          // Restaurar posición original
+          cap2 = gl.domElement.toDataURL('image/png')
           camera.position.copy(origPos)
           camera.lookAt(0, config.height / 2, 0)
         }
-      } catch (e) {
-        console.warn('No se pudo capturar ángulo 2', e)
-      }
+      } catch { console.warn('No se pudo capturar ángulo 2') }
     }
-
-    // ── Preparar array de imágenes ─────────────────────────────────────────
-    // Si hay fotos manuales: [3D ángulo1, foto manual]
-    // Si no hay fotos manuales: [3D ángulo1, 3D ángulo2]
-    let imagenesPDF: (string | null)[] = []
     const fotosManual = images.filter(Boolean)
-    if (fotosManual.length > 0) {
-      imagenesPDF = [captura3D_1, fotosManual[0]]
-    } else {
-      imagenesPDF = [captura3D_1, captura3D_2]
-    }
-    imagenesPDF = imagenesPDF.filter(Boolean)
+    const img1 = cap1
+    const img2 = fotosManual.length > 0 ? fotosManual[0] : cap2
 
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-      const pageWidth = doc.internal.pageSize.getWidth()
+      const W = doc.internal.pageSize.getWidth()   // 210
+      const H = doc.internal.pageSize.getHeight()  // 297
+      let y = 0
 
-      // ── 1. ENCABEZADO INSTITUCIONAL ────────────────────────────────────
-      // Logo a la izquierda
+      // ═════════════════════════════════════════════════════════
+      // 1. BANDA DE ENCABEZADO OSCURA
+      // ═════════════════════════════════════════════════════════
+      const headerH = 40
+      doc.setFillColor(...C.oscuro)
+      doc.rect(0, 0, W, headerH, 'F')
+
+      // Acento naranja inferior de 2px
+      doc.setFillColor(...C.naranja)
+      doc.rect(0, headerH - 2, W, 2, 'F')
+
+      // Logo dentro de la banda
       if (logoBase64) {
-        try {
-          doc.addImage(logoBase64, 'JPEG', 14, 8, 32, 22)
-        } catch (e) {
-          console.warn('Error al insertar logo en PDF', e)
-        }
+        try { doc.addImage(logoBase64, 'JPEG', 8, 5, 30, 20) } catch {}
       }
 
-      // Nombre empresa a la derecha del logo
+      // Nombre empresa
+      const nameX = logoBase64 ? 42 : 14
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(18)
-      doc.setTextColor(...colorNaranja)
-      doc.text('SANSER METALÚRGICA', logoBase64 ? 50 : 14, 18)
+      doc.setFontSize(20)
+      doc.setTextColor(...C.naranja)
+      doc.text('SANSER METALÚRGICA', nameX, 17)
 
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(200, 205, 215)
+      doc.text('Ecuador 811, Jardín América, Misiones', nameX, 23)
+      doc.text('Tel: 03743-487728  │  CUIT: 27-24674999-5  │  sansermetalurgica@gmail.com', nameX, 28)
+
+      // "PRESUPUESTO" a la derecha, dentro de la banda
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.setTextColor(...C.blanco)
+      doc.text('PRESUPUESTO', W - 10, 17, { align: 'right' })
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(...colorGris)
-      doc.text('Ecuador 811, Jardín América, Misiones', logoBase64 ? 50 : 14, 24)
-      doc.text('Tel: 03743-487728 | CUIT: 27-24674999-5 | sansermetalurgica@gmail.com', logoBase64 ? 50 : 14, 29)
+      doc.setTextColor(...C.naranja)
+      doc.text(`Fecha: ${date}`, W - 10, 24, { align: 'right' })
+      doc.setTextColor(200, 205, 215)
+      doc.text('Nº Presupuesto: SP-' + new Date().getFullYear().toString().slice(-2) + String(Date.now()).slice(-4), W - 10, 29, { align: 'right' })
 
-      // Fecha y datos del cliente a la derecha
-      doc.setTextColor(0, 0, 0)
-      doc.setFontSize(10)
-      doc.text(`FECHA: ${date}`, 196, 12, { align: 'right' })
-      if (cuit)  doc.text(`CUIT Cliente: ${cuit}`, 196, 18, { align: 'right' })
-      if (phone) doc.text(`Tel Cliente: ${phone}`, 196, 24, { align: 'right' })
+      y = headerH + 6
 
-      // Línea divisoria
-      doc.setDrawColor(220, 220, 220)
-      doc.line(14, 35, 196, 35)
+      // ═════════════════════════════════════════════════════════
+      // 2. TARJETA DE CLIENTE Y DESCRIPCIÓN
+      // ═════════════════════════════════════════════════════════
+      // Tarjeta cliente (borde fino, fondo muy claro)
+      const cardH = 22
+      doc.setFillColor(...C.grisClaro)
+      doc.setDrawColor(...C.grisBorde)
+      doc.roundedRect(10, y, W - 20, cardH, 2, 2, 'FD')
 
-      // ── 2. DESCRIPCIÓN DEL TRABAJO ─────────────────────────────────────
+      // Pequeño acento naranja a la izquierda
+      doc.setFillColor(...C.naranja)
+      doc.rect(10, y, 3, cardH, 'F')
+
+      // Contenido tarjeta
+      const cx = 17
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.setTextColor(...colorNaranja)
-      doc.text((title || 'TINGLADO').toUpperCase(), 14, 44)
+      doc.setFontSize(7)
+      doc.setTextColor(...C.grisTexto)
+      doc.text('CLIENTE', cx, y + 5)
+      doc.text('CUIT', cx + 55, y + 5)
+      doc.text('TELÉFONO', cx + 105, y + 5)
 
-      // Medidas explícitas de la estructura
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
-      doc.setTextColor(...colorOscuro)
-      doc.text(
-        `Dimensiones: Ancho ${config.width}m × Largo ${config.length}m × Alto ${config.height}m`,
-        14, 51
-      )
+      doc.setTextColor(...C.oscuro2)
+      doc.text(cuit ? 'Ver CUIT' : 'Consumidor Final', cx, y + 11)
+      doc.text(cuit || '—', cx + 55, y + 11)
+      doc.text(phone || '—', cx + 105, y + 11)
 
-      doc.setFont('helvetica', 'normal')
+      // Título del trabajo
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(...C.grisTexto)
+      doc.text('OBRA / TRABAJO', cx, y + 18)
+      doc.setFontSize(8)
+      doc.setTextColor(...C.oscuro2)
+      doc.text((title || 'Tinglado').toUpperCase(), cx + 32, y + 18)
+
+      y += cardH + 5
+
+      // Dimensiones y materiales
+      doc.setFillColor(...C.naranja)
+      doc.rect(10, y, 3, 4, 'F')
+      doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
-      doc.setTextColor(...colorTexto)
-      const detalleLineas = doc.splitTextToSize(`Materiales: ${materials || 'No especificado'}`, 182)
-      doc.text(detalleLineas, 14, 58)
+      doc.setTextColor(...C.naranja)
+      doc.text('DESCRIPCIÓN DEL TRABAJO', 16, y + 3)
 
-      let cursorY = 58 + detalleLineas.length * 5 + 8
+      y += 7
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(...C.oscuro2)
+      doc.text(`Dimensiones: Ancho ${config.width} m  ×  Largo ${config.length} m  ×  Alto ${config.height} m`, 12, y)
 
-      // ── 3. IMÁGENES (3D multi-ángulo + fotos) ─────────────────────────
-      if (imagenesPDF.length > 0) {
-        if (cursorY > 170) { doc.addPage(); cursorY = 15 }
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...C.texto)
+      const matLineas = doc.splitTextToSize(`Materiales: ${materials || 'No especificado'}`, W - 24)
+      doc.text(matLineas, 12, y)
 
+      y += matLineas.length * 4.5 + 6
+
+      // ═════════════════════════════════════════════════════════
+      // 3. RENDERS / FOTOS (dos imágenes lado a lado)
+      // ═════════════════════════════════════════════════════════
+      if (img1 || img2) {
+        if (y > 180) { doc.addPage(); y = 15 }
+
+        // Título sección renders
+        doc.setFillColor(...C.naranja)
+        doc.rect(10, y, 3, 4, 'F')
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.setTextColor(...colorNaranja)
-        const imgLabel = fotosManual.length > 0
-          ? 'RENDER 3D Y FOTO DEL PROYECTO'
-          : 'RENDERS 3D DEL TRABAJO (Vista Isométrica y Vista Lateral)'
-        doc.text(imgLabel, 14, cursorY)
-        cursorY += 3
-        doc.setDrawColor(220, 220, 220)
-        doc.line(14, cursorY, 196, cursorY)
-        cursorY += 4
+        doc.setFontSize(9)
+        doc.setTextColor(...C.naranja)
+        const lblImg = fotosManual.length > 0 ? 'RENDER 3D Y FOTO DEL PROYECTO' : 'RENDERS 3D — VISTA ISOMÉTRICA Y VISTA LATERAL'
+        doc.text(lblImg, 16, y + 3)
+        y += 8
 
-        const totalImgW = 182
-        const gap = 5
-        const imgH = 58
-        const imgW = imagenesPDF.length === 1 ? totalImgW : (totalImgW - gap) / 2
+        const iW = 88   // imagen ancho
+        const iH = 48   // imagen alto
+        const gap = 6   // espacio entre imágenes
+        const x1 = 10
+        const x2 = x1 + iW + gap
 
-        imagenesPDF.forEach((img, idx) => {
-          if (!img) return
+        // Marco imagen 1
+        doc.setDrawColor(...C.grisBorde)
+        doc.setFillColor(...C.grisClaro)
+        doc.rect(x1, y, iW, iH, 'FD')
+        if (img1) {
           try {
-            const x = 14 + idx * (imgW + gap)
-            // Detect format: PNG (3D) or JPEG (manual)
-            const fmt = img.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-            doc.addImage(img, fmt, x, cursorY, imgW, imgH)
-          } catch (e) {
-            console.error(`Error al agregar imagen ${idx + 1}`, e)
-          }
-        })
+            const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+            doc.addImage(img1, fmt1, x1, y, iW, iH)
+          } catch { /* imagen no disponible */ }
+        }
+        // Borde naranjo fino encima
+        doc.setDrawColor(...C.naranja)
+        doc.setLineWidth(0.4)
+        doc.rect(x1, y, iW, iH)
+        doc.setLineWidth(0.2)
 
-        cursorY += imgH + 10
+        // Marco imagen 2
+        doc.setDrawColor(...C.grisBorde)
+        doc.setFillColor(...C.grisClaro)
+        doc.rect(x2, y, iW, iH, 'FD')
+        if (img2) {
+          try {
+            const fmt2 = img2.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+            doc.addImage(img2, fmt2, x2, y, iW, iH)
+          } catch { /* imagen no disponible */ }
+        }
+        // Borde naranjo fino encima
+        doc.setDrawColor(...C.naranja)
+        doc.setLineWidth(0.4)
+        doc.rect(x2, y, iW, iH)
+        doc.setLineWidth(0.2)
+
+        // Etiquetas bajo las fotos
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(...C.grisTexto)
+        doc.text(fotosManual.length > 0 ? 'Vista 3D Isométrica' : 'Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
+        doc.text(fotosManual.length > 0 ? 'Foto del Proyecto' : 'Vista 3D Lateral', x2 + iW / 2, y + iH + 3.5, { align: 'center' })
+
+        y += iH + 10
       }
 
-      // Evitar overflow antes de la tabla
-      if (cursorY > 200) { doc.addPage(); cursorY = 15 }
+      // ═════════════════════════════════════════════════════════
+      // 4. TABLA DE PRESUPUESTO
+      // ═════════════════════════════════════════════════════════
+      if (y > 220) { doc.addPage(); y = 15 }
 
-      // ── 4. TABLA DE PRESUPUESTO ────────────────────────────────────────
-      const tableBody = items.map((item, index) => [
-        String(index + 1),
+      doc.setFillColor(...C.naranja)
+      doc.rect(10, y, 3, 4, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(...C.naranja)
+      doc.text('DETALLE DE PRESUPUESTO', 16, y + 3)
+      y += 7
+
+      const tBody = items.map((item, i) => [
+        String(i + 1),
         item.description,
         item.unit,
         String(item.quantity),
@@ -252,45 +327,86 @@ export default function CotizarPage() {
       ])
 
       autoTable(doc, {
-        startY: cursorY,
+        startY: y,
         head: [['#', 'DESCRIPCIÓN DEL ÍTEM', 'UNIDAD', 'CANT.', 'PRECIO UNIT.', 'TOTAL']],
-        body: tableBody.length > 0 ? tableBody : [['—', 'No hay ítems cargados', '', '', '', '']],
+        body: tBody.length > 0 ? tBody : [['—', 'Sin ítems', '', '', '', '']],
         theme: 'grid',
         headStyles: {
-          fillColor: colorOscuro,
-          textColor: [255, 255, 255] as [number, number, number],
+          fillColor: C.oscuro,
+          textColor: C.blanco,
           fontStyle: 'bold',
-          fontSize: 9
+          fontSize: 8.5,
+          cellPadding: 3,
         },
-        styles: { fontSize: 9, textColor: colorTexto },
+        bodyStyles: {
+          fontSize: 8.5,
+          textColor: C.texto,
+          cellPadding: 2.5,
+        },
+        alternateRowStyles: { fillColor: C.grisClaro },
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
+          0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
           1: { cellWidth: 'auto' },
           2: { cellWidth: 18, halign: 'center' },
           3: { cellWidth: 16, halign: 'center' },
-          4: { cellWidth: 30, halign: 'right' },
-          5: { cellWidth: 30, halign: 'right' }
+          4: { cellWidth: 32, halign: 'right' },
+          5: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
         },
-        margin: { left: 14, right: 14 }
+        margin: { left: 10, right: 10 },
       })
 
-      // ── 5. TOTAL FINAL ─────────────────────────────────────────────────
-      const finalY = (doc as any).lastAutoTable.finalY + 10
+      // ═══════════════════════════════════════════════════════
+      // 5. CAJA TOTAL FINAL
+      // ═══════════════════════════════════════════════════════
+      const tFinalY = (doc as any).lastAutoTable.finalY + 6
+      const W2 = doc.internal.pageSize.getWidth()
+      const H2 = doc.internal.pageSize.getHeight()
+      const boxW = 88
+      const boxH = 20
+      const boxX = W2 - 10 - boxW
+
+      doc.setFillColor(...C.grisClaro)
+      doc.setDrawColor(...C.naranja)
+      doc.setLineWidth(0.8)
+      doc.roundedRect(boxX, tFinalY, boxW, boxH, 2, 2, 'FD')
+      doc.setLineWidth(0.2)
+
+      doc.setFillColor(...C.naranja)
+      doc.roundedRect(boxX, tFinalY, 4, boxH, 2, 0, 'F')
+
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(14)
-      doc.setTextColor(...colorNaranja)
+      doc.setFontSize(7.5)
+      doc.setTextColor(...C.grisTexto)
+      doc.text('TOTAL FINAL', boxX + boxW - 4, tFinalY + 7, { align: 'right' })
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.setTextColor(...C.naranja)
       doc.text(
-        `TOTAL FINAL: $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        196, finalY, { align: 'right' }
+        `$ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        boxX + boxW - 4, tFinalY + 16, { align: 'right' }
       )
 
-      // Pie de página
+      // ═══════════════════════════════════════════════════════
+      // 6. PIE DE PÁGINA INSTITUCIONAL
+      // ═══════════════════════════════════════════════════════
+      const footerY = H2 - 14
+      doc.setDrawColor(...C.grisBorde)
+      doc.setLineWidth(0.3)
+      doc.line(10, footerY, W2 - 10, footerY)
+
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7)
-      doc.setTextColor(156, 163, 175)
+      doc.setTextColor(...C.grisTexto)
       doc.text(
-        'Presupuesto válido por 7 días. Precios sujetos a modificación sin previo aviso.',
-        pageWidth / 2, 287, { align: 'center' }
+        'Presupuesto válido por 7 días. Precios sujetos a variación de materiales.',
+        W2 / 2, footerY + 5, { align: 'center' }
+      )
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...C.naranja)
+      doc.text(
+        'SANSER Metalúrgica — Estructuras de acero que aguantan.',
+        W2 / 2, footerY + 10, { align: 'center' }
       )
 
       // Guardar
@@ -299,7 +415,7 @@ export default function CotizarPage() {
 
     } catch (error: any) {
       console.error('Error al generar el PDF', error)
-      alert(`Hubo un error al generar el PDF: ${error?.message || 'Error desconocido'}`)
+      alert(`Error al generar el PDF: ${error?.message || 'Error desconocido'}`)
     } finally {
       setIsGenerating(false)
     }
