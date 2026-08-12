@@ -91,18 +91,7 @@ export default function CotizarPage() {
       negro:     [  0,   0,   0] as [number,number,number],
     }
 
-    // ── Cargar logo ───────────────────────────────────────────────────
-    let logoBase64: string | null = null
-    try {
-      const resp = await fetch('/sanser-logo.jpeg')
-      const blob = await resp.blob()
-      logoBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-    } catch { console.warn('No se pudo cargar el logo') }
+    // (Logo dibujado directamente en jsPDF - ver sección encabezado)
 
     // ── Capturas 3D multi-ángulo ───────────────────────────────────────
     let cap1: string | null = null
@@ -145,13 +134,36 @@ export default function CotizarPage() {
       doc.setFillColor(...C.naranja)
       doc.rect(0, headerH - 2, W, 2, 'F')
 
-      // Logo dentro de la banda
-      if (logoBase64) {
-        try { doc.addImage(logoBase64, 'JPEG', 8, 5, 30, 20) } catch {}
-      }
+      // Logo oficial SANSER dibujado con primitivas jsPDF
+      // Replica la geometría SVG del componente Logo.tsx (viewBox 0 0 100 50)
+      // Escala: x * 0.30 + 8, y * 0.54 + 3  → encaja en ~30x16mm
+      const lx = (px: number) => 8  + px * 0.30
+      const ly = (py: number) => 4  + py * 0.54
 
-      // Nombre empresa
-      const nameX = logoBase64 ? 42 : 14
+      doc.setDrawColor(...C.naranja)
+      doc.setLineWidth(0.9)
+      doc.setLineCap('round')
+
+      // Techo a 2 aguas: M 10 16 L 35 6 L 90 22
+      doc.line(lx(10), ly(16), lx(35), ly(6))
+      doc.line(lx(35), ly(6),  lx(90), ly(22))
+
+      // Columnas verticales
+      ;[
+        [10, 16, 10, 45],
+        [35,  6, 35, 45],
+        [53, 11.5, 53, 45],
+        [71, 16.8, 71, 45],
+        [90, 22, 90, 45],
+      ].forEach(([x1, y1, x2, y2]) => {
+        doc.line(lx(x1), ly(y1), lx(x2), ly(y2))
+      })
+
+      doc.setLineWidth(0.2)
+      doc.setLineCap('butt')
+
+      // Nombre empresa (junto al ícono)
+      const nameX = 42
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(20)
       doc.setTextColor(...C.naranja)
