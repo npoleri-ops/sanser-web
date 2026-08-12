@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText } from "lucide-react"
 import jsPDF from "jspdf"
@@ -21,6 +21,8 @@ const ConfigScene = dynamic(
   { ssr: false }
 )
 
+const GOOGLE_SHEETS_CSV_URL = "PEGA_AQUÍ_TU_ENLACE_CSV"
+
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
   const [cuit, setCuit] = useState("")
@@ -29,8 +31,7 @@ export default function CotizarPage() {
   const [materials, setMaterials] = useState("Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Chapas T101 / Tornillos")
   const [images, setImages] = useState<string[]>([])
   const [items, setItems] = useState<QuoteItem[]>([
-    { id: "1", description: "Tinglado 10x20", unit: "unid", quantity: 1, price: 13800000 },
-    { id: "2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: 0 }
+    { id: "5", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: 0 }
   ])
 
   const pdfRef = useRef<HTMLDivElement>(null)
@@ -58,6 +59,59 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
+  const [prices, setPrices] = useState({ perfilC: 8500, chapa: 12000, tornillos: 350, manoDeObra: 25000 })
+
+  useEffect(() => {
+    const fetchCSV = async () => {
+      try {
+        if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") return
+        const res = await fetch(GOOGLE_SHEETS_CSV_URL)
+        if (!res.ok) return
+        const text = await res.text()
+        const lines = text.split('\n')
+        const newPrices = { ...prices }
+        
+        lines.forEach(line => {
+           const parts = line.split(',')
+           if (parts.length < 2) return
+           const mat = parts[0].toLowerCase()
+           const priceStr = parts[1].replace(/[^0-9,-]+/g,"").replace(',', '.')
+           const p = parseFloat(priceStr)
+           if (isNaN(p)) return
+
+           if (mat.includes('perfil c') || mat.includes('perfiles c')) newPrices.perfilC = p
+           if (mat.includes('chapa')) newPrices.chapa = p
+           if (mat.includes('tornillo')) newPrices.tornillos = p
+           if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
+        })
+        setPrices(newPrices)
+      } catch (e) {
+        console.error("Error fetching CSV", e)
+      }
+    }
+    fetchCSV()
+  }, [])
+
+  useEffect(() => {
+    const area = config.width * config.length
+    const cantPerfil = Math.ceil(area * 3)
+    const cantChapa = Math.ceil(area * 1.1)
+    const cantTornillos = Math.ceil(area * 4)
+    const cantManoObra = Math.ceil(area)
+
+    setItems(prev => {
+      const custom = prev.filter(i => !["1", "2", "3", "4"].includes(i.id))
+      return [
+        { id: "1", description: "Perfil C Galvanizado", unit: "ml", quantity: cantPerfil, price: prices.perfilC },
+        { id: "2", description: "Chapa T101", unit: "m2", quantity: cantChapa, price: prices.chapa },
+        { id: "3", description: "Tornillos Autoperforantes", unit: "unid", quantity: cantTornillos, price: prices.tornillos },
+        { id: "4", description: "Mano de Obra y Armado", unit: "m2", quantity: cantManoObra, price: prices.manoDeObra },
+        ...custom
+      ]
+    })
+    
+    setTitle(`TINGLADO ${config.width}X${config.length} A UN AGUA`)
+  }, [config, prices])
 
 
 
