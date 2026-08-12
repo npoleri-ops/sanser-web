@@ -149,6 +149,7 @@ export const CONTACT = {
   phoneDisplay: "03743-487728",
   phoneSecondaryDisplay: "03743-448876",
   phoneSecondaryRaw: "+543743448876",
+  whatsappSecondaryBase: `https://wa.me/543743448876`,
   phoneRaw: WHATSAPP_NUMBER,
   whatsappBase: `https://wa.me/${WHATSAPP_NUMBER}`,
   address: "Ecuador 811, Jardín América, Misiones, Argentina.",
