@@ -18,9 +18,13 @@ export function ContactForm() {
       // O si se usa Web3Forms: fetch("https://api.web3forms.com/submit", { ... })
       const endpoint = "https://formspree.io/f/xyegjjdz"
       
+      const formData = new FormData(form)
+      const clientName = formData.get("name") || "Cliente"
+      formData.set("_subject", `Nueva consulta de ${clientName} (SANSER Web)`)
+      
       const response = await fetch(endpoint, {
         method: "POST",
-        body: new FormData(form),
+        body: formData,
         headers: {
           Accept: "application/json",
         },
@@ -134,7 +138,6 @@ export function ContactForm() {
 
                 {/* Email configurado para recibir */}
                 <input type="hidden" name="_replyto" value="sansermetalurgica@gmail.com" />
-                <input type="hidden" name="_subject" value="Nueva consulta de SANSER Web" />
 
                 <Button 
                   type="submit" 
