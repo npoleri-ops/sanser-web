@@ -84,86 +84,152 @@ export default function CotizarPage() {
     const colorGris: [number, number, number] = [100, 100, 100]
     const colorTexto: [number, number, number] = [55, 65, 81]      // #374151
 
-    // 1. Captura 3D automática (antes de generar el doc)
-    let imagen3D: string | null = null
-    const canvas3d = document.querySelector('canvas')
+    // ── Cargar logo como base64 ──────────────────────────────────────────
+    let logoBase64: string | null = null
+    try {
+      const resp = await fetch('/sanser-logo.jpeg')
+      const blob = await resp.blob()
+      logoBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch (e) {
+      console.warn('No se pudo cargar el logo', e)
+    }
+
+    // ── Capturas 3D multi-ángulo ──────────────────────────────────────────
+    let captura3D_1: string | null = null
+    let captura3D_2: string | null = null
+
+    const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
+      // Ángulo 1: perspectiva actual del usuario
+      try { captura3D_1 = canvas3d.toDataURL('image/png') } catch {}
+
+      // Ángulo 2: vista lateral/frontal — rotamos la cámara 90° en Y
+      // Accedemos al renderer Three.js a través del objeto __r3f
       try {
-        imagen3D = canvas3d.toDataURL('image/png')
+        const fiber = (canvas3d as any).__r3f
+        if (fiber) {
+          const { gl, camera, scene } = fiber.root.getState()
+          const origPos = camera.position.clone()
+          const dist = origPos.length()
+          // Vista lateral: camera sobre el eje X, ligeramente elevada
+          camera.position.set(dist, origPos.y, 0)
+          camera.lookAt(0, config.height / 2, 0)
+          gl.render(scene, camera)
+          captura3D_2 = gl.domElement.toDataURL('image/png')
+          // Restaurar posición original
+          camera.position.copy(origPos)
+          camera.lookAt(0, config.height / 2, 0)
+        }
       } catch (e) {
-        console.warn("No se pudo capturar el canvas 3D", e)
+        console.warn('No se pudo capturar ángulo 2', e)
       }
     }
 
-    // Combinar: foto manual primero (si existe), luego 3D
-    const todasLasImagenes = [
-      ...images.filter(Boolean),
-      ...(imagen3D && !images.includes(imagen3D) ? [imagen3D] : [])
-    ].slice(0, 2)
+    // ── Preparar array de imágenes ─────────────────────────────────────────
+    // Si hay fotos manuales: [3D ángulo1, foto manual]
+    // Si no hay fotos manuales: [3D ángulo1, 3D ángulo2]
+    let imagenesPDF: (string | null)[] = []
+    const fotosManual = images.filter(Boolean)
+    if (fotosManual.length > 0) {
+      imagenesPDF = [captura3D_1, fotosManual[0]]
+    } else {
+      imagenesPDF = [captura3D_1, captura3D_2]
+    }
+    imagenesPDF = imagenesPDF.filter(Boolean)
 
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
       const pageWidth = doc.internal.pageSize.getWidth()
 
-      // ── 1. ENCABEZADO INSTITUCIONAL ─────────────────────────────────────
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(22)
-      doc.setTextColor(...colorNaranja)
-      doc.text('SANSER METALÚRGICA', 14, 20)
+      // ── 1. ENCABEZADO INSTITUCIONAL ────────────────────────────────────
+      // Logo a la izquierda
+      if (logoBase64) {
+        try {
+          doc.addImage(logoBase64, 'JPEG', 14, 8, 32, 22)
+        } catch (e) {
+          console.warn('Error al insertar logo en PDF', e)
+        }
+      }
 
-      doc.setFontSize(9)
+      // Nombre empresa a la derecha del logo
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.setTextColor(...colorNaranja)
+      doc.text('SANSER METALÚRGICA', logoBase64 ? 50 : 14, 18)
+
+      doc.setFontSize(8)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(...colorGris)
-      doc.text('Ecuador 811 | Tel: 03743-487728', 14, 26)
-      doc.text('CUIT: 27-24674999-5 | Mail: sansermetalurgica@gmail.com', 14, 31)
+      doc.text('Ecuador 811, Jardín América, Misiones', logoBase64 ? 50 : 14, 24)
+      doc.text('Tel: 03743-487728 | CUIT: 27-24674999-5 | sansermetalurgica@gmail.com', logoBase64 ? 50 : 14, 29)
 
-      // Fecha a la derecha
+      // Fecha y datos del cliente a la derecha
       doc.setTextColor(0, 0, 0)
       doc.setFontSize(10)
-      doc.text(`FECHA: ${date}`, 196, 20, { align: 'right' })
-      if (cuit)  doc.text(`CUIT Cliente: ${cuit}`, 196, 26, { align: 'right' })
-      if (phone) doc.text(`Tel Cliente: ${phone}`, 196, 31, { align: 'right' })
+      doc.text(`FECHA: ${date}`, 196, 12, { align: 'right' })
+      if (cuit)  doc.text(`CUIT Cliente: ${cuit}`, 196, 18, { align: 'right' })
+      if (phone) doc.text(`Tel Cliente: ${phone}`, 196, 24, { align: 'right' })
 
       // Línea divisoria
       doc.setDrawColor(220, 220, 220)
-      doc.line(14, 36, 196, 36)
+      doc.line(14, 35, 196, 35)
 
-      // ── 2. DESCRIPCIÓN DEL TRABAJO ────────────────────────────────────
+      // ── 2. DESCRIPCIÓN DEL TRABAJO ─────────────────────────────────────
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(...colorNaranja)
-      doc.text((title || 'TINGLADO').toUpperCase(), 14, 45)
+      doc.text((title || 'TINGLADO').toUpperCase(), 14, 44)
+
+      // Medidas explícitas de la estructura
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(...colorOscuro)
+      doc.text(
+        `Dimensiones: Ancho ${config.width}m × Largo ${config.length}m × Alto ${config.height}m`,
+        14, 51
+      )
 
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
       doc.setTextColor(...colorTexto)
       const detalleLineas = doc.splitTextToSize(`Materiales: ${materials || 'No especificado'}`, 182)
-      doc.text(detalleLineas, 14, 52)
+      doc.text(detalleLineas, 14, 58)
 
-      let cursorY = 52 + detalleLineas.length * 5 + 8
+      let cursorY = 58 + detalleLineas.length * 5 + 8
 
-      // ── 3. IMÁGENES (3D + fotos manuales) ──────────────────────────────
-      if (todasLasImagenes.length > 0) {
-        // Verificar que hay espacio; si no, nueva página
+      // ── 3. IMÁGENES (3D multi-ángulo + fotos) ─────────────────────────
+      if (imagenesPDF.length > 0) {
         if (cursorY > 170) { doc.addPage(); cursorY = 15 }
 
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
         doc.setTextColor(...colorNaranja)
-        doc.text('FOTOGRAFÍAS / RENDERS DEL TRABAJO', 14, cursorY)
+        const imgLabel = fotosManual.length > 0
+          ? 'RENDER 3D Y FOTO DEL PROYECTO'
+          : 'RENDERS 3D DEL TRABAJO (Vista Isométrica y Vista Lateral)'
+        doc.text(imgLabel, 14, cursorY)
         cursorY += 3
         doc.setDrawColor(220, 220, 220)
         doc.line(14, cursorY, 196, cursorY)
         cursorY += 4
 
-        const imgW = todasLasImagenes.length === 1 ? 130 : 88
-        const imgH = 55
+        const totalImgW = 182
+        const gap = 5
+        const imgH = 58
+        const imgW = imagenesPDF.length === 1 ? totalImgW : (totalImgW - gap) / 2
 
-        todasLasImagenes.forEach((img, idx) => {
+        imagenesPDF.forEach((img, idx) => {
           if (!img) return
           try {
-            const x = idx === 0 ? 14 : 14 + imgW + 5
-            doc.addImage(img, 'PNG', x, cursorY, imgW, imgH)
+            const x = 14 + idx * (imgW + gap)
+            // Detect format: PNG (3D) or JPEG (manual)
+            const fmt = img.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+            doc.addImage(img, fmt, x, cursorY, imgW, imgH)
           } catch (e) {
             console.error(`Error al agregar imagen ${idx + 1}`, e)
           }
@@ -208,16 +274,14 @@ export default function CotizarPage() {
         margin: { left: 14, right: 14 }
       })
 
-      // ── 5. TOTAL FINAL ────────────────────────────────────────────────
+      // ── 5. TOTAL FINAL ─────────────────────────────────────────────────
       const finalY = (doc as any).lastAutoTable.finalY + 10
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(14)
       doc.setTextColor(...colorNaranja)
       doc.text(
         `TOTAL FINAL: $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        196,
-        finalY,
-        { align: 'right' }
+        196, finalY, { align: 'right' }
       )
 
       // Pie de página
@@ -226,9 +290,7 @@ export default function CotizarPage() {
       doc.setTextColor(156, 163, 175)
       doc.text(
         'Presupuesto válido por 7 días. Precios sujetos a modificación sin previo aviso.',
-        pageWidth / 2,
-        287,
-        { align: 'center' }
+        pageWidth / 2, 287, { align: 'center' }
       )
 
       // Guardar
