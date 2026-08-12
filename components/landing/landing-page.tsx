@@ -83,7 +83,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
               Diseñamos, fabricamos e instalamos tinglados con perfiles C reticulados.
               Configurá el tuyo en 3D y recibí un presupuesto al instante.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 onClick={onGoEditor}
                 size="lg"
@@ -92,6 +92,13 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                 <Boxes className="size-4" />
                 Diseñar mi Tinglado 3D
               </Button>
+              <button
+                onClick={(e) => openWhatsAppModal(e)}
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-border bg-background/40 px-5 py-3 font-mono text-xs uppercase tracking-wider text-foreground transition-all hover:bg-muted backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <MessageCircle className="size-4 shrink-0" />
+                Consultar por WhatsApp
+              </button>
             </div>
           </div>
         </div>
