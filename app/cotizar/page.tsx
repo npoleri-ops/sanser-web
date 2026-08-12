@@ -299,7 +299,9 @@ export default function CotizarPage() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
         doc.setTextColor(...C.naranja)
-        const lblImg = `RENDERS 3D DEL TRABAJO — (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)`
+        const lblImg = fotosManual.length > 0 
+          ? 'RENDERS 3D Y FOTOGRAFÍAS DEL TRABAJO'
+          : 'RENDERS 3D DEL TRABAJO'
         doc.text(lblImg, 16, y + 3)
         y += 8
 
