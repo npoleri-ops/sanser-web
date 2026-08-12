@@ -67,7 +67,8 @@ export default function CotizarPage() {
       const canvas = await html2canvas(element, {
         scale: 2, // better resolution
         useCORS: true,
-        logging: false,
+        allowTaint: true,
+        logging: true,
         backgroundColor: "#ffffff"
       })
       const imgData = canvas.toDataURL('image/jpeg', 0.98)
@@ -80,9 +81,9 @@ export default function CotizarPage() {
       
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight)
       pdf.save(`Presupuesto-SANSER-${date.replace(/\//g, '-')}.pdf`)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating PDF", error)
-      alert("Hubo un error al generar el PDF.")
+      alert(`Hubo un error al generar el PDF: ${error?.message || 'Error desconocido'}`)
     } finally {
       setIsGenerating(false)
     }
@@ -263,13 +264,16 @@ export default function CotizarPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
-          <Button 
-            onClick={sendToWhatsApp}
-            variant="outline"
-            className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400"
-          >
-            <Send className="size-4" /> Enviar a WhatsApp
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button 
+              onClick={sendToWhatsApp}
+              variant="outline"
+              className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400 w-full sm:w-auto"
+            >
+              <Send className="size-4" /> Enviar a WhatsApp
+            </Button>
+            <span className="text-[10px] text-muted-foreground">(Descargá el PDF primero y luego adjuntalo en el chat)</span>
+          </div>
           <Button 
             onClick={generatePDF}
             disabled={isGenerating}

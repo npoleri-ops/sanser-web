@@ -32,7 +32,7 @@ export const PdfTemplate = React.forwardRef<HTMLDivElement, PdfTemplateProps>(({
         <div className="w-1/2">
           {/* Logo - assuming we have /sanser-logo.jpeg in public */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/sanser-logo.jpeg" alt="SANSER" className="h-24 object-contain" crossOrigin="anonymous" />
+          <img src="/sanser-logo.jpeg" alt="SANSER" className="h-24 object-contain" />
         </div>
         <div className="w-1/2 text-right text-sm space-y-1">
           <p className="font-bold text-xl text-gray-800 tracking-wider">PRESUPUESTO</p>
@@ -72,7 +72,7 @@ export const PdfTemplate = React.forwardRef<HTMLDivElement, PdfTemplateProps>(({
               img ? (
                 <div key={idx} className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt={`Render ${idx+1}`} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                  <img src={img} alt={`Render ${idx+1}`} className="w-full h-full object-cover" />
                 </div>
               ) : null
             ))}
