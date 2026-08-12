@@ -77,172 +77,166 @@ export default function CotizarPage() {
 
   const generatePDF = async () => {
     setIsGenerating(true)
-    
-    // Auto-capture 3D canvas
+
+    // Colores corporativos SANSER
+    const colorNaranja: [number, number, number] = [249, 115, 22]  // #f97316
+    const colorOscuro: [number, number, number] = [17, 24, 39]     // #111827
+    const colorGris: [number, number, number] = [100, 100, 100]
+    const colorTexto: [number, number, number] = [55, 65, 81]      // #374151
+
+    // 1. Captura 3D automática (antes de generar el doc)
+    let imagen3D: string | null = null
     const canvas3d = document.querySelector('canvas')
-    let autoImage: string | null = null
     if (canvas3d) {
       try {
-        autoImage = canvas3d.toDataURL('image/png')
-        setImages(prev => {
-          if (prev[0] === autoImage) return prev
-          return [autoImage!, ...prev.filter(img => img !== autoImage)].slice(0, 2)
-        })
+        imagen3D = canvas3d.toDataURL('image/png')
       } catch (e) {
-        console.warn("Could not capture 3D canvas", e)
+        console.warn("No se pudo capturar el canvas 3D", e)
       }
     }
 
+    // Combinar: foto manual primero (si existe), luego 3D
+    const todasLasImagenes = [
+      ...images.filter(Boolean),
+      ...(imagen3D && !images.includes(imagen3D) ? [imagen3D] : [])
+    ].slice(0, 2)
+
     try {
-      const doc = new jsPDF("p", "mm", "a4")
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' })
       const pageWidth = doc.internal.pageSize.getWidth()
-      let y = 15
 
-      // Header
+      // ── 1. ENCABEZADO INSTITUCIONAL ─────────────────────────────────────
+      doc.setFont('helvetica', 'bold')
       doc.setFontSize(22)
-      doc.setTextColor(31, 41, 55) // #1f2937
-      doc.text("PRESUPUESTO", pageWidth - 15, y, { align: "right" })
-      
-      doc.setFontSize(10)
+      doc.setTextColor(...colorNaranja)
+      doc.text('SANSER METALÚRGICA', 14, 20)
+
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...colorGris)
+      doc.text('Ecuador 811 | Tel: 03743-487728', 14, 26)
+      doc.text('CUIT: 27-24674999-5 | Mail: sansermetalurgica@gmail.com', 14, 31)
+
+      // Fecha a la derecha
       doc.setTextColor(0, 0, 0)
-      y += 10
-      doc.text(`Fecha: ${date}`, pageWidth - 15, y, { align: "right" })
-      y += 5
-      doc.text(`Tel: ${CONTACT.phoneDisplay}`, pageWidth - 15, y, { align: "right" })
-      y += 5
-      doc.text(`Mail: ${CONTACT.email}`, pageWidth - 15, y, { align: "right" })
-      y += 5
-      doc.text(`Dir: ${CONTACT.address}`, pageWidth - 15, y, { align: "right" })
-      y += 5
-      doc.text(`CUIT: 27-24674999-5`, pageWidth - 15, y, { align: "right" })
-      
-      // Sanser Logo Text (fallback if no image)
-      doc.setFontSize(24)
-      doc.setTextColor(249, 115, 22) // #F97316
-      doc.text("SANSER", 15, 25)
       doc.setFontSize(10)
-      doc.text("Metalúrgica", 15, 30)
+      doc.text(`FECHA: ${date}`, 196, 20, { align: 'right' })
+      if (cuit)  doc.text(`CUIT Cliente: ${cuit}`, 196, 26, { align: 'right' })
+      if (phone) doc.text(`Tel Cliente: ${phone}`, 196, 31, { align: 'right' })
 
-      y += 15
+      // Línea divisoria
+      doc.setDrawColor(220, 220, 220)
+      doc.line(14, 36, 196, 36)
 
-      // Customer Info
-      doc.setDrawColor(229, 231, 235) // #e5e7eb
-      doc.setFillColor(249, 250, 251) // #f9fafb
-      doc.rect(15, y, pageWidth - 30, 15, "FD")
-      doc.setTextColor(0, 0, 0)
-      doc.text(`Cliente CUIT: ${cuit || "Consumidor Final"}`, 20, y + 10)
-      doc.text(`Teléfono Cliente: ${phone || "No especificado"}`, 110, y + 10)
-
-      y += 25
-
-      // Description
-      doc.setTextColor(249, 115, 22) // #F97316
+      // ── 2. DESCRIPCIÓN DEL TRABAJO ────────────────────────────────────
+      doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
-      doc.text(`DESCRIPCIÓN DEL TRABAJO: ${title || "Tinglado"}`, 15, y)
-      y += 2
-      doc.setDrawColor(209, 213, 219)
-      doc.line(15, y, pageWidth - 15, y) // underline
-      
-      y += 8
-      doc.setTextColor(0, 0, 0)
-      doc.setFontSize(10)
-      doc.text("Materiales de Construcción:", 15, y)
-      y += 5
-      doc.setTextColor(55, 65, 81)
-      const splitMaterials = doc.splitTextToSize(materials || "No se especificaron materiales.", pageWidth - 30)
-      doc.text(splitMaterials, 15, y)
-      
-      y += splitMaterials.length * 5 + 10
+      doc.setTextColor(...colorNaranja)
+      doc.text((title || 'TINGLADO').toUpperCase(), 14, 45)
 
-      // Combine images (manual + auto)
-      const currentImages = images.length > 0 ? images : (autoImage ? [autoImage] : [])
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(...colorTexto)
+      const detalleLineas = doc.splitTextToSize(`Materiales: ${materials || 'No especificado'}`, 182)
+      doc.text(detalleLineas, 14, 52)
 
-      // Photos
-      if (currentImages.length > 0) {
-        doc.setTextColor(249, 115, 22)
-        doc.setFontSize(12)
-        doc.text("FOTOGRAFÍAS / RENDERS DEL TRABAJO", 15, y)
-        y += 2
-        doc.setDrawColor(209, 213, 219)
-        doc.line(15, y, pageWidth - 15, y)
-        y += 5
-        
-        const imgWidth = (pageWidth - 35) / 2
-        const imgHeight = 60
-        
-        currentImages.slice(0, 2).forEach((img, idx) => {
-          if (img) {
-            const x = 15 + (idx * (imgWidth + 5))
-            doc.addImage(img, "PNG", x, y, imgWidth, imgHeight)
+      let cursorY = 52 + detalleLineas.length * 5 + 8
+
+      // ── 3. IMÁGENES (3D + fotos manuales) ──────────────────────────────
+      if (todasLasImagenes.length > 0) {
+        // Verificar que hay espacio; si no, nueva página
+        if (cursorY > 170) { doc.addPage(); cursorY = 15 }
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(...colorNaranja)
+        doc.text('FOTOGRAFÍAS / RENDERS DEL TRABAJO', 14, cursorY)
+        cursorY += 3
+        doc.setDrawColor(220, 220, 220)
+        doc.line(14, cursorY, 196, cursorY)
+        cursorY += 4
+
+        const imgW = todasLasImagenes.length === 1 ? 130 : 88
+        const imgH = 55
+
+        todasLasImagenes.forEach((img, idx) => {
+          if (!img) return
+          try {
+            const x = idx === 0 ? 14 : 14 + imgW + 5
+            doc.addImage(img, 'PNG', x, cursorY, imgW, imgH)
+          } catch (e) {
+            console.error(`Error al agregar imagen ${idx + 1}`, e)
           }
         })
-        
-        y += imgHeight + 15
+
+        cursorY += imgH + 10
       }
 
-      // Ensure table doesn't overflow page
-      if (y > 220) {
-        doc.addPage()
-        y = 15
-      }
+      // Evitar overflow antes de la tabla
+      if (cursorY > 200) { doc.addPage(); cursorY = 15 }
 
-      // Budget Table
-      doc.setTextColor(249, 115, 22)
-      doc.setFontSize(12)
-      doc.text("PRESUPUESTO DETALLADO", 15, y)
-      y += 2
-      doc.setDrawColor(209, 213, 219)
-      doc.line(15, y, pageWidth - 15, y)
-      y += 5
-
-      const tableData = items.map(item => [
+      // ── 4. TABLA DE PRESUPUESTO ────────────────────────────────────────
+      const tableBody = items.map((item, index) => [
+        String(index + 1),
         item.description,
         item.unit,
-        item.quantity.toString(),
-        `$${item.price.toLocaleString("es-AR")}`,
-        `$${(item.price * item.quantity).toLocaleString("es-AR")}`
+        String(item.quantity),
+        `$ ${item.price.toLocaleString('es-AR')}`,
+        `$ ${(item.price * item.quantity).toLocaleString('es-AR')}`
       ])
 
       autoTable(doc, {
-        startY: y,
-        head: [['Ítem', 'Unid', 'Cant', 'Precio Unit.', 'Subtotal']],
-        body: tableData.length > 0 ? tableData : [['No hay ítems cargados.', '', '', '', '']],
+        startY: cursorY,
+        head: [['#', 'DESCRIPCIÓN DEL ÍTEM', 'UNIDAD', 'CANT.', 'PRECIO UNIT.', 'TOTAL']],
+        body: tableBody.length > 0 ? tableBody : [['—', 'No hay ítems cargados', '', '', '', '']],
         theme: 'grid',
-        headStyles: { fillColor: [243, 244, 246], textColor: [31, 41, 55], lineColor: [209, 213, 219] },
-        styles: { textColor: [55, 65, 81], lineColor: [209, 213, 219] },
-        columnStyles: {
-          0: { cellWidth: 'auto' },
-          1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 20, halign: 'center' },
-          3: { cellWidth: 30, halign: 'right' },
-          4: { cellWidth: 35, halign: 'right' }
+        headStyles: {
+          fillColor: colorOscuro,
+          textColor: [255, 255, 255] as [number, number, number],
+          fontStyle: 'bold',
+          fontSize: 9
         },
-        margin: { left: 15, right: 15 }
+        styles: { fontSize: 9, textColor: colorTexto },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 18, halign: 'center' },
+          3: { cellWidth: 16, halign: 'center' },
+          4: { cellWidth: 30, halign: 'right' },
+          5: { cellWidth: 30, halign: 'right' }
+        },
+        margin: { left: 14, right: 14 }
       })
 
-      const finalY = (doc as any).lastAutoTable.finalY + 15
+      // ── 5. TOTAL FINAL ────────────────────────────────────────────────
+      const finalY = (doc as any).lastAutoTable.finalY + 10
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.setTextColor(...colorNaranja)
+      doc.text(
+        `TOTAL FINAL: $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        196,
+        finalY,
+        { align: 'right' }
+      )
 
-      // Total Final
-      doc.setFillColor(249, 115, 22) // #F97316
-      const boxWidth = 80
-      const boxHeight = 20
-      const boxX = pageWidth - 15 - boxWidth
-      doc.rect(boxX, finalY, boxWidth, boxHeight, "F")
-      
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(10)
-      doc.text("TOTAL FINAL", boxX + boxWidth - 5, finalY + 7, { align: "right" })
-      doc.setFontSize(16)
-      doc.text(`$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, boxX + boxWidth - 5, finalY + 16, { align: "right" })
-
-      // Footer Message
+      // Pie de página
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
       doc.setTextColor(156, 163, 175)
-      doc.setFontSize(8)
-      doc.text("Los presupuestos tienen una validez de 7 días. Precios sujetos a modificación sin previo aviso.", pageWidth / 2, 285, { align: "center" })
+      doc.text(
+        'Presupuesto válido por 7 días. Precios sujetos a modificación sin previo aviso.',
+        pageWidth / 2,
+        287,
+        { align: 'center' }
+      )
 
-      doc.save(`Presupuesto-SANSER-${date.replace(/\//g, '-')}.pdf`)
+      // Guardar
+      const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
+      doc.save(`Presupuesto_SANSER_${safeTitle}.pdf`)
+
     } catch (error: any) {
-      console.error("Error generating PDF", error)
+      console.error('Error al generar el PDF', error)
       alert(`Hubo un error al generar el PDF: ${error?.message || 'Error desconocido'}`)
     } finally {
       setIsGenerating(false)
