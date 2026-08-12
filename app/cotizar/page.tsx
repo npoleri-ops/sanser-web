@@ -107,11 +107,10 @@ export default function CotizarPage() {
           gl.render(scene, camera)
           cap1 = gl.domElement.toDataURL('image/png')
 
-          // — Ángulo 2: vista lateral con zoom más cercano —
-          // Reducimos distancia al 60% para que el tinglado llene el recuadro
-          const dist = origPos.length() * 0.60
-          camera.position.set(0, origPos.y * 0.85, -dist)
+          // — Ángulo 2: vista lateral —
+          camera.position.set(config.length * 1.5, config.height, 0)
           camera.lookAt(0, targetY, 0)
+          scene.updateMatrixWorld(true)
           gl.render(scene, camera)
           cap2 = gl.domElement.toDataURL('image/png')
 
@@ -253,13 +252,7 @@ export default function CotizarPage() {
       doc.setTextColor(...C.naranja)
       doc.text('DESCRIPCIÓN DEL TRABAJO', 16, y + 3)
 
-      y += 7
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(8)
-      doc.setTextColor(...C.oscuro2)
-      doc.text(`Dimensiones: Ancho ${config.width} m  ×  Largo ${config.length} m  ×  Alto ${config.height} m`, 12, y)
-
-      y += 5
+      y += 6
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
       doc.setTextColor(...C.texto)
