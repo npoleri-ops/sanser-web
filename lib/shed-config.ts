@@ -147,8 +147,10 @@ export function buildWhatsAppUrl(config: ShedConfig): string {
 
 export const CONTACT = {
   phoneDisplay: "03743-487728",
+  phoneSecondaryDisplay: "03743-448876",
+  phoneSecondaryRaw: "+543743448876",
   phoneRaw: WHATSAPP_NUMBER,
   whatsappBase: `https://wa.me/${WHATSAPP_NUMBER}`,
   address: "Ecuador 811, Jardín América, Misiones, Argentina.",
-  email: "serfasmonica40@gmail.com",
+  email: "sansermetalurgica@gmail.com",
 }

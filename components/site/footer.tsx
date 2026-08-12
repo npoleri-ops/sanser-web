@@ -19,7 +19,13 @@ export function Footer() {
         <div className="space-y-3">
           <h3 className="font-display text-sm uppercase tracking-widest text-primary">Contacto</h3>
           <a
-            href={`tel:${CONTACT.phoneDisplay}`}
+            href={`tel:${CONTACT.phoneSecondaryRaw}`}
+            className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Phone className="size-4 text-primary" /> {CONTACT.phoneSecondaryDisplay}
+          </a>
+          <a
+            href={`tel:${CONTACT.phoneRaw}`}
             className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <Phone className="size-4 text-primary" /> {CONTACT.phoneDisplay}
