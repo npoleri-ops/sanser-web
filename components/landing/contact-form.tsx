@@ -15,7 +15,7 @@ export function ContactForm() {
     try {
       // Reemplazar la URL con el endpoint real de Formspree (ej: https://formspree.io/f/xbjv...)
       // O si se usa Web3Forms: fetch("https://api.web3forms.com/submit", { ... })
-      const endpoint = "https://formspree.io/f/REEMPLAZAR_CON_TU_ID"
+      const endpoint = "https://formspree.io/f/xyegjjdz"
       
       const response = await fetch(endpoint, {
         method: "POST",
