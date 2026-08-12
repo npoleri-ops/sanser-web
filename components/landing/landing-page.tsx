@@ -92,13 +92,6 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                 <Boxes className="size-4" />
                 Diseñar mi Tinglado 3D
               </Button>
-              <button
-                onClick={openWhatsAppModal}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background/40 px-2.5 font-mono text-xs uppercase tracking-wider text-foreground transition-all hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <MessageCircle className="size-4 shrink-0" />
-                Consultar por WhatsApp
-              </button>
             </div>
           </div>
         </div>
