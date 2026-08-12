@@ -91,45 +91,26 @@ export default function CotizarPage() {
       negro:     [  0,   0,   0] as [number,number,number],
     }
 
-    // ── Capturas 3D multi-ángulo ───────────────────────────────────────
+    // ── Capturas 3D ───────────────────────────────────────
     let cap1: string | null = null
-    let cap2: string | null = null
     const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
       try {
         const fiber = (canvas3d as any).__r3f
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
-          const origPos = camera.position.clone()
-          const targetY = config.height / 2
-
-          // — Ángulo 1: isomtrico actual del usuario —
           gl.render(scene, camera)
           cap1 = gl.domElement.toDataURL('image/png')
-
-          // — Ángulo 2: vista lateral —
-          camera.position.set(config.length * 1.5, config.height, 0)
-          camera.lookAt(0, targetY, 0)
-          scene.updateMatrixWorld(true)
-          gl.render(scene, camera)
-          cap2 = gl.domElement.toDataURL('image/png')
-
-          // Restaurar posición original
-          camera.position.copy(origPos)
-          camera.lookAt(0, targetY, 0)
-          gl.render(scene, camera) // forzar render de restauración
         } else {
-          // fallback sin fiber
           cap1 = canvas3d.toDataURL('image/png')
         }
       } catch (e) {
-        console.warn('Error en captura 3D', e)
         try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       }
     }
     const fotosManual = images.filter(Boolean)
     const img1 = cap1
-    const img2 = fotosManual.length > 0 ? fotosManual[0] : cap2
+    const img2 = fotosManual.length > 0 ? fotosManual[0] : null
 
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -252,7 +233,7 @@ export default function CotizarPage() {
       doc.setTextColor(...C.naranja)
       doc.text('DESCRIPCIÓN DEL TRABAJO', 16, y + 3)
 
-      y += 6
+      y += 12
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
       doc.setTextColor(...C.texto)
@@ -273,56 +254,83 @@ export default function CotizarPage() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
         doc.setTextColor(...C.naranja)
-        const lblImg = fotosManual.length > 0 ? 'RENDER 3D Y FOTO DEL PROYECTO' : 'RENDERS 3D — VISTA ISOMÉTRICA Y VISTA LATERAL'
+        const lblImg = fotosManual.length > 0 
+          ? `RENDERS 3D Y FOTOGRAFÍAS (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)` 
+          : `RENDERS 3D (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)`
         doc.text(lblImg, 16, y + 3)
         y += 8
 
-        const iW = 88   // imagen ancho
-        const iH = 48   // imagen alto
-        const gap = 6   // espacio entre imágenes
-        const x1 = 10
-        const x2 = x1 + iW + gap
+        if (fotosManual.length > 0) {
+          const iW = 88   // imagen ancho
+          const iH = 48   // imagen alto
+          const gap = 6   // espacio entre imágenes
+          const x1 = 10
+          const x2 = x1 + iW + gap
 
-        // Marco imagen 1
-        doc.setDrawColor(...C.grisBorde)
-        doc.setFillColor(...C.grisClaro)
-        doc.rect(x1, y, iW, iH, 'FD')
-        if (img1) {
-          try {
-            const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-            doc.addImage(img1, fmt1, x1, y, iW, iH)
-          } catch { /* imagen no disponible */ }
+          // Marco imagen 1
+          doc.setDrawColor(...C.grisBorde)
+          doc.setFillColor(...C.grisClaro)
+          doc.rect(x1, y, iW, iH, 'FD')
+          if (img1) {
+            try {
+              const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+              doc.addImage(img1, fmt1, x1, y, iW, iH)
+            } catch { /* imagen no disponible */ }
+          }
+          doc.setDrawColor(...C.naranja)
+          doc.setLineWidth(0.4)
+          doc.rect(x1, y, iW, iH)
+
+          // Marco imagen 2 (foto manual)
+          doc.setDrawColor(...C.grisBorde)
+          doc.setFillColor(...C.grisClaro)
+          doc.rect(x2, y, iW, iH, 'FD')
+          if (img2) {
+            try {
+              const fmt2 = img2.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+              doc.addImage(img2, fmt2, x2, y, iW, iH)
+            } catch { /* imagen no disponible */ }
+          }
+          doc.setDrawColor(...C.naranja)
+          doc.setLineWidth(0.4)
+          doc.rect(x2, y, iW, iH)
+          doc.setLineWidth(0.2)
+
+          // Etiquetas bajo las fotos
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(6.5)
+          doc.setTextColor(...C.grisTexto)
+          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
+          doc.text('Foto del Proyecto', x2 + iW / 2, y + iH + 3.5, { align: 'center' })
+          y += iH + 10
+        } else {
+          // Una sola foto 3D centrada y más grande
+          const iW = 140   // imagen ancho
+          const iH = 70    // imagen alto
+          const x1 = (W - iW) / 2
+
+          // Marco imagen
+          doc.setDrawColor(...C.grisBorde)
+          doc.setFillColor(...C.grisClaro)
+          doc.rect(x1, y, iW, iH, 'FD')
+          if (img1) {
+            try {
+              const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+              doc.addImage(img1, fmt1, x1, y, iW, iH)
+            } catch { /* imagen no disponible */ }
+          }
+          doc.setDrawColor(...C.naranja)
+          doc.setLineWidth(0.4)
+          doc.rect(x1, y, iW, iH)
+          doc.setLineWidth(0.2)
+
+          // Etiquetas bajo la foto
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(6.5)
+          doc.setTextColor(...C.grisTexto)
+          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
+          y += iH + 10
         }
-        // Borde naranjo fino encima
-        doc.setDrawColor(...C.naranja)
-        doc.setLineWidth(0.4)
-        doc.rect(x1, y, iW, iH)
-        doc.setLineWidth(0.2)
-
-        // Marco imagen 2
-        doc.setDrawColor(...C.grisBorde)
-        doc.setFillColor(...C.grisClaro)
-        doc.rect(x2, y, iW, iH, 'FD')
-        if (img2) {
-          try {
-            const fmt2 = img2.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-            doc.addImage(img2, fmt2, x2, y, iW, iH)
-          } catch { /* imagen no disponible */ }
-        }
-        // Borde naranjo fino encima
-        doc.setDrawColor(...C.naranja)
-        doc.setLineWidth(0.4)
-        doc.rect(x2, y, iW, iH)
-        doc.setLineWidth(0.2)
-
-        // Etiquetas bajo las fotos
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(6.5)
-        doc.setTextColor(...C.grisTexto)
-        doc.text(fotosManual.length > 0 ? 'Vista 3D Isométrica' : 'Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
-        doc.text(fotosManual.length > 0 ? 'Foto del Proyecto' : 'Vista 3D Lateral', x2 + iW / 2, y + iH + 3.5, { align: 'center' })
-
-        y += iH + 10
       }
 
       // ═════════════════════════════════════════════════════════
