@@ -6,6 +6,13 @@ import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText } from "luci
 import { PdfTemplate, QuoteItem } from "@/components/quote/pdf-template"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import dynamic from "next/dynamic"
+import { DEFAULT_CONFIG } from "@/lib/shed-config"
+
+const ConfigScene = dynamic(
+  () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
+  { ssr: false }
+)
 
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
@@ -21,28 +28,9 @@ export default function CotizarPage() {
 
   const pdfRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [config, setConfig] = useState(DEFAULT_CONFIG)
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
 
-    const newImages: string[] = []
-    let processed = 0
-
-    files.slice(0, 2).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          newImages.push(event.target.result as string)
-        }
-        processed++
-        if (processed === Math.min(files.length, 2)) {
-          setImages(prev => [...prev, ...newImages].slice(0, 2))
-        }
-      }
-      reader.readAsDataURL(file)
-    })
-  }
 
   const addItem = () => {
     setItems([...items, { id: Date.now().toString(), description: "", unit: "unid", quantity: 1, price: 0 }])
@@ -61,6 +49,20 @@ export default function CotizarPage() {
   const generatePDF = async () => {
     if (!pdfRef.current) return
     setIsGenerating(true)
+    
+    // Auto-capture 3D canvas
+    const canvas3d = document.querySelector('canvas')
+    if (canvas3d) {
+      try {
+        const dataUrl = canvas3d.toDataURL('image/png')
+        setImages([dataUrl])
+        // Wait for React to update the DOM with the new image
+        await new Promise(resolve => setTimeout(resolve, 300))
+      } catch (e) {
+        console.warn("Could not capture 3D canvas", e)
+      }
+    }
+
     try {
       const element = pdfRef.current
       
@@ -115,6 +117,14 @@ export default function CotizarPage() {
             Cotizador Interno
           </h1>
           <p className="text-muted-foreground">Genera presupuestos institucionales en PDF para enviar a los clientes.</p>
+        </div>
+
+        {/* 3D Visualizer */}
+        <div className="h-[400px] w-full bg-[#12141a] rounded-xl overflow-hidden border border-border shadow-sm relative">
+          <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+            Vista Previa 3D (Se incluirá en el PDF)
+          </div>
+          <ConfigScene config={config} />
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
@@ -174,22 +184,6 @@ export default function CotizarPage() {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Imágenes (Max 2)</label>
-              <div className="flex items-center gap-4">
-                <label className="cursor-pointer bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2 border border-border transition-colors">
-                  <ImageIcon className="size-4" />
-                  Subir Fotos
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
-                </label>
-                <span className="text-xs text-muted-foreground">{images.length} foto(s) cargadas</span>
-                {images.length > 0 && (
-                  <button onClick={() => setImages([])} className="text-xs text-red-500 hover:underline">
-                    Borrar
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Table Form */}
