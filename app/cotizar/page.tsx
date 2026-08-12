@@ -91,27 +91,42 @@ export default function CotizarPage() {
       negro:     [  0,   0,   0] as [number,number,number],
     }
 
-    // (Logo dibujado directamente en jsPDF - ver sección encabezado)
-
     // ── Capturas 3D multi-ángulo ───────────────────────────────────────
     let cap1: string | null = null
     let cap2: string | null = null
     const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
-      try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       try {
         const fiber = (canvas3d as any).__r3f
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
           const origPos = camera.position.clone()
-          camera.position.set(origPos.length(), origPos.y, 0)
-          camera.lookAt(0, config.height / 2, 0)
+          const targetY = config.height / 2
+
+          // — Ángulo 1: isomtrico actual del usuario —
+          gl.render(scene, camera)
+          cap1 = gl.domElement.toDataURL('image/png')
+
+          // — Ángulo 2: vista lateral con zoom más cercano —
+          // Reducimos distancia al 60% para que el tinglado llene el recuadro
+          const dist = origPos.length() * 0.60
+          camera.position.set(0, origPos.y * 0.85, -dist)
+          camera.lookAt(0, targetY, 0)
           gl.render(scene, camera)
           cap2 = gl.domElement.toDataURL('image/png')
+
+          // Restaurar posición original
           camera.position.copy(origPos)
-          camera.lookAt(0, config.height / 2, 0)
+          camera.lookAt(0, targetY, 0)
+          gl.render(scene, camera) // forzar render de restauración
+        } else {
+          // fallback sin fiber
+          cap1 = canvas3d.toDataURL('image/png')
         }
-      } catch { console.warn('No se pudo capturar ángulo 2') }
+      } catch (e) {
+        console.warn('Error en captura 3D', e)
+        try { cap1 = canvas3d.toDataURL('image/png') } catch {}
+      }
     }
     const fotosManual = images.filter(Boolean)
     const img1 = cap1
@@ -135,13 +150,14 @@ export default function CotizarPage() {
       doc.rect(0, headerH - 2, W, 2, 'F')
 
       // Logo oficial SANSER dibujado con primitivas jsPDF
-      // Replica la geometría SVG del componente Logo.tsx (viewBox 0 0 100 50)
-      // Escala: x * 0.30 + 8, y * 0.54 + 3  → encaja en ~30x16mm
-      const lx = (px: number) => 8  + px * 0.30
-      const ly = (py: number) => 4  + py * 0.54
+      // viewBox 0 0 100 50 → escala uniforme a 28x14mm (relación 2:1 exacta)
+      // Origen: x=8, y=11 (centrado verticalmente en la banda de 40mm)
+      const S  = 0.28          // factor de escala uniforme (100px → 28mm)
+      const lx = (px: number) => 8  + px * S
+      const ly = (py: number) => 11 + py * S   // Y base = 11mm
 
       doc.setDrawColor(...C.naranja)
-      doc.setLineWidth(0.9)
+      doc.setLineWidth(1.0)
       doc.setLineCap('round')
 
       // Techo a 2 aguas: M 10 16 L 35 6 L 90 22
@@ -154,7 +170,7 @@ export default function CotizarPage() {
         [35,  6, 35, 45],
         [53, 11.5, 53, 45],
         [71, 16.8, 71, 45],
-        [90, 22, 90, 45],
+        [90, 22,   90, 45],
       ].forEach(([x1, y1, x2, y2]) => {
         doc.line(lx(x1), ly(y1), lx(x2), ly(y2))
       })
@@ -172,8 +188,8 @@ export default function CotizarPage() {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7.5)
       doc.setTextColor(200, 205, 215)
-      doc.text('Ecuador 811, Jardín América, Misiones', nameX, 23)
-      doc.text('Tel: 03743-487728  │  CUIT: 27-24674999-5  │  sansermetalurgica@gmail.com', nameX, 28)
+      doc.text('Ecuador 811, Jardin America, Misiones', nameX, 23)
+      doc.text('Tel: 03743-487728 | CUIT: 27-24674999-5 | sansermetalurgica@gmail.com', nameX, 28)
 
       // "PRESUPUESTO" a la derecha, dentro de la banda
       doc.setFont('helvetica', 'bold')
