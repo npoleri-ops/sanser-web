@@ -3,11 +3,18 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText } from "lucide-react"
-import { PdfTemplate, QuoteItem } from "@/components/quote/pdf-template"
-import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
-import { DEFAULT_CONFIG } from "@/lib/shed-config"
+import { DEFAULT_CONFIG, CONTACT } from "@/lib/shed-config"
+
+export interface QuoteItem {
+  id: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  price: number;
+}
 
 const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
@@ -69,61 +76,171 @@ export default function CotizarPage() {
   const total = items.reduce((acc, item) => acc + item.quantity * item.price, 0)
 
   const generatePDF = async () => {
-    if (!pdfRef.current) return
     setIsGenerating(true)
     
     // Auto-capture 3D canvas
     const canvas3d = document.querySelector('canvas')
+    let autoImage: string | null = null
     if (canvas3d) {
       try {
-        const dataUrl = canvas3d.toDataURL('image/png')
+        autoImage = canvas3d.toDataURL('image/png')
         setImages(prev => {
-          // If the auto-captured image is already the first one, don't duplicate
-          if (prev[0] === dataUrl) return prev
-          return [dataUrl, ...prev.filter(img => img !== dataUrl)].slice(0, 2)
+          if (prev[0] === autoImage) return prev
+          return [autoImage!, ...prev.filter(img => img !== autoImage)].slice(0, 2)
         })
-        // Wait for React to update the DOM with the new image
-        await new Promise(resolve => setTimeout(resolve, 300))
       } catch (e) {
         console.warn("Could not capture 3D canvas", e)
       }
     }
 
     try {
-      const element = pdfRef.current
+      const doc = new jsPDF("p", "mm", "a4")
+      const pageWidth = doc.internal.pageSize.getWidth()
+      let y = 15
+
+      // Header
+      doc.setFontSize(22)
+      doc.setTextColor(31, 41, 55) // #1f2937
+      doc.text("PRESUPUESTO", pageWidth - 15, y, { align: "right" })
       
-      const canvas = await html2canvas(element, {
-        scale: 2, // better resolution
-        useCORS: true,
-        allowTaint: true,
-        logging: true,
-        backgroundColor: "#ffffff",
-        onclone: (clonedDoc) => {
-          const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styles.forEach((style) => {
-            if (style.innerHTML.includes('lab(') || style.innerHTML.includes('oklch(')) {
-              style.innerHTML = style.innerHTML
-                .replace(/lab\([^)]+\)/g, '#111827')
-                .replace(/oklch\([^)]+\)/g, '#111827');
-            }
-          });
-          const pdfElement = clonedDoc.getElementById('pdf-template');
-          if (pdfElement) {
-            pdfElement.style.color = '#000000';
-            pdfElement.style.backgroundColor = '#ffffff';
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 0)
+      y += 10
+      doc.text(`Fecha: ${date}`, pageWidth - 15, y, { align: "right" })
+      y += 5
+      doc.text(`Tel: ${CONTACT.phoneDisplay}`, pageWidth - 15, y, { align: "right" })
+      y += 5
+      doc.text(`Mail: ${CONTACT.email}`, pageWidth - 15, y, { align: "right" })
+      y += 5
+      doc.text(`Dir: ${CONTACT.address}`, pageWidth - 15, y, { align: "right" })
+      y += 5
+      doc.text(`CUIT: 27-24674999-5`, pageWidth - 15, y, { align: "right" })
+      
+      // Sanser Logo Text (fallback if no image)
+      doc.setFontSize(24)
+      doc.setTextColor(249, 115, 22) // #F97316
+      doc.text("SANSER", 15, 25)
+      doc.setFontSize(10)
+      doc.text("Metalúrgica", 15, 30)
+
+      y += 15
+
+      // Customer Info
+      doc.setDrawColor(229, 231, 235) // #e5e7eb
+      doc.setFillColor(249, 250, 251) // #f9fafb
+      doc.rect(15, y, pageWidth - 30, 15, "FD")
+      doc.setTextColor(0, 0, 0)
+      doc.text(`Cliente CUIT: ${cuit || "Consumidor Final"}`, 20, y + 10)
+      doc.text(`Teléfono Cliente: ${phone || "No especificado"}`, 110, y + 10)
+
+      y += 25
+
+      // Description
+      doc.setTextColor(249, 115, 22) // #F97316
+      doc.setFontSize(12)
+      doc.text(`DESCRIPCIÓN DEL TRABAJO: ${title || "Tinglado"}`, 15, y)
+      y += 2
+      doc.setDrawColor(209, 213, 219)
+      doc.line(15, y, pageWidth - 15, y) // underline
+      
+      y += 8
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(10)
+      doc.text("Materiales de Construcción:", 15, y)
+      y += 5
+      doc.setTextColor(55, 65, 81)
+      const splitMaterials = doc.splitTextToSize(materials || "No se especificaron materiales.", pageWidth - 30)
+      doc.text(splitMaterials, 15, y)
+      
+      y += splitMaterials.length * 5 + 10
+
+      // Combine images (manual + auto)
+      const currentImages = images.length > 0 ? images : (autoImage ? [autoImage] : [])
+
+      // Photos
+      if (currentImages.length > 0) {
+        doc.setTextColor(249, 115, 22)
+        doc.setFontSize(12)
+        doc.text("FOTOGRAFÍAS / RENDERS DEL TRABAJO", 15, y)
+        y += 2
+        doc.setDrawColor(209, 213, 219)
+        doc.line(15, y, pageWidth - 15, y)
+        y += 5
+        
+        const imgWidth = (pageWidth - 35) / 2
+        const imgHeight = 60
+        
+        currentImages.slice(0, 2).forEach((img, idx) => {
+          if (img) {
+            const x = 15 + (idx * (imgWidth + 5))
+            doc.addImage(img, "PNG", x, y, imgWidth, imgHeight)
           }
-        }
+        })
+        
+        y += imgHeight + 15
+      }
+
+      // Ensure table doesn't overflow page
+      if (y > 220) {
+        doc.addPage()
+        y = 15
+      }
+
+      // Budget Table
+      doc.setTextColor(249, 115, 22)
+      doc.setFontSize(12)
+      doc.text("PRESUPUESTO DETALLADO", 15, y)
+      y += 2
+      doc.setDrawColor(209, 213, 219)
+      doc.line(15, y, pageWidth - 15, y)
+      y += 5
+
+      const tableData = items.map(item => [
+        item.description,
+        item.unit,
+        item.quantity.toString(),
+        `$${item.price.toLocaleString("es-AR")}`,
+        `$${(item.price * item.quantity).toLocaleString("es-AR")}`
+      ])
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Ítem', 'Unid', 'Cant', 'Precio Unit.', 'Subtotal']],
+        body: tableData.length > 0 ? tableData : [['No hay ítems cargados.', '', '', '', '']],
+        theme: 'grid',
+        headStyles: { fillColor: [243, 244, 246], textColor: [31, 41, 55], lineColor: [209, 213, 219] },
+        styles: { textColor: [55, 65, 81], lineColor: [209, 213, 219] },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 35, halign: 'right' }
+        },
+        margin: { left: 15, right: 15 }
       })
-      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+
+      const finalY = (doc as any).lastAutoTable.finalY + 15
+
+      // Total Final
+      doc.setFillColor(249, 115, 22) // #F97316
+      const boxWidth = 80
+      const boxHeight = 20
+      const boxX = pageWidth - 15 - boxWidth
+      doc.rect(boxX, finalY, boxWidth, boxHeight, "F")
       
-      // A4 format is 210x297mm
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`Presupuesto-SANSER-${date.replace(/\//g, '-')}.pdf`)
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(10)
+      doc.text("TOTAL FINAL", boxX + boxWidth - 5, finalY + 7, { align: "right" })
+      doc.setFontSize(16)
+      doc.text(`$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, boxX + boxWidth - 5, finalY + 16, { align: "right" })
+
+      // Footer Message
+      doc.setTextColor(156, 163, 175)
+      doc.setFontSize(8)
+      doc.text("Los presupuestos tienen una validez de 7 días. Precios sujetos a modificación sin previo aviso.", pageWidth / 2, 285, { align: "center" })
+
+      doc.save(`Presupuesto-SANSER-${date.replace(/\//g, '-')}.pdf`)
     } catch (error: any) {
       console.error("Error generating PDF", error)
       alert(`Hubo un error al generar el PDF: ${error?.message || 'Error desconocido'}`)
@@ -340,21 +457,6 @@ export default function CotizarPage() {
           </Button>
         </div>
 
-        {/* Hidden PDF Template Container - Note: tailwind classes like left-[-9999px] might make it unrenderable for html2canvas. 
-            We use absolute and z-index to hide it behind, or overflow hidden with 0 height but html2canvas needs it in the DOM and visible.
-            A safe way is positioning it absolute, very negative top, but full size. */}
-        <div style={{ position: "absolute", top: "-9999px", left: "-9999px" }}>
-          <PdfTemplate
-            ref={pdfRef}
-            date={date}
-            cuit={cuit}
-            phone={phone}
-            title={title}
-            materials={materials}
-            images={images}
-            items={items}
-          />
-        </div>
       </div>
     </div>
   )
