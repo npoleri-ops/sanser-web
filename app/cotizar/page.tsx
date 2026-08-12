@@ -99,18 +99,23 @@ export default function CotizarPage() {
     const cantTornillos = Math.ceil(area * 4)
     const cantManoObra = Math.ceil(area)
 
+    // Agrupar costos en un único precio global
+    const totalMateriales = 
+      (cantPerfil * prices.perfilC) + 
+      (cantChapa * prices.chapa) + 
+      (cantTornillos * prices.tornillos) + 
+      (cantManoObra * prices.manoDeObra)
+
+    const nuevoTitulo = `TINGLADO ${config.width}X${config.length} A UN AGUA`
+    setTitle(nuevoTitulo)
+
     setItems(prev => {
       const custom = prev.filter(i => !["1", "2", "3", "4"].includes(i.id))
       return [
-        { id: "1", description: "Perfil C Galvanizado", unit: "ml", quantity: cantPerfil, price: prices.perfilC },
-        { id: "2", description: "Chapa T101", unit: "m2", quantity: cantChapa, price: prices.chapa },
-        { id: "3", description: "Tornillos Autoperforantes", unit: "unid", quantity: cantTornillos, price: prices.tornillos },
-        { id: "4", description: "Mano de Obra y Armado", unit: "m2", quantity: cantManoObra, price: prices.manoDeObra },
+        { id: "1", description: nuevoTitulo, unit: "unid", quantity: 1, price: totalMateriales },
         ...custom
       ]
     })
-    
-    setTitle(`TINGLADO ${config.width}X${config.length} A UN AGUA`)
   }, [config, prices])
 
 
