@@ -100,10 +100,54 @@ export default function CotizarPage() {
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
           gl.render(scene, camera)
-          cap1 = gl.domElement.toDataURL('image/png')
-        } else {
-          cap1 = canvas3d.toDataURL('image/png')
-        }
+          
+          const w = canvas3d.width
+          const h = canvas3d.height
+          const canvas2d = document.createElement('canvas')
+          canvas2d.width = w
+          canvas2d.height = h
+          const ctx = canvas2d.getContext('2d')
+          
+          if (ctx) {
+            const img = new Image()
+            img.src = gl.domElement.toDataURL('image/png')
+            await new Promise((resolve) => { img.onload = resolve })
+            ctx.drawImage(img, 0, 0)
+            
+            const parent = canvas3d.parentElement
+            if (parent) {
+              const labels = parent.querySelectorAll('.font-mono')
+              const parentRect = canvas3d.getBoundingClientRect()
+              const scaleX = w / parentRect.width
+              const scaleY = h / parentRect.height
+              
+              labels.forEach(lbl => {
+                const rect = lbl.getBoundingClientRect()
+                const x = (rect.left - parentRect.left) * scaleX
+                const y = (rect.top - parentRect.top) * scaleY
+                const rw = rect.width * scaleX
+                const rh = rect.height * scaleY
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+                ctx.beginPath()
+                ctx.roundRect(x, y, rw, rh, 4 * scaleX)
+                ctx.fill()
+                
+                ctx.strokeStyle = '#f97316'
+                ctx.lineWidth = 1 * scaleX
+                ctx.stroke()
+                
+                ctx.fillStyle = '#f97316'
+                ctx.font = `600 ${11 * scaleY}px monospace`
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'middle'
+                ctx.fillText((lbl.textContent || '').trim(), x + rw / 2, y + rh / 2 + (1 * scaleY))
+              })
+            }
+            cap1 = canvas2d.toDataURL('image/png')
+          } else {
+            cap1 = canvas3d.toDataURL('image/png')
+          }
       } catch (e) {
         try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       }
@@ -254,9 +298,7 @@ export default function CotizarPage() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
         doc.setTextColor(...C.naranja)
-        const lblImg = fotosManual.length > 0 
-          ? `RENDERS 3D Y FOTOGRAFÍAS (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)` 
-          : `RENDERS 3D (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)`
+        const lblImg = `RENDERS 3D DEL TRABAJO — (Medidas: ${config.width}m × ${config.length}m × ${config.height}m)`
         doc.text(lblImg, 16, y + 3)
         y += 8
 
