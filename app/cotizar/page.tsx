@@ -20,8 +20,7 @@ const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
   { ssr: false }
 )
-
-const GOOGLE_SHEETS_CSV_URL = "PEGA_AQUÍ_TU_ENLACE_CSV"
+const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSNAnEEx_wSTo1oGgLZwvwMlnOVptzAwB6KD1IUozgo6fmQixWKLIavrMVavx8swvsVISMYGmaLStJq/pub?output=csv"
 
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
@@ -74,9 +73,9 @@ export default function CotizarPage() {
         
         lines.forEach(line => {
            const parts = line.split(',')
-           if (parts.length < 2) return
-           const mat = parts[0].toLowerCase()
-           const priceStr = parts[1].replace(/[^0-9,-]+/g,"").replace(',', '.')
+           if (parts.length < 4) return
+           const mat = parts[1].toLowerCase()
+           const priceStr = parts[3].replace(/[^0-9,-]+/g,"").replace(',', '.')
            const p = parseFloat(priceStr)
            if (isNaN(p)) return
 
@@ -571,7 +570,41 @@ export default function CotizarPage() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* Panel Form */}
           <div className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm">
-            <h2 className="text-xl font-bold border-b border-border pb-2">Datos y Descripción</h2>
+            <h2 className="text-xl font-bold border-b border-border pb-2">Dimensiones del Tinglado</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Ancho (m)</label>
+                <input 
+                  type="number" 
+                  min="3" max="50" step="1"
+                  value={config.width} 
+                  onChange={e => setConfig({ ...config, width: parseFloat(e.target.value) || 10 })}
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Largo (m)</label>
+                <input 
+                  type="number" 
+                  min="3" max="100" step="1"
+                  value={config.length} 
+                  onChange={e => setConfig({ ...config, length: parseFloat(e.target.value) || 20 })}
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Alto (m)</label>
+                <input 
+                  type="number" 
+                  min="2" max="20" step="0.5"
+                  value={config.height} 
+                  onChange={e => setConfig({ ...config, height: parseFloat(e.target.value) || 5 })}
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-bold border-b border-border pb-2 mt-6">Datos y Descripción</h2>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
