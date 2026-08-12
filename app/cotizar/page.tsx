@@ -28,6 +28,28 @@ export default function CotizarPage() {
 
   const pdfRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    const newImages: string[] = []
+    let processed = 0
+
+    files.slice(0, 2).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          newImages.push(event.target.result as string)
+        }
+        processed++
+        if (processed === Math.min(files.length, 2)) {
+          setImages(prev => [...prev, ...newImages].slice(0, 2))
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
   const [config, setConfig] = useState(DEFAULT_CONFIG)
 
 
@@ -55,7 +77,11 @@ export default function CotizarPage() {
     if (canvas3d) {
       try {
         const dataUrl = canvas3d.toDataURL('image/png')
-        setImages([dataUrl])
+        setImages(prev => {
+          // If the auto-captured image is already the first one, don't duplicate
+          if (prev[0] === dataUrl) return prev
+          return [dataUrl, ...prev.filter(img => img !== dataUrl)].slice(0, 2)
+        })
         // Wait for React to update the DOM with the new image
         await new Promise(resolve => setTimeout(resolve, 300))
       } catch (e) {
@@ -182,6 +208,23 @@ export default function CotizarPage() {
                 onChange={e => setMaterials(e.target.value)}
                 className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary min-h-[100px]" 
               />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Imágenes Adicionales Opcionales</label>
+              <div className="flex items-center gap-4">
+                <label className="cursor-pointer bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2 border border-border transition-colors">
+                  <ImageIcon className="size-4" />
+                  Subir Fotos
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </label>
+                <span className="text-xs text-muted-foreground">{images.length} foto(s) cargadas</span>
+                {images.length > 0 && (
+                  <button onClick={() => setImages([])} className="text-xs text-red-500 hover:underline">
+                    Borrar
+                  </button>
+                )}
+              </div>
             </div>
 
           </div>

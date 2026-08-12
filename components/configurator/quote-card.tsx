@@ -2,12 +2,13 @@
 
 import { Columns3, Layers, MessageCircle, SquareStack, Triangle, AlignJustify } from "lucide-react"
 import {
-  buildWhatsAppUrl,
+  buildWhatsAppMessage,
   computeMateriales,
   SHEET_LABEL,
   TYPE_LABEL,
   type ShedConfig,
 } from "@/lib/shed-config"
+import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 
 export function QuoteCard({ config }: { config: ShedConfig }) {
   const c = computeMateriales(config)
@@ -53,15 +54,13 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
         </p>
       </div>
 
-      <a
-        href={buildWhatsAppUrl(config)}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={(e) => openWhatsAppModal(e, buildWhatsAppMessage(config))}
         className="flex items-center justify-center gap-2 rounded-md bg-[#F97316] hover:bg-[#EA580C] text-white px-5 py-4 font-display text-sm font-600 uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-100"
       >
         <MessageCircle className="size-5" />
         Solicitar Presupuesto por WhatsApp
-      </a>
+      </button>
       <p className="text-center text-[11px] text-muted-foreground">
         Te respondemos con un presupuesto detallado sin cargo.
       </p>

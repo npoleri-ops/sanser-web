@@ -119,7 +119,7 @@ export function computeMateriales(config: ShedConfig): Computo {
 
 const WHATSAPP_NUMBER = "5493743487728" // 03743-487728
 
-export function buildWhatsAppUrl(config: ShedConfig): string {
+export function buildWhatsAppMessage(config: ShedConfig): string {
   const { width, length, height, type, color, sheet } = config
   const computo = computeMateriales(config)
 
@@ -134,14 +134,16 @@ export function buildWhatsAppUrl(config: ShedConfig): string {
   }
   const extrasTxt = extras.length ? ` ${extras.join(" y ")}` : ""
 
-  const message =
-    `¡Hola SANSER Metalúrgica! Quisiera cotizar un tinglado de ` +
+  return `¡Hola SANSER Metalúrgica! Quisiera cotizar un tinglado de ` +
     `${width}m x ${length}m x ${height}m ${TYPE_LABEL[type]}, ` +
     `con techo ${COLOR_LABEL[color]} de chapa ${SHEET_LABEL[sheet]}${extrasTxt}. ` +
     `(Superficie de techo aprox. ${computo.superficieTecho} m² · ` +
     `${computo.columnas} columnas · ${computo.cabreadas} cabreadas · ${computo.correas} líneas de correas). ` +
     `¿Me pasan un presupuesto?`
+}
 
+export function buildWhatsAppUrl(config: ShedConfig): string {
+  const message = buildWhatsAppMessage(config)
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
 }
 

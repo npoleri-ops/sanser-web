@@ -5,9 +5,14 @@ import { CONTACT } from "@/lib/shed-config"
 
 export function WhatsAppModal() {
   const [isOpen, setIsOpen] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const handleOpen = () => setIsOpen(true)
+    const handleOpen = (e: Event) => {
+      const customEvent = e as CustomEvent
+      setMessage(customEvent.detail?.message || null)
+      setIsOpen(true)
+    }
     window.addEventListener("open-whatsapp", handleOpen)
     return () => window.removeEventListener("open-whatsapp", handleOpen)
   }, [])
@@ -35,7 +40,7 @@ export function WhatsAppModal() {
 
         <div className="p-4 flex flex-col gap-3">
           <a
-            href={CONTACT.whatsappBase}
+            href={message ? `${CONTACT.whatsappBase}?text=${encodeURIComponent(message)}` : CONTACT.whatsappBase}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setIsOpen(false)}
@@ -53,7 +58,7 @@ export function WhatsAppModal() {
           </a>
 
           <a
-            href={CONTACT.whatsappSecondaryBase}
+            href={message ? `${CONTACT.whatsappSecondaryBase}?text=${encodeURIComponent(message)}` : CONTACT.whatsappSecondaryBase}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setIsOpen(false)}
@@ -75,7 +80,7 @@ export function WhatsAppModal() {
   )
 }
 
-export function openWhatsAppModal(e?: React.MouseEvent | React.TouchEvent) {
+export function openWhatsAppModal(e?: React.MouseEvent | React.TouchEvent, message?: string) {
   e?.preventDefault()
-  window.dispatchEvent(new CustomEvent("open-whatsapp"))
+  window.dispatchEvent(new CustomEvent("open-whatsapp", { detail: { message } }))
 }
