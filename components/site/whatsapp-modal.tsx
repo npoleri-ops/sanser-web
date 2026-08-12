@@ -29,13 +29,10 @@ export function WhatsAppModal() {
           <X className="size-5" />
         </button>
         
-        <div className="p-6 pt-8 text-center space-y-2 border-b border-border/30">
+        <div className="p-6 pt-8 text-center border-b border-border/30">
           <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-foreground">
             ¿Con quién deseas comunicarte?
           </h3>
-          <p className="text-sm text-muted-foreground">
-            Elegí el área correspondiente para una mejor atención.
-          </p>
         </div>
 
         <div className="p-4 flex flex-col gap-3">
@@ -44,16 +41,16 @@ export function WhatsAppModal() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setIsOpen(false)}
-            className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
+            className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
           >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">
-              <MessageCircle className="size-5" />
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">
+              <MessageCircle className="size-6" />
             </div>
             <div className="text-left">
               <p className="font-display text-sm font-semibold uppercase tracking-wider text-foreground">
                 Ventas y Cotizaciones
               </p>
-              <p className="text-xs text-muted-foreground">WhatsApp o Llamada al {CONTACT.phoneDisplay}</p>
+              <p className="text-2xl font-bold tracking-tight" style={{ color: "#F97316" }}>{CONTACT.phoneDisplay}</p>
             </div>
           </a>
 
@@ -62,16 +59,16 @@ export function WhatsAppModal() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setIsOpen(false)}
-            className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
+            className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
           >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">
-              <Phone className="size-5" />
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">
+              <Phone className="size-6" />
             </div>
             <div className="text-left">
               <p className="font-display text-sm font-semibold uppercase tracking-wider text-foreground">
                 Oficina / Línea Alternativa
               </p>
-              <p className="text-xs text-muted-foreground">WhatsApp o Llamada al {CONTACT.phoneSecondaryDisplay}</p>
+              <p className="text-2xl font-bold tracking-tight" style={{ color: "#F97316" }}>{CONTACT.phoneSecondaryDisplay}</p>
             </div>
           </a>
         </div>
