@@ -1,6 +1,7 @@
 import { Logo } from "./logo"
 import { MapPin, Phone, Mail, MessageCircle } from "lucide-react"
 import { CONTACT } from "@/lib/shed-config"
+import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 
 export function Footer() {
   return (
@@ -50,48 +51,20 @@ export function Footer() {
           </p>
         </div>
 
-        <div className="space-y-6">
-          <div>
-            <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-2">
-              Ventas y Cotizaciones 3D
-            </h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Escribinos directo por WhatsApp y te asesoramos sin cargo.
-            </p>
-            <a
-              href={CONTACT.whatsappBase}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-sm bg-green-600 px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-white transition-opacity hover:bg-green-700"
-            >
-              <MessageCircle className="size-4 shrink-0" />
-              WhatsApp {CONTACT.phoneDisplay}
-            </a>
-          </div>
-
-          <div>
-            <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-3">
-              Oficina / Línea Alternativa
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href={CONTACT.whatsappSecondaryBase}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-sm bg-green-600/20 px-3 py-2.5 font-mono text-[10px] sm:text-xs uppercase tracking-wider text-green-500 transition-colors hover:bg-green-600/30 border border-green-600/30"
-              >
-                <MessageCircle className="size-3 sm:size-4" />
-                WhatsApp
-              </a>
-              <a
-                href={`tel:${CONTACT.phoneSecondaryRaw}`}
-                className="inline-flex items-center justify-center gap-2 rounded-sm bg-primary/20 px-3 py-2.5 font-mono text-[10px] sm:text-xs uppercase tracking-wider text-primary transition-colors hover:bg-primary/30 border border-primary/30"
-              >
-                <Phone className="size-3 sm:size-4" />
-                Llamar
-              </a>
-            </div>
-          </div>
+        <div className="space-y-4">
+          <h3 className="font-display text-sm uppercase tracking-widest text-primary">
+            Atención al Cliente
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Asesoramiento personalizado sin cargo.
+          </p>
+          <button
+            onClick={openWhatsAppModal}
+            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <MessageCircle className="size-4" />
+            Consultar por WhatsApp
+          </button>
         </div>
       </div>
 

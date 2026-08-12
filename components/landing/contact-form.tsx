@@ -57,47 +57,6 @@ export function ContactForm() {
               Dejanos tus datos y un breve mensaje sobre lo que estás buscando. 
               Nos pondremos en contacto con vos a la brevedad para asesorarte sin compromiso.
             </p>
-
-            <div className="mt-8 flex flex-col gap-6 border-t border-border/50 pt-8">
-              <div>
-                <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-3">
-                  Ventas y Cotizaciones 3D
-                </h3>
-                <a
-                  href={CONTACT.whatsappBase}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-sm bg-green-600 px-4 py-2 font-mono text-xs uppercase tracking-wider text-white transition-opacity hover:bg-green-700"
-                >
-                  <MessageCircle className="size-4" />
-                  WhatsApp {CONTACT.phoneDisplay}
-                </a>
-              </div>
-              
-              <div>
-                <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-3">
-                  Oficina / Línea Alternativa
-                </h3>
-                <div className="flex flex-wrap gap-3">
-                  <a
-                    href={CONTACT.whatsappSecondaryBase}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-sm bg-green-600/20 px-4 py-2 font-mono text-xs uppercase tracking-wider text-green-500 transition-colors hover:bg-green-600/30 border border-green-600/30"
-                  >
-                    <MessageCircle className="size-4" />
-                    WhatsApp
-                  </a>
-                  <a
-                    href={`tel:${CONTACT.phoneSecondaryRaw}`}
-                    className="inline-flex items-center gap-2 rounded-sm bg-primary/20 px-4 py-2 font-mono text-xs uppercase tracking-wider text-primary transition-colors hover:bg-primary/30 border border-primary/30"
-                  >
-                    <Phone className="size-4" />
-                    Llamar al {CONTACT.phoneSecondaryDisplay}
-                  </a>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="flex-1 rounded-xl border border-border/50 bg-card/40 p-6 backdrop-blur-sm sm:p-8">

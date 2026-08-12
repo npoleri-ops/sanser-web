@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { ArrowRight, Boxes, Factory, HardHat, Ruler, Wrench, MessageCircle } from "lucide-react"
 import { Footer } from "@/components/site/footer"
 import { Button } from "@/components/ui/button"
+import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 import { CONTACT } from "@/lib/shed-config"
 import { RoofTrussBlueprint } from "@/components/landing/roof-truss-blueprint"
 import { ContactForm } from "@/components/landing/contact-form"
@@ -91,15 +92,13 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                 <Boxes className="size-4" />
                 Diseñar mi Tinglado 3D
               </Button>
-              <a
-                href={CONTACT.whatsappBase}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={openWhatsAppModal}
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background/40 px-2.5 font-mono text-xs uppercase tracking-wider text-foreground transition-all hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <MessageCircle className="size-4 shrink-0" />
                 Consultar por WhatsApp
-              </a>
+              </button>
             </div>
           </div>
         </div>

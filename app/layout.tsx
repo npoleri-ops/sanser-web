@@ -58,6 +58,8 @@ export const viewport: Viewport = {
   themeColor: '#0D0D0D',
 }
 
+import { WhatsAppModal } from "@/components/site/whatsapp-modal"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,6 +69,7 @@ export default function RootLayout({
     <html lang="es" className={`dark ${inter.variable} ${oswald.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
+        <WhatsAppModal />
         <Analytics />
         <SpeedInsights />
       </body>
