@@ -7,6 +7,7 @@ import { Footer } from "@/components/site/footer"
 import { Button } from "@/components/ui/button"
 import { CONTACT } from "@/lib/shed-config"
 import { RoofTrussBlueprint } from "@/components/landing/roof-truss-blueprint"
+import { ContactForm } from "@/components/landing/contact-form"
 
 // Dynamic import: never run HeroScene on the server (Three.js / WebGL)
 const HeroScene = dynamic(
@@ -162,10 +163,10 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#F97316]">
-                Galería
+                Galería & Fabricación
               </span>
               <h2 className="mt-3 text-balance font-display text-4xl font-700 uppercase text-foreground sm:text-5xl">
-                Obras terminadas
+                Nuestros Trabajos y Proceso de Fabricación
               </h2>
             </div>
             <p className="max-w-sm text-sm text-muted-foreground">
@@ -214,6 +215,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
         </div>
       </section>
 
+      <ContactForm />
       <Footer />
     </div>
   )
