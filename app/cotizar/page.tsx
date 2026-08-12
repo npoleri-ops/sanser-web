@@ -61,6 +61,34 @@ export default function CotizarPage() {
   const [prices, setPrices] = useState({ perfil120: 8500, perfil80: 5500, chapa: 12000, tornillos: 350, manoDeObra: 25000 })
 
   useEffect(() => {
+    try {
+      const storedAncho = localStorage.getItem('sanser_ancho')
+      const storedLargo = localStorage.getItem('sanser_largo')
+      const storedAlto = localStorage.getItem('sanser_alto')
+      if (storedAncho && storedLargo && storedAlto) {
+        setConfig(prev => ({
+          ...prev,
+          width: parseFloat(storedAncho) || 15,
+          length: parseFloat(storedLargo) || 20,
+          height: parseFloat(storedAlto) || 5
+        }))
+      }
+    } catch (e) {
+      console.error("Error al cargar localStorage", e)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sanser_ancho', config.width.toString())
+      localStorage.setItem('sanser_largo', config.length.toString())
+      localStorage.setItem('sanser_alto', config.height.toString())
+    } catch (e) {
+      console.error("Error al guardar localStorage", e)
+    }
+  }, [config.width, config.length, config.height])
+
+  useEffect(() => {
     const fetchCSV = async () => {
       try {
         if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") return
