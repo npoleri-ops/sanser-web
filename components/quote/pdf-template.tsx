@@ -24,6 +24,7 @@ export const PdfTemplate = React.forwardRef<HTMLDivElement, PdfTemplateProps>(({
 
   return (
     <div 
+      id="pdf-template"
       ref={ref} 
       className="p-12 mx-auto w-[210mm] min-h-[297mm] shadow-lg box-border relative font-sans"
       style={{ backgroundColor: "#ffffff", color: "#000000" }}

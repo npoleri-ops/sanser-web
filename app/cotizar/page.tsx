@@ -97,7 +97,22 @@ export default function CotizarPage() {
         useCORS: true,
         allowTaint: true,
         logging: true,
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
+        onclone: (clonedDoc) => {
+          const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+          styles.forEach((style) => {
+            if (style.innerHTML.includes('lab(') || style.innerHTML.includes('oklch(')) {
+              style.innerHTML = style.innerHTML
+                .replace(/lab\([^)]+\)/g, '#111827')
+                .replace(/oklch\([^)]+\)/g, '#111827');
+            }
+          });
+          const pdfElement = clonedDoc.getElementById('pdf-template');
+          if (pdfElement) {
+            pdfElement.style.color = '#000000';
+            pdfElement.style.backgroundColor = '#ffffff';
+          }
+        }
       })
       const imgData = canvas.toDataURL('image/jpeg', 0.98)
       
