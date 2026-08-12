@@ -605,8 +605,9 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="3" max="50" step="1"
-                  value={config.width} 
-                  onChange={e => setConfig({ ...config, width: parseFloat(e.target.value) || 10 })}
+                  value={config.width === "" as any ? "" : config.width} 
+                  onChange={e => setConfig({ ...config, width: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />
               </div>
@@ -615,8 +616,9 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="3" max="100" step="1"
-                  value={config.length} 
-                  onChange={e => setConfig({ ...config, length: parseFloat(e.target.value) || 20 })}
+                  value={config.length === "" as any ? "" : config.length} 
+                  onChange={e => setConfig({ ...config, length: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />
               </div>
@@ -625,8 +627,9 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="2" max="20" step="0.5"
-                  value={config.height} 
-                  onChange={e => setConfig({ ...config, height: parseFloat(e.target.value) || 5 })}
+                  value={config.height === "" as any ? "" : config.height} 
+                  onChange={e => setConfig({ ...config, height: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />
               </div>
