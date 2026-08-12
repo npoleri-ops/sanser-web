@@ -100,54 +100,9 @@ export default function CotizarPage() {
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
           gl.render(scene, camera)
-          
-          const w = canvas3d.width
-          const h = canvas3d.height
-          const canvas2d = document.createElement('canvas')
-          canvas2d.width = w
-          canvas2d.height = h
-          const ctx = canvas2d.getContext('2d')
-          
-          if (ctx) {
-            const img = new Image()
-            img.src = gl.domElement.toDataURL('image/png')
-            await new Promise((resolve) => { img.onload = resolve })
-            ctx.drawImage(img, 0, 0)
-            
-            const parent = canvas3d.parentElement
-            if (parent) {
-              const labels = parent.querySelectorAll('.font-mono')
-              const parentRect = canvas3d.getBoundingClientRect()
-              const scaleX = w / parentRect.width
-              const scaleY = h / parentRect.height
-              
-              labels.forEach(lbl => {
-                const rect = lbl.getBoundingClientRect()
-                const x = (rect.left - parentRect.left) * scaleX
-                const y = (rect.top - parentRect.top) * scaleY
-                const rw = rect.width * scaleX
-                const rh = rect.height * scaleY
-                
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
-                ctx.beginPath()
-                ctx.roundRect(x, y, rw, rh, 4 * scaleX)
-                ctx.fill()
-                
-                ctx.strokeStyle = '#f97316'
-                ctx.lineWidth = 1 * scaleX
-                ctx.stroke()
-                
-                ctx.fillStyle = '#f97316'
-                ctx.font = `600 ${11 * scaleY}px monospace`
-                ctx.textAlign = 'center'
-                ctx.textBaseline = 'middle'
-                ctx.fillText((lbl.textContent || '').trim(), x + rw / 2, y + rh / 2 + (1 * scaleY))
-              })
-            }
-            cap1 = canvas2d.toDataURL('image/png')
-          } else {
-            cap1 = canvas3d.toDataURL('image/png')
-          }
+          cap1 = gl.domElement.toDataURL('image/png')
+        } else {
+          cap1 = canvas3d.toDataURL('image/png')
         }
       } catch (e) {
         try { cap1 = canvas3d.toDataURL('image/png') } catch {}
@@ -322,7 +277,7 @@ export default function CotizarPage() {
               doc.addImage(img1, fmt1, x1, y, iW, iH)
             } catch { /* imagen no disponible */ }
           }
-          doc.setDrawColor(...C.naranja)
+          doc.setDrawColor(...C.oscuro)
           doc.setLineWidth(0.4)
           doc.rect(x1, y, iW, iH)
 
@@ -336,18 +291,23 @@ export default function CotizarPage() {
               doc.addImage(img2, fmt2, x2, y, iW, iH)
             } catch { /* imagen no disponible */ }
           }
-          doc.setDrawColor(...C.naranja)
+          doc.setDrawColor(...C.oscuro)
           doc.setLineWidth(0.4)
           doc.rect(x2, y, iW, iH)
           doc.setLineWidth(0.2)
 
           // Etiquetas bajo las fotos
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(7)
+          doc.setTextColor(...C.oscuro)
+          doc.text(`DIMENSIONES: ${config.width}m (Ancho) × ${config.length}m (Largo) × ${config.height}m (Alto)`, x1 + iW / 2, y + iH + 4, { align: 'center' })
+          
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(6.5)
           doc.setTextColor(...C.grisTexto)
-          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
-          doc.text('Foto del Proyecto', x2 + iW / 2, y + iH + 3.5, { align: 'center' })
-          y += iH + 10
+          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
+          doc.text('Foto del Proyecto', x2 + iW / 2, y + iH + 8, { align: 'center' })
+          y += iH + 12
         } else {
           // Una sola foto 3D centrada y más grande
           const iW = 140   // imagen ancho
@@ -364,17 +324,22 @@ export default function CotizarPage() {
               doc.addImage(img1, fmt1, x1, y, iW, iH)
             } catch { /* imagen no disponible */ }
           }
-          doc.setDrawColor(...C.naranja)
+          doc.setDrawColor(...C.oscuro)
           doc.setLineWidth(0.4)
           doc.rect(x1, y, iW, iH)
           doc.setLineWidth(0.2)
 
           // Etiquetas bajo la foto
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(7)
+          doc.setTextColor(...C.oscuro)
+          doc.text(`DIMENSIONES DEL MODELO: ${config.width}m (Ancho) × ${config.length}m (Largo) × ${config.height}m (Alto)`, x1 + iW / 2, y + iH + 4, { align: 'center' })
+          
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(6.5)
           doc.setTextColor(...C.grisTexto)
-          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 3.5, { align: 'center' })
-          y += iH + 10
+          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
+          y += iH + 12
         }
       }
 
