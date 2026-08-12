@@ -148,6 +148,7 @@ export default function CotizarPage() {
           } else {
             cap1 = canvas3d.toDataURL('image/png')
           }
+        }
       } catch (e) {
         try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       }
