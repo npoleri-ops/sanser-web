@@ -101,6 +101,7 @@ export default function CotizarPage() {
           const { gl, camera, scene } = fiber.root.getState()
           gl.render(scene, camera)
           cap1 = gl.domElement.toDataURL('image/png')
+          console.log("Ancho DataURL 3D:", cap1.length)
         } else {
           cap1 = canvas3d.toDataURL('image/png')
         }
@@ -271,7 +272,7 @@ export default function CotizarPage() {
           doc.setDrawColor(...C.grisBorde)
           doc.setFillColor(...C.grisClaro)
           doc.rect(x1, y, iW, iH, 'FD')
-          if (img1) {
+          if (img1 && img1.length > 50) {
             try {
               const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
               doc.addImage(img1, fmt1, x1, y, iW, iH)
@@ -285,7 +286,7 @@ export default function CotizarPage() {
           doc.setDrawColor(...C.grisBorde)
           doc.setFillColor(...C.grisClaro)
           doc.rect(x2, y, iW, iH, 'FD')
-          if (img2) {
+          if (img2 && img2.length > 50) {
             try {
               const fmt2 = img2.startsWith('data:image/png') ? 'PNG' : 'JPEG'
               doc.addImage(img2, fmt2, x2, y, iW, iH)
@@ -318,7 +319,7 @@ export default function CotizarPage() {
           doc.setDrawColor(...C.grisBorde)
           doc.setFillColor(...C.grisClaro)
           doc.rect(x1, y, iW, iH, 'FD')
-          if (img1) {
+          if (img1 && img1.length > 50) {
             try {
               const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
               doc.addImage(img1, fmt1, x1, y, iW, iH)
