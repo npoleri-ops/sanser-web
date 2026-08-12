@@ -59,13 +59,14 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [prices, setPrices] = useState({ perfilC: 8500, chapa: 12000, tornillos: 350, manoDeObra: 25000 })
+  const [prices, setPrices] = useState({ perfil120: 8500, perfil80: 5500, chapa: 12000, tornillos: 350, manoDeObra: 25000 })
 
   useEffect(() => {
     const fetchCSV = async () => {
       try {
         if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") return
-        const res = await fetch(GOOGLE_SHEETS_CSV_URL)
+        const url = GOOGLE_SHEETS_CSV_URL + (GOOGLE_SHEETS_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now()
+        const res = await fetch(url, { cache: 'no-store' })
         if (!res.ok) return
         const text = await res.text()
         const lines = text.split('\n')
@@ -79,7 +80,12 @@ export default function CotizarPage() {
            const p = parseFloat(priceStr)
            if (isNaN(p)) return
 
-           if (mat.includes('perfil c') || mat.includes('perfiles c')) newPrices.perfilC = p
+           if (mat.includes('120')) newPrices.perfil120 = p
+           else if (mat.includes('80')) newPrices.perfil80 = p
+           else if (mat.includes('perfil c') || mat.includes('perfiles c')) {
+             newPrices.perfil120 = p
+             newPrices.perfil80 = p
+           }
            if (mat.includes('chapa')) newPrices.chapa = p
            if (mat.includes('tornillo')) newPrices.tornillos = p
            if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
@@ -93,18 +99,24 @@ export default function CotizarPage() {
   }, [])
 
   useEffect(() => {
-    const area = config.width * config.length
-    const cantPerfil = Math.ceil(area * 3)
-    const cantChapa = Math.ceil(area * 1.1)
-    const cantTornillos = Math.ceil(area * 4)
-    const cantManoObra = Math.ceil(area)
+    const W = config.width
+    const L = config.length
+    const H = config.height
+
+    const porticos = Math.ceil(L / 5) + 1
+    const metros120 = (H * 2 + W * 1.8) * porticos
+    const metros80 = (Math.ceil(W / 1) + 1) * L
+    const metrosChapa = W * L * 1.15
+    const cajasTornillos = Math.ceil((W * L * 6) / 100)
+    const costoManoObra = W * L * prices.manoDeObra
 
     // Agrupar costos en un único precio global
     const totalMateriales = 
-      (cantPerfil * prices.perfilC) + 
-      (cantChapa * prices.chapa) + 
-      (cantTornillos * prices.tornillos) + 
-      (cantManoObra * prices.manoDeObra)
+      (metros120 * prices.perfil120) + 
+      (metros80 * prices.perfil80) + 
+      (metrosChapa * prices.chapa) + 
+      (cajasTornillos * prices.tornillos) + 
+      costoManoObra
 
     const nuevoTitulo = `TINGLADO ${config.width}X${config.length} A UN AGUA`
     setTitle(nuevoTitulo)
