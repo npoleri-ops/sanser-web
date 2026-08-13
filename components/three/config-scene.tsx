@@ -39,10 +39,11 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
   return (
     <Canvas
       shadows
-      dpr={[1, 1.8]}
+      frameloop="demand"
+      dpr={[1, 1.5]}
       camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
       style={{ touchAction: "pan-y" }}
-      gl={{ preserveDrawingBuffer: true }}
+      gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance" }}
     >
       <color attach="background" args={["#12141a"]} />
       <fog attach="fog" args={["#12141a", camDist * 1.6, camDist * 3.4]} />

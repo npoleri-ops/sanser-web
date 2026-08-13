@@ -10,7 +10,19 @@ import { DEFAULT_CONFIG, type ShedConfig } from "@/lib/shed-config"
 // Dynamic import: never run ConfigScene on the server (Three.js / WebGL)
 const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
-  { ssr: false, loading: () => <div className="h-full w-full bg-[#101115]" /> },
+  { 
+    ssr: false, 
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#101115]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#F97316] border-t-transparent" />
+          <p className="font-mono text-xs uppercase tracking-widest text-[#F97316]">
+            Cargando modelo 3D...
+          </p>
+        </div>
+      </div>
+    )
+  },
 )
 
 export function Configurator() {
