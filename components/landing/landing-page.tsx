@@ -62,15 +62,18 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
   return (
     <div>
       {/* HERO */}
-      <section id="inicio" className="relative h-screen min-h-[640px] w-full overflow-hidden">
-        <div className="absolute inset-0 touch-pan-y">
+      <section id="inicio" className="relative min-h-screen w-full overflow-y-auto flex flex-col lg:block lg:h-screen lg:min-h-[640px] lg:overflow-hidden pb-24 lg:pb-0">
+        <div className="relative w-full h-[45vh] lg:absolute lg:inset-0 lg:h-auto touch-pan-y shrink-0">
           <HeroScene />
+          {/* Mobile bottom fade */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent lg:hidden" />
         </div>
-        {/* readability gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
+        
+        {/* Readability gradient desktop */}
+        <div className="pointer-events-none absolute inset-0 hidden lg:block bg-gradient-to-r from-background via-background/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 hidden lg:block bg-gradient-to-t from-background to-transparent" />
 
-        <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-center px-4 sm:px-6">
+        <div className="relative z-10 mx-auto flex flex-1 flex-col justify-center px-4 py-6 sm:px-6 lg:h-full lg:max-w-7xl lg:py-0">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/40 bg-[#1E293B] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F97316]">
               <span className="size-1.5 rounded-full bg-[#F97316] animate-pulse" />
