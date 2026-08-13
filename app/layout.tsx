@@ -27,11 +27,11 @@ export const metadata: Metadata = {
     google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
   },
   title: {
-    default: 'SANSER Metalúrgica | Tinglados y Estructuras 3D en Misiones',
+    default: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
     template: '%s | SANSER Metalúrgica',
   },
   description:
-    'Diseñá tu tinglado o galpón en 3D en tiempo real. Presupuestos al instante, fabricación y montaje de estructuras de acero en Jardín América, Misiones.',
+    'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
   generator: 'Next.js',
   applicationName: 'SANSER Metalúrgica',
   referrer: 'origin-when-cross-origin',
@@ -55,9 +55,9 @@ export const metadata: Metadata = {
     apple: '/icon.png',
   },
   openGraph: {
-    title: 'SANSER Metalúrgica | Cotizador de Tinglados y Estructuras 3D en Misiones',
+    title: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
     description:
-      'Diseñá tu tinglado o galpón en 3D en tiempo real. Presupuestos al instante, fabricación y montaje de estructuras de acero en Jardín América, Misiones.',
+      'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
     url: BASE_URL,
     siteName: 'SANSER Metalúrgica',
     images: [
@@ -73,9 +73,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SANSER Metalúrgica | Cotizador de Tinglados 3D',
+    title: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
     description:
-      'Diseñá tu tinglado o galpón en 3D en tiempo real. Presupuestos al instante en Jardín América, Misiones.',
+      'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -122,21 +122,23 @@ const localBusinessSchema = {
     longitude: -55.2315,
   },
   areaServed: [
-    { '@type': 'State', name: 'Misiones' },
-    { '@type': 'State', name: 'Corrientes' },
-    { '@type': 'AdministrativeArea', name: 'Noreste Argentino' },
+    { "@type": "Country", "name": "Argentina" },
+    { "@type": "AdministrativeArea", "name": "Patagonia" },
+    { "@type": "AdministrativeArea", "name": "Cuyo" },
+    { "@type": "AdministrativeArea", "name": "Provincia de Buenos Aires" },
+    { "@type": "AdministrativeArea", "name": "Córdoba" },
+    { "@type": "AdministrativeArea", "name": "Santa Cruz" },
+    { "@type": "AdministrativeArea", "name": "Río Negro" },
+    { "@type": "AdministrativeArea", "name": "San Juan" }
   ],
   hasOfferCatalog: {
-    '@type': 'OfferCatalog',
-    name: 'Productos y Servicios',
-    itemListElement: [
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Fabricación de tinglados metálicos' } },
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Galpones a un agua' } },
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Galpones a dos aguas' } },
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Estructuras metálicas industriales' } },
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Corte y plegado de perfiles de acero' } },
-      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Montaje e instalación de estructuras' } },
-    ],
+    "@type": "OfferCatalog",
+    "name": "Servicios Metalúrgicos",
+    "itemListElement": [
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Fabricación de Tinglados y Galpones 3D" } },
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Montaje e Instalación de Estructuras en Obra" } },
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Envíos y Logística a todo el país" } }
+    ]
   },
   openingHoursSpecification: [
     {
