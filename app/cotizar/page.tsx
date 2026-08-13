@@ -167,11 +167,11 @@ export default function CotizarPage() {
 
     // Cómputo de materiales
     const numPorticos = Math.ceil(largo / 5) + 1; 
-    const mtPerfil120 = (alto * 2 + ancho * 1.8) * numPorticos;
+    const mtPerfil120 = (alto * 2 + ancho * 2.1) * numPorticos;
     const lineasCorreas = Math.ceil(ancho / 1) + 1; 
     const mtPerfil80 = lineasCorreas * largo;
-    const mtChapa = ancho * largo * 1.15;
-    const cajasTornillos = Math.ceil((ancho * largo * 6) / 100);
+    const mtChapa = ancho * largo * 1.10;
+    const cajasTornillos = Math.ceil((ancho * largo * 4.5) / 100);
     const baldesPintura = Math.ceil((ancho * largo) / 100);
     const m2ManoObra = ancho * largo;
 
