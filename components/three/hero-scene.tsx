@@ -18,9 +18,9 @@ export function HeroScene() {
   return (
     <Canvas
       shadows
-      dpr={[1, 1.8]}
+      dpr={[1, 1.5]}
       camera={{ position: [24, 13, 26], fov: 42 }}
-      gl={{ antialias: true }}
+      gl={{ antialias: false, powerPreference: "high-performance" }}
     >
       <color attach="background" args={["#0d0e11"]} />
       <fog attach="fog" args={["#0d0e11", 45, 95]} />
@@ -31,7 +31,7 @@ export function HeroScene() {
         intensity={2.8}
         color="#ffb257"
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[512, 512]}
       />
       <directionalLight position={[-20, 14, -12]} intensity={0.7} color="#9fb4ff" />
       

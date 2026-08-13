@@ -43,7 +43,7 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       dpr={[1, 1.5]}
       camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
       style={{ touchAction: "pan-y" }}
-      gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance" }}
+      gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance", antialias: false }}
     >
       <color attach="background" args={["#12141a"]} />
       <fog attach="fog" args={["#12141a", camDist * 1.6, camDist * 3.4]} />
@@ -54,7 +54,7 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
         intensity={1.2}
         color="#ffffff"
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[512, 512]}
         shadow-bias={-0.0001}
         shadow-normalBias={0.04}
         shadow-camera-left={-35}
