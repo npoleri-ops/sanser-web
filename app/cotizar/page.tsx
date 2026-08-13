@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
@@ -58,7 +58,8 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [prices, setPrices] = useState({ perfil120: 8500, perfil80: 5500, chapa: 12000, tornillos: 350, manoDeObra: 25000 })
+  const [prices, setPrices] = useState({ perfil120: 0, perfil80: 0, chapa: 0, tornillos: 0, manoDeObra: 0 })
+  const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
   useEffect(() => {
     try {
@@ -88,57 +89,53 @@ export default function CotizarPage() {
     }
   }, [config.width, config.length, config.height])
 
-  useEffect(() => {
-    const fetchCSV = async () => {
-      try {
-        if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") return
-        const url = GOOGLE_SHEETS_CSV_URL + (GOOGLE_SHEETS_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now()
-        const res = await fetch(url, { cache: 'no-store' })
-        if (!res.ok) return
-        const text = await res.text()
-        const lines = text.split('\n')
-        const newPrices = { ...prices }
-        
-        lines.forEach(line => {
-           const parts = line.split(',')
-           if (parts.length < 4) return
-           const mat = parts[1].toLowerCase()
-           
-           // El precio puede contener comas y venir entrecomillado, ej: "$ 25.000,50" -> parts[3] = '"$ 25.000', parts[4] = '50"'
-           let rawPrice = parts.slice(3).join(',')
-           
-           // Eliminar signos de moneda, comillas y caracteres invisibles/espacios
-           rawPrice = rawPrice.replace(/[$"\s]/g, '')
-           
-           // Sanitización de formato (Puntos para miles, coma para decimales)
-           if (rawPrice.includes(',')) {
-             rawPrice = rawPrice.replace(/\./g, '') // Elimina puntos de miles
-             rawPrice = rawPrice.replace(',', '.')  // Cambia coma decimal a punto para JS
-           } else {
-             rawPrice = rawPrice.replace(/\./g, '') // Elimina puntos de miles si no hay coma decimal
-           }
-
-           const p = parseFloat(rawPrice)
-           // Fallback: Si es NaN o <= 0, no lo guardamos en newPrices (se mantiene el default)
-           if (isNaN(p) || p <= 0) return 
-
-           if (mat.includes('120')) newPrices.perfil120 = p
-           else if (mat.includes('80')) newPrices.perfil80 = p
-           else if (mat.includes('perfil c') || mat.includes('perfiles c')) {
-             newPrices.perfil120 = p
-             newPrices.perfil80 = p
-           }
-           if (mat.includes('chapa')) newPrices.chapa = p
-           if (mat.includes('tornillo')) newPrices.tornillos = p
-           if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
-        })
-        
-        console.log("Precios CSV Limpios:", newPrices)
-        setPrices(newPrices)
-      } catch (e) {
-        console.error("Error fetching CSV", e)
+  const fetchCSV = async (forceRefresh = false) => {
+    setIsLoadingPrices(true)
+    try {
+      if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") {
+        setIsLoadingPrices(false)
+        return
       }
+      const bust = forceRefresh ? Date.now() : 'init'
+      const url = GOOGLE_SHEETS_CSV_URL + (GOOGLE_SHEETS_CSV_URL.includes('?') ? '&' : '?') + 't=' + bust
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) return
+      const text = await res.text()
+      const lines = text.split('\n')
+      const newPrices = { ...prices }
+      
+      lines.forEach(line => {
+         const parts = line.split(',')
+         if (parts.length < 4) return
+         const mat = parts[1].toLowerCase()
+         
+         const rawPrice = parts.slice(3).join(',')
+         const limpio = rawPrice.toString().replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')
+         const p = parseFloat(limpio)
+         
+         if (isNaN(p) || p <= 0) return 
+
+         if (mat.includes('120')) newPrices.perfil120 = p
+         else if (mat.includes('80')) newPrices.perfil80 = p
+         else if (mat.includes('perfil c') || mat.includes('perfiles c')) {
+           newPrices.perfil120 = p
+           newPrices.perfil80 = p
+         }
+         if (mat.includes('chapa')) newPrices.chapa = p
+         if (mat.includes('tornillo')) newPrices.tornillos = p
+         if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
+      })
+      
+      console.log("Precios CSV Limpios:", newPrices)
+      setPrices(newPrices)
+    } catch (e) {
+      console.error("Error fetching CSV", e)
+    } finally {
+      setIsLoadingPrices(false)
     }
+  }
+
+  useEffect(() => {
     fetchCSV()
   }, [])
 
@@ -729,9 +726,21 @@ export default function CotizarPage() {
           <div className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm">
             <div className="flex justify-between items-center border-b border-border pb-2">
               <h2 className="text-xl font-bold">Ítems de Presupuesto</h2>
-              <Button onClick={addItem} size="sm" variant="outline" className="h-8 gap-1">
-                <Plus className="size-3" /> Agregar
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={() => fetchCSV(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-2 text-xs"
+                  disabled={isLoadingPrices}
+                >
+                  <RefreshCw className={isLoadingPrices ? "size-3 animate-spin" : "size-3"} />
+                  <span className="hidden sm:inline">Actualizar Precios</span>
+                </Button>
+                <Button onClick={addItem} size="sm" variant="outline" className="h-8 gap-1">
+                  <Plus className="size-3" /> Agregar
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
@@ -790,7 +799,13 @@ export default function CotizarPage() {
             <div className="pt-4 border-t border-border flex justify-between items-center">
               <span className="font-bold text-lg text-muted-foreground">TOTAL:</span>
               <span className="font-bold text-2xl text-primary">
-                $ {total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                {isLoadingPrices ? (
+                  <span className="text-sm font-normal text-muted-foreground italic flex items-center gap-2">
+                    <RefreshCw className="size-4 animate-spin" /> Calculando...
+                  </span>
+                ) : (
+                  `$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                )}
               </span>
             </div>
           </div>
