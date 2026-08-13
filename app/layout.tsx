@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     siteName: 'SANSER Metalúrgica',
     images: [
       {
-        url: `${BASE_URL}/logo.png`,
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: 'SANSER Metalúrgica - Diseñá tu tinglado en 3D',
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     title: 'SANSER Metalúrgica | Cotizador de Tinglados 3D',
     description:
       'Diseñá tu tinglado o galpón en 3D en tiempo real. Presupuestos al instante en Jardín América, Misiones.',
-    images: [`${BASE_URL}/logo.png`],
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,
