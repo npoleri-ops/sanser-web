@@ -23,6 +23,9 @@ const BASE_URL = 'https://sansermetalurgica.vercel.app'
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   alternates: { canonical: 'https://sansermetalurgica.vercel.app' },
+  verification: {
+    google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
+  },
   title: {
     default: 'SANSER Metalúrgica | Tinglados y Estructuras 3D en Misiones',
     template: '%s | SANSER Metalúrgica',
