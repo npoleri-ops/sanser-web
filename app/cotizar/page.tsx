@@ -58,7 +58,7 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [prices, setPrices] = useState({ perfil120: 0, perfil80: 0, chapa: 0, tornillos: 0, manoDeObra: 0 })
+  const [prices, setPrices] = useState({ perfil120: 0, perfil80: 0, chapa: 0, tornillos: 0, pintura: 0, manoDeObra: 0, flete: 0 })
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
   useEffect(() => {
@@ -107,7 +107,9 @@ export default function CotizarPage() {
       lines.forEach(line => {
          const parts = line.split(',')
          if (parts.length < 4) return
+         const cat = parts[0].toLowerCase()
          const mat = parts[1].toLowerCase()
+         const textMatch = `${cat} ${mat}`
          
          const rawPrice = parts.slice(3).join(',')
          const limpio = rawPrice.toString().replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')
@@ -115,18 +117,25 @@ export default function CotizarPage() {
          
          if (isNaN(p) || p <= 0) return 
 
-         if (mat.includes('120')) newPrices.perfil120 = p
-         else if (mat.includes('80')) newPrices.perfil80 = p
-         else if (mat.includes('perfil c') || mat.includes('perfiles c')) {
-           newPrices.perfil120 = p
-           newPrices.perfil80 = p
-         }
-         if (mat.includes('chapa')) newPrices.chapa = p
-         if (mat.includes('tornillo')) newPrices.tornillos = p
-         if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
+         if (textMatch.includes('120') || textMatch.includes('perfil c 120')) newPrices.perfil120 = p
+         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) newPrices.perfil80 = p
+         
+         if (textMatch.includes('chapa') || textMatch.includes('t101') || textMatch.includes('t-101')) newPrices.chapa = p
+         if (textMatch.includes('tornillo') || textMatch.includes('fijaciones')) newPrices.tornillos = p
+         if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('antióxido')) newPrices.pintura = p
+         if (textMatch.includes('mano de obra') || textMatch.includes('armado') || textMatch.includes('soldadura')) newPrices.manoDeObra = p
+         if (textMatch.includes('flete') || textMatch.includes('logistica') || textMatch.includes('traslado')) newPrices.flete = p
       })
       
-      console.log("Precios CSV Limpios:", newPrices)
+      console.log("DETALLE MATERIALES CSV MAREADOS:", { 
+        perfil120: newPrices.perfil120, 
+        perfil80: newPrices.perfil80, 
+        chapa: newPrices.chapa, 
+        tornillos: newPrices.tornillos, 
+        pintura: newPrices.pintura, 
+        manoObra: newPrices.manoDeObra, 
+        flete: newPrices.flete 
+      })
       setPrices(newPrices)
     } catch (e) {
       console.error("Error fetching CSV", e)
@@ -149,6 +158,7 @@ export default function CotizarPage() {
     const metros80 = (Math.ceil(W / 1) + 1) * L
     const metrosChapa = W * L * 1.15
     const cajasTornillos = Math.ceil((W * L * 6) / 100)
+    const baldesPintura = Math.ceil((W * L) / 100)
     const costoManoObra = W * L * prices.manoDeObra
 
     // Agrupar costos en un único precio global
@@ -157,15 +167,20 @@ export default function CotizarPage() {
       (metros80 * prices.perfil80) + 
       (metrosChapa * prices.chapa) + 
       (cajasTornillos * prices.tornillos) + 
+      (baldesPintura * prices.pintura) +
       costoManoObra
 
     const nuevoTitulo = `TINGLADO ${config.width}X${config.length} A UN AGUA`
     setTitle(nuevoTitulo)
 
     setItems(prev => {
+      const existingFlete = prev.find(i => i.id === "2")
+      const fletePrice = existingFlete && existingFlete.price > 0 ? existingFlete.price : prices.flete
+      
       const custom = prev.filter(i => !["1", "2", "3", "4"].includes(i.id))
       return [
         { id: "1", description: nuevoTitulo, unit: "unid", quantity: 1, price: totalMateriales },
+        { id: "2", description: "Transporte / Logística", unit: "viaje", quantity: 1, price: fletePrice },
         ...custom
       ]
     })
