@@ -94,9 +94,10 @@ export const viewport: Viewport = {
 
 const localBusinessSchema = {
   '@context': 'https://schema.org',
-  '@type': ['LocalBusiness', 'HomeAndConstructionBusiness'],
+  '@type': ['LocalBusiness', 'HomeAndConstructionBusiness', 'Organization'],
   name: 'SANSER Metalúrgica',
   alternateName: 'Sanser',
+  image: 'https://sansermetalurgica.vercel.app/logo.png',
   description:
     'Fabricación e instalación de tinglados, galpones a un agua y dos aguas, estructuras metálicas, corte y plegado de perfiles de acero en Jardín América, Misiones.',
   url: BASE_URL,
@@ -109,6 +110,7 @@ const localBusinessSchema = {
     addressLocality: 'Jardín América',
     addressRegion: 'Misiones',
     addressCountry: 'AR',
+    postalCode: '3328',
   },
   geo: {
     '@type': 'GeoCoordinates',
