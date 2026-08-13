@@ -103,9 +103,24 @@ export default function CotizarPage() {
            const parts = line.split(',')
            if (parts.length < 4) return
            const mat = parts[1].toLowerCase()
-           const priceStr = parts[3].replace(/[^0-9,-]+/g,"").replace(',', '.')
-           const p = parseFloat(priceStr)
-           if (isNaN(p)) return
+           
+           // El precio puede contener comas y venir entrecomillado, ej: "$ 25.000,50" -> parts[3] = '"$ 25.000', parts[4] = '50"'
+           let rawPrice = parts.slice(3).join(',')
+           
+           // Eliminar signos de moneda, comillas y caracteres invisibles/espacios
+           rawPrice = rawPrice.replace(/[$"\s]/g, '')
+           
+           // Sanitización de formato (Puntos para miles, coma para decimales)
+           if (rawPrice.includes(',')) {
+             rawPrice = rawPrice.replace(/\./g, '') // Elimina puntos de miles
+             rawPrice = rawPrice.replace(',', '.')  // Cambia coma decimal a punto para JS
+           } else {
+             rawPrice = rawPrice.replace(/\./g, '') // Elimina puntos de miles si no hay coma decimal
+           }
+
+           const p = parseFloat(rawPrice)
+           // Fallback: Si es NaN o <= 0, no lo guardamos en newPrices (se mantiene el default)
+           if (isNaN(p) || p <= 0) return 
 
            if (mat.includes('120')) newPrices.perfil120 = p
            else if (mat.includes('80')) newPrices.perfil80 = p
@@ -117,6 +132,8 @@ export default function CotizarPage() {
            if (mat.includes('tornillo')) newPrices.tornillos = p
            if (mat.includes('mano de obra') || mat.includes('armado')) newPrices.manoDeObra = p
         })
+        
+        console.log("Precios CSV Limpios:", newPrices)
         setPrices(newPrices)
       } catch (e) {
         console.error("Error fetching CSV", e)
