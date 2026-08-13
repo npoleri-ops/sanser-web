@@ -112,13 +112,16 @@ export default function CotizarPage() {
          const textMatch = `${cat} ${mat}`
          
          const rawPrice = parts.slice(3).join(',')
-         const limpio = rawPrice.toString().replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')
-         const p = parseFloat(limpio)
+         const parsePrecioInt = (val: string | number) => { 
+           const n = parseFloat(String(val).replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, '')); 
+           return (isNaN(n) || n < 100) ? 0 : n; 
+         };
+         const p = parsePrecioInt(rawPrice)
          
-         if (isNaN(p) || p <= 0) return 
+         if (p <= 0) return 
 
-         if (textMatch.includes('120') || textMatch.includes('perfil c 120')) newPrices.perfil120 = p
-         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) newPrices.perfil80 = p
+         if (textMatch.includes('120') || textMatch.includes('perfil c 120')) newPrices.perfil120 = p < 1000 ? 15000 : p
+         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) newPrices.perfil80 = p < 1000 ? 10000 : p
          
          if (textMatch.includes('chapa') || textMatch.includes('t101') || textMatch.includes('t-101')) newPrices.chapa = p
          if (textMatch.includes('tornillo') || textMatch.includes('fijaciones')) newPrices.tornillos = p
@@ -148,19 +151,19 @@ export default function CotizarPage() {
     fetchCSV()
   }, [])
 
-  useEffect(() => {
-    const ancho = config.width || 0;
-    const largo = config.length || 0;
-    const alto = config.height || 0;
+  const calcularPresupuesto = (currentConfig: typeof config, currentPrices: typeof prices) => {
+    const ancho = currentConfig.width || 0;
+    const largo = currentConfig.length || 0;
+    const alto = currentConfig.height || 0;
 
     // Precios parseados del CSV (limpios de puntos)
-    const p120 = prices.perfil120 || 15000;
-    const p80 = prices.perfil80 || 10000;
-    const pChapa = prices.chapa || 14000;
-    const pTornillo = prices.tornillos || 20000;
-    const pPintura = prices.pintura || 28000;
-    const pManoObra = prices.manoDeObra || 15000;
-    const pFlete = prices.flete || 0;
+    const p120 = currentPrices.perfil120 || 15000;
+    const p80 = currentPrices.perfil80 || 10000;
+    const pChapa = currentPrices.chapa || 14000;
+    const pTornillo = currentPrices.tornillos || 20000;
+    const pPintura = currentPrices.pintura || 28000;
+    const pManoObra = currentPrices.manoDeObra || 15000;
+    const pFlete = currentPrices.flete || 0;
 
     // Cómputo de materiales
     const numPorticos = Math.ceil(largo / 5) + 1; 
@@ -182,14 +185,22 @@ export default function CotizarPage() {
       (m2ManoObra * pManoObra);
 
     const nuevoTitulo = `TINGLADO ${ancho}X${largo} A UN AGUA`
-    setTitle(nuevoTitulo)
-
+    
     console.log("DESGLOSE DE COSTOS CALCULADOS:", { mtPerfil120, mtPerfil80, mtChapa, subtotalTinglado })
 
-    setItems([
-      { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
-      { id: "flete-2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete }
-    ])
+    return {
+      nuevoTitulo,
+      nuevosItems: [
+        { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
+        { id: "flete-2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete }
+      ]
+    }
+  }
+
+  useEffect(() => {
+    const { nuevoTitulo, nuevosItems } = calcularPresupuesto(config, prices)
+    setTitle(nuevoTitulo)
+    setItems(nuevosItems)
   }, [config, prices])
 
 
