@@ -63,7 +63,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
     <div>
       {/* HERO */}
       <section id="inicio" className="relative h-screen min-h-[640px] w-full overflow-hidden">
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 touch-pan-y">
           <HeroScene />
         </div>
         {/* readability gradient */}
