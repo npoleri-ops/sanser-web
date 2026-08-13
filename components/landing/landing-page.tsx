@@ -46,16 +46,16 @@ const SERVICIOS = [
 
 const OBRAS = [
   // Obras originales de la plantilla
-  { src: "/obras/galpon-gable-terminado.png", title: "2 Aguas · Terminado", desc: "Galpón a dos aguas terminado con techo metálico" },
-  { src: "/obras/galpon-gable-galvanizado.png", title: "Galvanizado", desc: "Estructura de galpón galvanizado con pórticos" },
-  { src: "/obras/estructura-una-agua.png", title: "1 Agua · Estructura", desc: "Estructura reticulada a una agua sobre platea" },
-  { src: "/obras/tinglado-una-agua-techo.png", title: "1 Agua · Cubierta", desc: "Tinglado a una agua con cubierta instalada" },
-  { src: "/obras/interior-galpon.png", title: "Interior", desc: "Vista interior de galpón con cabreadas reticuladas" },
-  { src: "/obras/cabreada-reticulada.jpeg", title: "Fabricación", desc: "Cabreadas reticuladas en perfil C en taller" },
+  { src: "/obras/galpon-gable-terminado.webp", title: "2 Aguas · Terminado", desc: "Galpón a dos aguas terminado con techo metálico" },
+  { src: "/obras/galpon-gable-galvanizado.webp", title: "Galvanizado", desc: "Estructura de galpón galvanizado con pórticos" },
+  { src: "/obras/estructura-una-agua.webp", title: "1 Agua · Estructura", desc: "Estructura reticulada a una agua sobre platea" },
+  { src: "/obras/tinglado-una-agua-techo.webp", title: "1 Agua · Cubierta", desc: "Tinglado a una agua con cubierta instalada" },
+  { src: "/obras/interior-galpon.webp", title: "Interior", desc: "Vista interior de galpón con cabreadas reticuladas" },
+  { src: "/obras/cabreada-reticulada.webp", title: "Fabricación", desc: "Cabreadas reticuladas en perfil C en taller" },
   // 3 nuevas obras solicitadas
-  { src: "/obras/obra 1.png", title: "Estructura A Dos Aguas Reticulada", desc: "Tinglado tradicional a dos aguas con cabreadas y columnas de perfil C reticulado." },
-  { src: "/obras/obra 2.png", title: "Galpón Industrial con Portón Corredizo", desc: "Gran estructura metálica cerrada con portones corredizos de acceso para vehículos." },
-  { src: "/obras/obra 3.png", title: "Tinglado Depósito A Una Agua", desc: "Estructura compacta a una agua, cerramiento completo en chapa con aberturas." },
+  { src: "/obras/obra 1.webp", title: "Estructura A Dos Aguas Reticulada", desc: "Tinglado tradicional a dos aguas con cabreadas y columnas de perfil C reticulado." },
+  { src: "/obras/obra 2.webp", title: "Galpón Industrial con Portón Corredizo", desc: "Gran estructura metálica cerrada con portones corredizos de acceso para vehículos." },
+  { src: "/obras/obra 3.webp", title: "Tinglado Depósito A Una Agua", desc: "Estructura compacta a una agua, cerramiento completo en chapa con aberturas." },
 ]
 
 export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
@@ -192,6 +192,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                     alt={o.title}
                     width={1200}
                     height={800}
+                    quality={80}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent transition-opacity group-hover:opacity-90" />
