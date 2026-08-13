@@ -66,16 +66,6 @@ export function Configurator() {
         <QuoteCard config={config} />
       </aside>
 
-      {/* Sticky Mobile WhatsApp Button */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-50">
-        <button
-          onClick={(e) => openWhatsAppModal(e)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 py-3.5 font-mono text-sm uppercase tracking-wider text-white transition-all hover:bg-[#20bd5a] focus-visible:outline-none shadow-[0_0_15px_rgba(37,211,102,0.3)]"
-        >
-          <MessageCircle className="size-5 shrink-0" />
-          SOLICITAR PRESUPUESTO
-        </button>
-      </div>
     </div>
   )
 }
