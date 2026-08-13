@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { ArrowRight, Boxes, Factory, HardHat, Ruler, Wrench, MessageCircle } from "lucide-react"
@@ -59,12 +60,27 @@ const OBRAS = [
 ]
 
 export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
+  const [canRender3D, setCanRender3D] = useState(false);
+  
+  useEffect(() => { 
+    const timer = setTimeout(() => setCanRender3D(true), 1200); 
+    return () => clearTimeout(timer); 
+  }, []);
+
   return (
     <div>
       {/* HERO */}
       <section id="inicio" className="relative min-h-screen w-full overflow-y-auto flex flex-col lg:block lg:h-screen lg:min-h-[640px] lg:overflow-hidden pb-24 lg:pb-0">
-        <div className="relative w-full h-[45vh] lg:absolute lg:inset-0 lg:h-auto touch-pan-y shrink-0">
-          <HeroScene />
+        <div className="relative w-full h-[45vh] lg:absolute lg:inset-0 lg:h-auto touch-pan-y shrink-0 bg-[#0d0e11]">
+          {canRender3D ? (
+            <HeroScene />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <span className="font-mono text-xs uppercase tracking-widest text-[#F97316] animate-pulse">
+                Cargando visor 3D...
+              </span>
+            </div>
+          )}
           {/* Mobile bottom fade */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent lg:hidden" />
         </div>
@@ -111,8 +127,8 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
       {/* NOSOTROS & SERVICIOS */}
       <section id="nosotros" className="relative overflow-hidden border-t border-border/40 py-20 lg:py-32">
         {/* Cinematic 3D Background */}
-        <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
-          <ColumnDetailScene />
+        <div className="absolute inset-0 z-0 opacity-30 pointer-events-none bg-[#0d0e11]">
+          {canRender3D && <ColumnDetailScene />}
         </div>
         
         {/* Overlay gradient for text legibility */}
