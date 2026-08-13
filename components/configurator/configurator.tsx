@@ -2,12 +2,10 @@
 
 import { useCallback, useState } from "react"
 import dynamic from "next/dynamic"
-import { RotateCcw, MessageCircle } from "lucide-react"
+import { RotateCcw } from "lucide-react"
 import { Controls } from "./controls"
 import { QuoteCard } from "./quote-card"
-import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 import { DEFAULT_CONFIG, type ShedConfig } from "@/lib/shed-config"
-import { cn } from "@/lib/utils"
 
 // Dynamic import: never run ConfigScene on the server (Three.js / WebGL)
 const ConfigScene = dynamic(

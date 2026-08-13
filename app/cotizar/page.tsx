@@ -92,12 +92,8 @@ export default function CotizarPage() {
   const fetchCSV = async (forceRefresh = false) => {
     setIsLoadingPrices(true)
     try {
-      if (GOOGLE_SHEETS_CSV_URL === "PEGA_AQUÍ_TU_ENLACE_CSV") {
-        setIsLoadingPrices(false)
-        return
-      }
       const bust = forceRefresh ? Date.now() : 'init'
-      const url = GOOGLE_SHEETS_CSV_URL + (GOOGLE_SHEETS_CSV_URL.includes('?') ? '&' : '?') + 't=' + bust
+      const url = GOOGLE_SHEETS_CSV_URL + '&t=' + bust
       const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) return
       const text = await res.text()
@@ -245,7 +241,7 @@ export default function CotizarPage() {
           const { gl, camera, scene } = fiber.root.getState()
           gl.render(scene, camera)
           cap1 = gl.domElement.toDataURL('image/png')
-          console.log("Ancho DataURL 3D:", cap1.length)
+          console.log("Ancho DataURL 3D:", cap1?.length ?? 0)
         } else {
           cap1 = canvas3d.toDataURL('image/png')
         }
