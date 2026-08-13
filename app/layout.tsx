@@ -62,7 +62,7 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'SANSER Metalúrgica - Diseñá tu tinglado en 3D',
+        alt: 'SANSER Metalúrgica Logo Oficial',
       },
     ],
     locale: 'es_AR',
