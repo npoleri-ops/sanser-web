@@ -149,38 +149,46 @@ export default function CotizarPage() {
   }, [])
 
   useEffect(() => {
-    const W = config.width
-    const L = config.length
-    const H = config.height
+    const ancho = config.width || 0;
+    const largo = config.length || 0;
+    const alto = config.height || 0;
 
-    const porticos = Math.ceil(L / 5) + 1
-    const metros120 = (H * 2 + W * 1.8) * porticos
-    const metros80 = (Math.ceil(W / 1) + 1) * L
-    const metrosChapa = W * L * 1.15
-    const cajasTornillos = Math.ceil((W * L * 6) / 100)
-    const baldesPintura = Math.ceil((W * L) / 100)
-    const costoManoObra = W * L * prices.manoDeObra
+    // Precios parseados del CSV (limpios de puntos)
+    const p120 = prices.perfil120 || 15000;
+    const p80 = prices.perfil80 || 10000;
+    const pChapa = prices.chapa || 14000;
+    const pTornillo = prices.tornillos || 20000;
+    const pPintura = prices.pintura || 28000;
+    const pManoObra = prices.manoDeObra || 15000;
+    const pFlete = prices.flete || 0;
 
-    // Agrupar costos en un único precio global
-    const totalMateriales = 
-      (metros120 * prices.perfil120) + 
-      (metros80 * prices.perfil80) + 
-      (metrosChapa * prices.chapa) + 
-      (cajasTornillos * prices.tornillos) + 
-      (baldesPintura * prices.pintura) +
-      costoManoObra
+    // Cómputo de materiales
+    const numPorticos = Math.ceil(largo / 5) + 1; 
+    const mtPerfil120 = (alto * 2 + ancho * 1.8) * numPorticos;
+    const lineasCorreas = Math.ceil(ancho / 1) + 1; 
+    const mtPerfil80 = lineasCorreas * largo;
+    const mtChapa = ancho * largo * 1.15;
+    const cajasTornillos = Math.ceil((ancho * largo * 6) / 100);
+    const baldesPintura = Math.ceil((ancho * largo) / 100);
+    const m2ManoObra = ancho * largo;
 
-    const nuevoTitulo = `TINGLADO ${config.width}X${config.length} A UN AGUA`
+    // Subtotal Tinglado
+    const subtotalTinglado = 
+      (mtPerfil120 * p120) +
+      (mtPerfil80 * p80) +
+      (mtChapa * pChapa) +
+      (cajasTornillos * pTornillo) +
+      (baldesPintura * pPintura) +
+      (m2ManoObra * pManoObra);
+
+    const nuevoTitulo = `TINGLADO ${ancho}X${largo} A UN AGUA`
     setTitle(nuevoTitulo)
 
     setItems(prev => {
-      const existingFlete = prev.find(i => i.id === "2")
-      const fletePrice = existingFlete && existingFlete.price > 0 ? existingFlete.price : prices.flete
-      
-      const custom = prev.filter(i => !["1", "2", "3", "4"].includes(i.id))
+      const custom = prev.filter(i => !["1", "2"].includes(i.id))
       return [
-        { id: "1", description: nuevoTitulo, unit: "unid", quantity: 1, price: totalMateriales },
-        { id: "2", description: "Transporte / Logística", unit: "viaje", quantity: 1, price: fletePrice },
+        { id: "1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
+        { id: "2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete },
         ...custom
       ]
     })
