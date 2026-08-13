@@ -184,14 +184,12 @@ export default function CotizarPage() {
     const nuevoTitulo = `TINGLADO ${ancho}X${largo} A UN AGUA`
     setTitle(nuevoTitulo)
 
-    setItems(prev => {
-      const custom = prev.filter(i => !["1", "2"].includes(i.id))
-      return [
-        { id: "1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
-        { id: "2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete },
-        ...custom
-      ]
-    })
+    console.log("DESGLOSE DE COSTOS CALCULADOS:", { mtPerfil120, mtPerfil80, mtChapa, subtotalTinglado })
+
+    setItems([
+      { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
+      { id: "flete-2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete }
+    ])
   }, [config, prices])
 
 
