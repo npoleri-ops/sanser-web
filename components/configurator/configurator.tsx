@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from "react"
 import dynamic from "next/dynamic"
-import { RotateCcw } from "lucide-react"
+import { RotateCcw, MessageCircle } from "lucide-react"
 import { Controls } from "./controls"
 import { QuoteCard } from "./quote-card"
+import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 import { DEFAULT_CONFIG, type ShedConfig } from "@/lib/shed-config"
 import { cn } from "@/lib/utils"
 
@@ -25,9 +26,9 @@ export function Configurator() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col items-start lg:flex-row w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row w-full min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden lg:overflow-hidden relative pb-20 lg:pb-0">
       {/* Left: controls */}
-      <aside className="h-full order-2 w-full shrink-0 overflow-y-auto border-b border-border bg-card/40 p-5 lg:order-1 lg:w-[340px] lg:border-b-0 lg:border-r">
+      <aside className="order-2 w-full shrink-0 border-b border-border bg-card/40 p-5 lg:order-1 lg:w-[340px] lg:border-b-0 lg:border-r lg:h-full lg:overflow-y-auto">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="font-display text-xl font-700 uppercase tracking-wide text-[#F97316]">
@@ -49,7 +50,7 @@ export function Configurator() {
       </aside>
 
       {/* Center: 3D scene */}
-      <div className="relative order-1 h-full min-h-[320px] w-full lg:order-2 lg:flex-1">
+      <div className="relative order-1 w-full h-[45vh] min-h-[320px] lg:h-full lg:order-2 lg:flex-1">
         <ConfigScene config={config} />
         
         {/* Floating overlays */}
@@ -61,9 +62,20 @@ export function Configurator() {
       </div>
 
       {/* Right: quote */}
-      <aside className="h-full order-3 w-full shrink-0 overflow-y-auto border-t border-border bg-card/40 p-5 lg:w-[340px] lg:border-l lg:border-t-0">
+      <aside className="order-3 w-full shrink-0 border-t border-border bg-card/40 p-5 lg:w-[340px] lg:border-l lg:border-t-0 lg:h-full lg:overflow-y-auto">
         <QuoteCard config={config} />
       </aside>
+
+      {/* Sticky Mobile WhatsApp Button */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-50">
+        <button
+          onClick={(e) => openWhatsAppModal(e)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 py-3.5 font-mono text-sm uppercase tracking-wider text-white transition-all hover:bg-[#20bd5a] focus-visible:outline-none shadow-[0_0_15px_rgba(37,211,102,0.3)]"
+        >
+          <MessageCircle className="size-5 shrink-0" />
+          SOLICITAR PRESUPUESTO
+        </button>
+      </div>
     </div>
   )
 }
