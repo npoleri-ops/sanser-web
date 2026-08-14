@@ -163,6 +163,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`dark ${inter.variable} ${oswald.variable}`}>
       <head>
+        <meta name="google-site-verification" content="eDMAH9UcuCAeQkwCfU7WdRlH84QiMwZ0wqGsURGXsJ0" />
         <Script
           id="local-business-schema"
           type="application/ld+json"
