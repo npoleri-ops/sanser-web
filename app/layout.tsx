@@ -18,11 +18,11 @@ const oswald = Oswald({
   display: 'swap',
 })
 
-const BASE_URL = 'https://sansermetalurgica.vercel.app'
+const BASE_URL = 'https://www.sansermetalurgica.com.ar'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
-  alternates: { canonical: 'https://sansermetalurgica.vercel.app' },
+  metadataBase: new URL('https://www.sansermetalurgica.com.ar/'),
+  alternates: { canonical: 'https://www.sansermetalurgica.com.ar/' },
   verification: {
     google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
   },
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     title: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
     description:
       'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
-    url: BASE_URL,
+    url: 'https://www.sansermetalurgica.com.ar/',
     siteName: 'SANSER Metalúrgica',
     images: [
       {
@@ -101,7 +101,7 @@ const localBusinessSchema = {
   '@type': ['LocalBusiness', 'HomeAndConstructionBusiness', 'Organization'],
   name: 'SANSER Metalúrgica',
   alternateName: 'Sanser',
-  image: 'https://sansermetalurgica.vercel.app/logo.png',
+  image: 'https://www.sansermetalurgica.com.ar/logo.png',
   description:
     'Fabricación e instalación de tinglados, galpones a un agua y dos aguas, estructuras metálicas, corte y plegado de perfiles de acero en Jardín América, Misiones.',
   url: BASE_URL,
