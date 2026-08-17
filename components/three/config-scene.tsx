@@ -2,7 +2,9 @@
 
 import { Suspense } from "react"
 import { Canvas } from "@react-three/fiber"
-import { Environment, Grid, Html, OrbitControls } from "@react-three/drei"
+import { Grid, Html, OrbitControls } from "@react-three/drei"
+import { ErrorBoundary } from "../error-boundary"
+import { Loader2 } from "lucide-react"
 import { ShedModel } from "./shed-model"
 import type { ShedConfig } from "@/lib/shed-config"
 
@@ -37,8 +39,10 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
   const camDist = (Math.max(config.width, config.length) * 1.15 + 12) * 0.82
 
   return (
-    <Canvas
-      shadows
+    <ErrorBoundary>
+      <Suspense fallback={<div className="flex h-full w-full items-center justify-center bg-background/50"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+        <Canvas
+          shadows
       frameloop="demand"
       dpr={[1, 1.5]}
       camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
@@ -48,7 +52,7 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       <color attach="background" args={["#12141a"]} />
       <fog attach="fog" args={["#12141a", camDist * 1.6, camDist * 3.4]} />
 
-      <ambientLight intensity={0.45} color="#ffffff" />
+      <ambientLight intensity={0.7} color="#ffffff" />
       <directionalLight
         position={[15, 30, 15]}
         intensity={1.2}
@@ -64,10 +68,9 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       />
       <directionalLight position={[-22, 16, -18]} intensity={0.6} color="#9fb4ff" />
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
         <ShedModel config={config} showSlab />
         <Dimensions config={config} />
-        <Environment preset="warehouse" environmentIntensity={0.5} />
       </Suspense>
 
       <Grid
@@ -92,6 +95,8 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
         maxPolarAngle={Math.PI / 2.05}
         target={[0, config.height / 2, 0]}
       />
-    </Canvas>
+      </Canvas>
+    </Suspense>
+  </ErrorBoundary>
   )
 }

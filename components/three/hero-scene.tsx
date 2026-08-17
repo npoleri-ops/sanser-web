@@ -2,7 +2,9 @@
 
 import { Suspense, useState, useCallback } from "react"
 import { Canvas } from "@react-three/fiber"
-import { Environment, OrbitControls } from "@react-three/drei"
+import { Html, OrbitControls } from "@react-three/drei"
+import { ErrorBoundary } from "../error-boundary"
+import { Loader2 } from "lucide-react"
 import { ShedModel } from "./shed-model"
 import { DEFAULT_CONFIG, ShedType } from "@/lib/shed-config"
 
@@ -16,8 +18,10 @@ export function HeroScene() {
   const config = { ...DEFAULT_CONFIG, type }
 
   return (
-    <Canvas
-      shadows
+    <ErrorBoundary>
+      <Suspense fallback={<div className="flex h-full w-full items-center justify-center bg-background/50"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+        <Canvas
+          shadows
       frameloop="demand"
       dpr={[1, 1.5]}
       camera={{ position: [24, 13, 26], fov: 42 }}
@@ -26,7 +30,7 @@ export function HeroScene() {
       <color attach="background" args={["#0d0e11"]} />
       <fog attach="fog" args={["#0d0e11", 45, 95]} />
 
-      <ambientLight intensity={0.35} />
+      <ambientLight intensity={0.7} />
       <directionalLight
         position={[18, 26, 10]}
         intensity={2.8}
@@ -41,11 +45,10 @@ export function HeroScene() {
       
       <pointLight position={[0, 8, 0]} intensity={20} color="#ff8a2a" distance={40} />
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
         <group position={[0, -3, 0]}>
           <ShedModel config={config} animated showSlab onCycle={handleCycle} />
         </group>
-        <Environment preset="warehouse" />
       </Suspense>
 
       <OrbitControls
@@ -56,6 +59,8 @@ export function HeroScene() {
         minPolarAngle={Math.PI / 3.4}
         maxPolarAngle={Math.PI / 2.15}
       />
-    </Canvas>
+      </Canvas>
+    </Suspense>
+  </ErrorBoundary>
   )
 }
