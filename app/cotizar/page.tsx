@@ -168,7 +168,6 @@ export default function CotizarPage() {
   const calcularPresupuesto = (currentConfig: typeof config, currentPrices: typeof prices) => {
     const ancho = currentConfig.width || 0;
     const largo = currentConfig.length || 0;
-    const alto = currentConfig.height || 0;
     const isUnAgua = currentConfig.type === "shed";
 
     const numPorticos = Math.ceil(largo / 5) + 1;
@@ -176,24 +175,17 @@ export default function CotizarPage() {
     const numCabreadas = numPorticos;
 
     // Perfiles 120
-    const m120_calc = (numColumnas * alto) + (numCabreadas * ancho);
-    const barras120 = Math.ceil(m120_calc / 12);
-    const metros120 = barras120 * 12;
+    const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
 
     // Perfiles 80 Negro
-    const m80N_calc = (numColumnas * alto) + (numCabreadas * ancho);
-    const barras80Negro = Math.ceil(m80N_calc / 12);
-    const metros80Negro = barras80Negro * 12;
+    const barras80Negro = Math.round(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
 
     // Correas 80 Galv
     const lineasCorreas = Math.ceil(ancho / 1) + 1;
     const barras80Galv = lineasCorreas * Math.ceil(largo / 12);
-    const metros80Galv = barras80Galv * 12;
 
     // Hierro Ángulo
-    const mAngulo = isUnAgua ? (numColumnas * 0.4 + numCabreadas * 0.8) : (numColumnas * 0.4 + numCabreadas * 2.0);
-    const barrasAngulo = Math.ceil(mAngulo / 6);
-    const metrosAngulo = barrasAngulo * 6;
+    const barrasAngulo = isUnAgua ? 1 : 2;
 
     // Chapas
     const cantidadChapas = Math.ceil(ancho / 1.0);
@@ -210,7 +202,7 @@ export default function CotizarPage() {
     // Pintura
     const baldesPintura = numPorticos;
 
-    // Cálculo del costo exacto
+    // Cálculo del costo exacto (Precios del CSV son por metro, se multiplica por el largo de barra)
     const p120 = currentPrices.perfil120 || 7800;
     const p80N = currentPrices.perfil80Negro || 5900;
     const p80G = currentPrices.perfil80Galv || 7000;
@@ -223,10 +215,10 @@ export default function CotizarPage() {
     const pPintura = currentPrices.pintura || 45000;
 
     const subtotalEstructura = 
-      (metros120 * p120) +
-      (metros80Negro * p80N) +
-      (metros80Galv * p80G) +
-      (metrosAngulo * pAng) +
+      (barras120 * (p120 * 12)) +
+      (barras80Negro * (p80N * 12)) +
+      (barras80Galv * (p80G * 12)) +
+      (barrasAngulo * (pAng * 6)) +
       (totalMetrosChapa * pChapa) +
       (bulonesPortico * pBulon) +
       (bulonesPortico * pTuerca) +
@@ -242,19 +234,7 @@ export default function CotizarPage() {
       { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
     ];
 
-    const nuevoDetalle = `Estructura:
-- Perfil C 120x50x1.6mm: ${metros120}m (${barras120} barras)
-- Perfil C 80x40x1.6mm Negro: ${metros80Negro}m (${barras80Negro} barras)
-- Perfil C 80x40 Galv (Correas): ${metros80Galv}m (${barras80Galv} barras)
-- Hierro Ángulo: ${metrosAngulo}m (${barrasAngulo} barras)
-Cubierta:
-- Chapa T101 C25: ${totalMetrosChapa}m (${cantidadChapas} chapas)
-Fijaciones:
-- Bulones y Tuercas: ${bulonesPortico} unid
-- Arandelas: ${arandelas} kg
-- Tornillos Autoperforantes: ${cajasTornillos} cajas
-Pintura:
-- Convertidor de Óxido: ${baldesPintura} baldes`;
+    const nuevoDetalle = "Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta en chapa T101 C25 / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.";
 
     return { nuevoTitulo, nuevosItems, nuevoDetalle }
   }
