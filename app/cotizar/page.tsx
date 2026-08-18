@@ -58,7 +58,20 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [prices, setPrices] = useState({ perfil120: 0, perfil80: 0, chapa: 0, tornillos: 0, pintura: 0, manoDeObra: 0, flete: 0 })
+  const [prices, setPrices] = useState({ 
+    perfil120: 0, 
+    perfil80Negro: 0, 
+    perfil80Galv: 0,
+    angulo: 0,
+    chapa: 0, 
+    bulones: 0,
+    tuercas: 0,
+    arandelas: 0,
+    tornillos: 0, 
+    pintura: 0, 
+    manoDeObra: 0, 
+    flete: 0 
+  })
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
   useEffect(() => {
@@ -117,24 +130,29 @@ export default function CotizarPage() {
          if (p <= 0) return 
 
          if (textMatch.includes('120') || textMatch.includes('perfil c 120')) newPrices.perfil120 = p < 1000 ? 15000 : p
-         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) newPrices.perfil80 = p < 1000 ? 10000 : p
+         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) {
+           if (textMatch.includes('galv')) newPrices.perfil80Galv = p < 1000 ? 10000 : p
+           else newPrices.perfil80Negro = p < 1000 ? 10000 : p
+         }
          
+         if (textMatch.includes('ángulo') || textMatch.includes('angulo')) newPrices.angulo = p
          if (textMatch.includes('chapa') || textMatch.includes('t101') || textMatch.includes('t-101')) newPrices.chapa = p
-         if (textMatch.includes('tornillo') || textMatch.includes('fijaciones')) newPrices.tornillos = p
+         
+         if (cat.includes('fijaciones') || textMatch.includes('fijaciones')) {
+           if (textMatch.includes('bulón') || textMatch.includes('bulon') || textMatch.includes('unión')) newPrices.bulones = p
+           else if (textMatch.includes('tuerca')) newPrices.tuercas = p
+           else if (textMatch.includes('arandela')) newPrices.arandelas = p
+           else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
+         } else if (textMatch.includes('tornillo')) {
+           newPrices.tornillos = p
+         }
+         
          if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('antióxido')) newPrices.pintura = p
          if (textMatch.includes('mano de obra') || textMatch.includes('armado') || textMatch.includes('soldadura')) newPrices.manoDeObra = p
          if (textMatch.includes('flete') || textMatch.includes('logistica') || textMatch.includes('traslado')) newPrices.flete = p
       })
       
-      console.log("DETALLE MATERIALES CSV MAREADOS:", { 
-        perfil120: newPrices.perfil120, 
-        perfil80: newPrices.perfil80, 
-        chapa: newPrices.chapa, 
-        tornillos: newPrices.tornillos, 
-        pintura: newPrices.pintura, 
-        manoObra: newPrices.manoDeObra, 
-        flete: newPrices.flete 
-      })
+      console.log("DETALLE MATERIALES CSV MAREADOS:", newPrices)
       setPrices(newPrices)
     } catch (e) {
       console.error("Error fetching CSV", e)
@@ -151,47 +169,51 @@ export default function CotizarPage() {
     const ancho = currentConfig.width || 0;
     const largo = currentConfig.length || 0;
     const alto = currentConfig.height || 0;
+    const isUnAgua = currentConfig.type === "shed";
 
-    // Precios parseados del CSV (limpios de puntos)
-    const p120 = currentPrices.perfil120 || 15000;
-    const p80 = currentPrices.perfil80 || 10000;
-    const pChapa = currentPrices.chapa || 14000;
-    const pTornillo = currentPrices.tornillos || 20000;
-    const pPintura = currentPrices.pintura || 28000;
-    const pManoObra = currentPrices.manoDeObra || 15000;
-    const pFlete = currentPrices.flete || 0;
+    // Cómputo según reglas de SANSER
+    const numPorticos = Math.ceil(largo / 5) + 1;
+    const numColumnas = numPorticos * 2;
+    const numCabreadas = numPorticos;
 
-    // Cómputo de materiales
+    const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
+    const barras80Negro = Math.ceil(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
+    
+    const lineasCorreas = Math.ceil(ancho / 1) + 1;
+    const barras80Galv = Math.ceil((lineasCorreas * largo) / 12);
+    
+    const metrosAngulo = isUnAgua ? (numColumnas * 0.4 + numCabreadas * 0.8) : (numColumnas * 0.4 + numCabreadas * 2.0);
+    const barrasAngulo = Math.max(2, Math.ceil(metrosAngulo / 6));
+
+    const bulonesPortico = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
+    
+    // Chapas (metros lineales totales basados en la superficie del techo)
     const computo = computeMateriales(currentConfig);
-    const numPorticos = computo.frames; 
-    const mtPerfil120 = (alto * 2 + ancho * 2.1) * numPorticos;
-    const mtPerfil80 = computo.correas * largo;
-    const mtChapa = computo.superficieTecho;
+    const totalMetrosChapa = Math.ceil(computo.superficieTecho);
+    
     const cajasTornillos = Math.ceil((ancho * largo * 4.5) / 100);
     const baldesPintura = Math.ceil((ancho * largo) / 100);
     const m2ManoObra = ancho * largo;
 
-    // Subtotal Tinglado
-    const subtotalTinglado = 
-      (mtPerfil120 * p120) +
-      (mtPerfil80 * p80) +
-      (mtChapa * pChapa) +
-      (cajasTornillos * pTornillo) +
-      (baldesPintura * pPintura) +
-      (m2ManoObra * pManoObra);
-
     const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
-    const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`
+    const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
     
-    console.log("DESGLOSE DE COSTOS CALCULADOS:", { mtPerfil120, mtPerfil80, mtChapa, subtotalTinglado })
+    const nuevosItems: QuoteItem[] = [
+      { id: "mat-1", description: "Perfil C 120x50x1.6mm (Barras 12m)", unit: "barras", quantity: barras120, price: currentPrices.perfil120 || 7800 },
+      { id: "mat-2", description: "Perfil C 80x40x1.6mm Negro (Barras 12m)", unit: "barras", quantity: barras80Negro, price: currentPrices.perfil80Negro || 5900 },
+      { id: "mat-3", description: "Perfil C 80x40x1.6mm Galvanizado (Correas 12m)", unit: "barras", quantity: barras80Galv, price: currentPrices.perfil80Galv || 7000 },
+      { id: "mat-4", description: "Hierro Ángulo (Barras 6m)", unit: "barras", quantity: barrasAngulo, price: currentPrices.angulo || 5000 },
+      { id: "mat-5", description: "Chapa T101 C25 Galvanizada", unit: "metros", quantity: totalMetrosChapa, price: currentPrices.chapa || 13200 },
+      { id: "mat-6", description: "Bulones / Tornillos Pórticos", unit: "unid", quantity: bulonesPortico, price: currentPrices.bulones || 900 },
+      { id: "mat-7", description: "Tuercas Pórticos", unit: "unid", quantity: bulonesPortico, price: currentPrices.tuercas || 240 },
+      { id: "mat-8", description: "Arandela", unit: "kg", quantity: 1, price: currentPrices.arandelas || 3500 },
+      { id: "mat-9", description: 'Tornillos Autoperforantes 2 1/2" (Cajas x 100)', unit: "cajas", quantity: Math.max(1, cajasTornillos), price: currentPrices.tornillos || 15000 },
+      { id: "mat-10", description: "Convertidor de Óxido Gris (Baldes 4L)", unit: "baldes", quantity: Math.max(1, baldesPintura), price: currentPrices.pintura || 45000 },
+      { id: "mat-11", description: "Mano de Obra (Armado y Montaje)", unit: "m2", quantity: m2ManoObra, price: currentPrices.manoDeObra || 0 },
+      { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
+    ];
 
-    return {
-      nuevoTitulo,
-      nuevosItems: [
-        { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
-        { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: pFlete }
-      ]
-    }
+    return { nuevoTitulo, nuevosItems }
   }
 
   useEffect(() => {
