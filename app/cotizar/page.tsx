@@ -6,7 +6,7 @@ import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw }
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
-import { DEFAULT_CONFIG, CONTACT } from "@/lib/shed-config"
+import { DEFAULT_CONFIG, CONTACT, computeMateriales, TYPE_LABEL, ShedType } from "@/lib/shed-config"
 
 export interface QuoteItem {
   id: string;
@@ -162,11 +162,11 @@ export default function CotizarPage() {
     const pFlete = currentPrices.flete || 0;
 
     // Cómputo de materiales
-    const numPorticos = Math.ceil(largo / 5) + 1; 
+    const computo = computeMateriales(currentConfig);
+    const numPorticos = computo.frames; 
     const mtPerfil120 = (alto * 2 + ancho * 2.1) * numPorticos;
-    const lineasCorreas = Math.ceil(ancho / 1) + 1; 
-    const mtPerfil80 = lineasCorreas * largo;
-    const mtChapa = ancho * largo * 1.10;
+    const mtPerfil80 = computo.correas * largo;
+    const mtChapa = computo.superficieTecho;
     const cajasTornillos = Math.ceil((ancho * largo * 4.5) / 100);
     const baldesPintura = Math.ceil((ancho * largo) / 100);
     const m2ManoObra = ancho * largo;
@@ -180,7 +180,8 @@ export default function CotizarPage() {
       (baldesPintura * pPintura) +
       (m2ManoObra * pManoObra);
 
-    const nuevoTitulo = `TINGLADO ${ancho}X${largo} A UN AGUA`
+    const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
+    const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`
     
     console.log("DESGLOSE DE COSTOS CALCULADOS:", { mtPerfil120, mtPerfil80, mtChapa, subtotalTinglado })
 
@@ -641,6 +642,26 @@ export default function CotizarPage() {
           {/* Panel Form */}
           <div className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm">
             <h2 className="text-xl font-bold border-b border-border pb-2">Dimensiones del Tinglado</h2>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Tipo de Estructura</label>
+              <div className="flex flex-wrap gap-2">
+                {(Object.entries(TYPE_LABEL) as [ShedType, string][]).map(([typeVal, label]) => (
+                  <button
+                    key={typeVal}
+                    onClick={() => setConfig({ ...config, type: typeVal })}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors border ${
+                      config.type === typeVal 
+                        ? 'bg-primary text-primary-foreground border-primary' 
+                        : 'bg-background hover:bg-muted border-input text-foreground'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase text-muted-foreground">Ancho (m)</label>
