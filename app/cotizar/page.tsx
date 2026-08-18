@@ -171,55 +171,99 @@ export default function CotizarPage() {
     const alto = currentConfig.height || 0;
     const isUnAgua = currentConfig.type === "shed";
 
-    // Cómputo según reglas de SANSER
     const numPorticos = Math.ceil(largo / 5) + 1;
     const numColumnas = numPorticos * 2;
     const numCabreadas = numPorticos;
 
-    const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
-    const barras80Negro = Math.ceil(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
-    
-    const lineasCorreas = Math.ceil(ancho / 1) + 1;
-    const barras80Galv = Math.ceil((lineasCorreas * largo) / 12);
-    
-    const metrosAngulo = isUnAgua ? (numColumnas * 0.4 + numCabreadas * 0.8) : (numColumnas * 0.4 + numCabreadas * 2.0);
-    const barrasAngulo = Math.max(2, Math.ceil(metrosAngulo / 6));
+    // Perfiles 120
+    const m120_calc = (numColumnas * alto) + (numCabreadas * ancho);
+    const barras120 = Math.ceil(m120_calc / 12);
+    const metros120 = barras120 * 12;
 
+    // Perfiles 80 Negro
+    const m80N_calc = (numColumnas * alto) + (numCabreadas * ancho);
+    const barras80Negro = Math.ceil(m80N_calc / 12);
+    const metros80Negro = barras80Negro * 12;
+
+    // Correas 80 Galv
+    const lineasCorreas = Math.ceil(ancho / 1) + 1;
+    const barras80Galv = lineasCorreas * Math.ceil(largo / 12);
+    const metros80Galv = barras80Galv * 12;
+
+    // Hierro Ángulo
+    const mAngulo = isUnAgua ? (numColumnas * 0.4 + numCabreadas * 0.8) : (numColumnas * 0.4 + numCabreadas * 2.0);
+    const barrasAngulo = Math.ceil(mAngulo / 6);
+    const metrosAngulo = barrasAngulo * 6;
+
+    // Chapas
+    const cantidadChapas = Math.ceil(ancho / 1.0);
+    const largoChapa = largo * 1.06;
+    const totalMetrosChapa = Math.round(cantidadChapas * largoChapa);
+
+    // Bulones y Tuercas
     const bulonesPortico = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
-    
-    // Chapas (metros lineales totales basados en la superficie del techo)
-    const computo = computeMateriales(currentConfig);
-    const totalMetrosChapa = Math.ceil(computo.superficieTecho);
-    
-    const cajasTornillos = Math.ceil((ancho * largo * 4.5) / 100);
-    const baldesPintura = Math.ceil((ancho * largo) / 100);
-    const m2ManoObra = ancho * largo;
+    const arandelas = 1;
+
+    // Tornillos Autoperforantes
+    const cajasTornillos = Math.round((ancho * largo * 4) / 100) || 1;
+
+    // Pintura
+    const baldesPintura = numPorticos;
+
+    // Cálculo del costo exacto
+    const p120 = currentPrices.perfil120 || 7800;
+    const p80N = currentPrices.perfil80Negro || 5900;
+    const p80G = currentPrices.perfil80Galv || 7000;
+    const pAng = currentPrices.angulo || 5000;
+    const pChapa = currentPrices.chapa || 13200;
+    const pBulon = currentPrices.bulones || 900;
+    const pTuerca = currentPrices.tuercas || 240;
+    const pAran = currentPrices.arandelas || 3500;
+    const pTornillo = currentPrices.tornillos || 15000;
+    const pPintura = currentPrices.pintura || 45000;
+
+    const subtotalEstructura = 
+      (metros120 * p120) +
+      (metros80Negro * p80N) +
+      (metros80Galv * p80G) +
+      (metrosAngulo * pAng) +
+      (totalMetrosChapa * pChapa) +
+      (bulonesPortico * pBulon) +
+      (bulonesPortico * pTuerca) +
+      (arandelas * pAran) +
+      (cajasTornillos * pTornillo) +
+      (baldesPintura * pPintura);
 
     const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
     const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
     
     const nuevosItems: QuoteItem[] = [
-      { id: "mat-1", description: "Perfil C 120x50x1.6mm (Barras 12m)", unit: "barras", quantity: barras120, price: currentPrices.perfil120 || 7800 },
-      { id: "mat-2", description: "Perfil C 80x40x1.6mm Negro (Barras 12m)", unit: "barras", quantity: barras80Negro, price: currentPrices.perfil80Negro || 5900 },
-      { id: "mat-3", description: "Perfil C 80x40x1.6mm Galvanizado (Correas 12m)", unit: "barras", quantity: barras80Galv, price: currentPrices.perfil80Galv || 7000 },
-      { id: "mat-4", description: "Hierro Ángulo (Barras 6m)", unit: "barras", quantity: barrasAngulo, price: currentPrices.angulo || 5000 },
-      { id: "mat-5", description: "Chapa T101 C25 Galvanizada", unit: "metros", quantity: totalMetrosChapa, price: currentPrices.chapa || 13200 },
-      { id: "mat-6", description: "Bulones / Tornillos Pórticos", unit: "unid", quantity: bulonesPortico, price: currentPrices.bulones || 900 },
-      { id: "mat-7", description: "Tuercas Pórticos", unit: "unid", quantity: bulonesPortico, price: currentPrices.tuercas || 240 },
-      { id: "mat-8", description: "Arandela", unit: "kg", quantity: 1, price: currentPrices.arandelas || 3500 },
-      { id: "mat-9", description: 'Tornillos Autoperforantes 2 1/2" (Cajas x 100)', unit: "cajas", quantity: Math.max(1, cajasTornillos), price: currentPrices.tornillos || 15000 },
-      { id: "mat-10", description: "Convertidor de Óxido Gris (Baldes 4L)", unit: "baldes", quantity: Math.max(1, baldesPintura), price: currentPrices.pintura || 45000 },
-      { id: "mat-11", description: "Mano de Obra (Armado y Montaje)", unit: "m2", quantity: m2ManoObra, price: currentPrices.manoDeObra || 0 },
+      { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalEstructura },
       { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
     ];
 
-    return { nuevoTitulo, nuevosItems }
+    const nuevoDetalle = `Estructura:
+- Perfil C 120x50x1.6mm: ${metros120}m (${barras120} barras)
+- Perfil C 80x40x1.6mm Negro: ${metros80Negro}m (${barras80Negro} barras)
+- Perfil C 80x40 Galv (Correas): ${metros80Galv}m (${barras80Galv} barras)
+- Hierro Ángulo: ${metrosAngulo}m (${barrasAngulo} barras)
+Cubierta:
+- Chapa T101 C25: ${totalMetrosChapa}m (${cantidadChapas} chapas)
+Fijaciones:
+- Bulones y Tuercas: ${bulonesPortico} unid
+- Arandelas: ${arandelas} kg
+- Tornillos Autoperforantes: ${cajasTornillos} cajas
+Pintura:
+- Convertidor de Óxido: ${baldesPintura} baldes`;
+
+    return { nuevoTitulo, nuevosItems, nuevoDetalle }
   }
 
   useEffect(() => {
-    const { nuevoTitulo, nuevosItems } = calcularPresupuesto(config, prices)
+    const { nuevoTitulo, nuevosItems, nuevoDetalle } = calcularPresupuesto(config, prices)
     setTitle(nuevoTitulo)
     setItems(nuevosItems)
+    setMaterials(nuevoDetalle)
   }, [config, prices])
 
 
