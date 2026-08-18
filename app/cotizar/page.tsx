@@ -30,7 +30,7 @@ export default function CotizarPage() {
   const [materials, setMaterials] = useState("Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Chapas T101 / Tornillos")
   const [images, setImages] = useState<string[]>([])
   const [items, setItems] = useState<QuoteItem[]>([
-    { id: "5", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: 0 }
+    { id: "5", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: 0 }
   ])
 
   const pdfRef = useRef<HTMLDivElement>(null)
@@ -188,7 +188,7 @@ export default function CotizarPage() {
       nuevoTitulo,
       nuevosItems: [
         { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTinglado },
-        { id: "flete-2", description: "Transporte / Flete", unit: "viaje", quantity: 1, price: pFlete }
+        { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: pFlete }
       ]
     }
   }
