@@ -64,8 +64,7 @@ export default function CotizarPage() {
     perfil80Galv: 0,
     angulo: 0,
     chapa: 0, 
-    bulones: 0,
-    tuercas: 0,
+    bulonesJuego: 0,
     arandelas: 0,
     tornillos: 0, 
     pintura: 0, 
@@ -114,42 +113,38 @@ export default function CotizarPage() {
       const newPrices = { ...prices }
       
       lines.forEach(line => {
+         // Soporta CSVs con comillas (ej: "Tornillos, Caja")
+         // Para simplificar, si la hoja ahora es 3 columnas (Material, Unidad, Precio)
+         // nos basamos en el final de la línea para encontrar el precio.
          const parts = line.split(',')
-         if (parts.length < 4) return
-         const cat = parts[0].toLowerCase()
-         const mat = parts[1].toLowerCase()
-         const textMatch = `${cat} ${mat}`
+         if (parts.length < 2) return
          
-         const rawPrice = parts.slice(3).join(',')
+         const textMatch = line.toLowerCase()
+         // El precio suele estar al final de la línea en CSV limpios
+         const rawPrice = parts[parts.length - 1]
+         
          const parsePrecioInt = (val: string | number) => { 
            const n = parseFloat(String(val).replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, '')); 
-           return (isNaN(n) || n < 100) ? 0 : n; 
+           return (isNaN(n)) ? 0 : n; 
          };
          const p = parsePrecioInt(rawPrice)
          
          if (p <= 0) return 
 
-         if (textMatch.includes('120') || textMatch.includes('perfil c 120')) newPrices.perfil120 = p < 1000 ? 15000 : p
-         else if (textMatch.includes('80') || textMatch.includes('perfil c 80')) {
-           if (textMatch.includes('galv')) newPrices.perfil80Galv = p < 1000 ? 10000 : p
-           else newPrices.perfil80Negro = p < 1000 ? 10000 : p
+         // Mapeo directo de nombres
+         if (textMatch.includes('120') && textMatch.includes('perfil')) newPrices.perfil120 = p
+         else if (textMatch.includes('80') && textMatch.includes('perfil')) {
+           if (textMatch.includes('galv')) newPrices.perfil80Galv = p
+           else newPrices.perfil80Negro = p
          }
-         
-         if (textMatch.includes('ángulo') || textMatch.includes('angulo')) newPrices.angulo = p
-         if (textMatch.includes('chapa') || textMatch.includes('t101') || textMatch.includes('t-101')) newPrices.chapa = p
-         
-         if (cat.includes('fijaciones') || textMatch.includes('fijaciones')) {
-           if (textMatch.includes('bulón') || textMatch.includes('bulon') || textMatch.includes('unión')) newPrices.bulones = p
-           else if (textMatch.includes('tuerca')) newPrices.tuercas = p
-           else if (textMatch.includes('arandela')) newPrices.arandelas = p
-           else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
-         } else if (textMatch.includes('tornillo')) {
-           newPrices.tornillos = p
-         }
-         
-         if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('antióxido')) newPrices.pintura = p
-         if (textMatch.includes('mano de obra') || textMatch.includes('armado') || textMatch.includes('soldadura')) newPrices.manoDeObra = p
-         if (textMatch.includes('flete') || textMatch.includes('logistica') || textMatch.includes('traslado')) newPrices.flete = p
+         else if (textMatch.includes('ángulo') || textMatch.includes('angulo')) newPrices.angulo = p
+         else if (textMatch.includes('chapa') || textMatch.includes('t101')) newPrices.chapa = p
+         else if (textMatch.includes('bulón') || textMatch.includes('bulon') || textMatch.includes('juego')) newPrices.bulonesJuego = p
+         else if (textMatch.includes('arandela')) newPrices.arandelas = p
+         else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
+         else if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('óxido')) newPrices.pintura = p
+         else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
+         else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
       })
       
       console.log("DETALLE MATERIALES CSV MAREADOS:", newPrices)
@@ -174,57 +169,55 @@ export default function CotizarPage() {
     const numColumnas = numPorticos * 2;
     const numCabreadas = numPorticos;
 
-    // Perfiles 120
+    // Perfiles 120 (Barras)
     const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
 
-    // Perfiles 80 Negro
+    // Perfiles 80 Negro (Barras)
     const barras80Negro = Math.round(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
 
-    // Correas 80 Galv
+    // Correas 80 Galv (Barras)
     const lineasCorreas = Math.ceil(ancho / 1) + 1;
-    const barras80Galv = lineasCorreas * Math.ceil(largo / 12);
+    const barras80Galv = Math.ceil((lineasCorreas * largo) / 12);
 
-    // Hierro Ángulo
+    // Hierro Ángulo (Barras)
     const barrasAngulo = isUnAgua ? 1 : 2;
 
-    // Chapas
-    const cantidadChapas = Math.ceil(ancho / 1.0);
-    const largoChapa = largo * 1.06;
-    const totalMetrosChapa = Math.round(cantidadChapas * largoChapa);
+    // Chapas (Metros)
+    const totalMetrosChapa = Math.ceil(ancho / 1.0) * largo * 1.06;
 
-    // Bulones y Tuercas
-    const bulonesPortico = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
-    const arandelas = 1;
+    // Bulones y Tuercas (Juegos)
+    const bulonesJuegos = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
+    
+    // Arandelas (Kg)
+    const arandelaKg = Math.max(1, Math.round((ancho * largo) / 100));
 
-    // Tornillos Autoperforantes
-    const cajasTornillos = Math.round((ancho * largo * 4) / 100) || 1;
+    // Tornillos Autoperforantes (Cajas)
+    const tornillosCajas = Math.max(2, Math.round((ancho * largo * 4) / 100));
 
-    // Pintura
-    const baldesPintura = numPorticos;
+    // Pintura (Baldes)
+    const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
 
-    // Cálculo del costo exacto (Precios del CSV son por metro, se multiplica por el largo de barra)
-    const p120 = currentPrices.perfil120 || 7800;
-    const p80N = currentPrices.perfil80Negro || 5900;
-    const p80G = currentPrices.perfil80Galv || 7000;
-    const pAng = currentPrices.angulo || 5000;
+    // Cálculo del costo exacto usando precios base de CSV que YA son por unidad/barra
+    const p120 = currentPrices.perfil120 || 93600;
+    const p80N = currentPrices.perfil80Negro || 70800;
+    const p80G = currentPrices.perfil80Galv || 84000;
+    const pAng = currentPrices.angulo || 30000;
     const pChapa = currentPrices.chapa || 13200;
-    const pBulon = currentPrices.bulones || 900;
-    const pTuerca = currentPrices.tuercas || 240;
+    const pBulonJuego = currentPrices.bulonesJuego || 1140;
     const pAran = currentPrices.arandelas || 3500;
     const pTornillo = currentPrices.tornillos || 15000;
     const pPintura = currentPrices.pintura || 45000;
 
     const subtotalEstructura = 
-      (barras120 * (p120 * 12)) +
-      (barras80Negro * (p80N * 12)) +
-      (barras80Galv * (p80G * 12)) +
-      (barrasAngulo * (pAng * 6)) +
-      (totalMetrosChapa * pChapa) +
-      (bulonesPortico * pBulon) +
-      (bulonesPortico * pTuerca) +
-      (arandelas * pAran) +
-      (cajasTornillos * pTornillo) +
-      (baldesPintura * pPintura);
+      (barras120 * p120) +
+      (barras80Negro * p80N) +
+      (barras80Galv * p80G) +
+      (barrasAngulo * pAng) +
+      (Math.ceil(totalMetrosChapa) * pChapa) +
+      (bulonesJuegos * pBulonJuego) +
+      (arandelaKg * pAran) +
+      (tornillosCajas * pTornillo) +
+      (pinturaBaldes * pPintura);
 
     const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
     const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
