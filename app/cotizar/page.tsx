@@ -20,7 +20,7 @@ const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
   { ssr: false }
 )
-const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSNAnEEx_wSTo1oGgLZwvwMlnOVptzAwB6KD1IUozgo6fmQixWKLIavrMVavx8swvsVISMYGmaLStJq/pub?output=csv"
+const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSF7Mzej2vMSn1h2u3DSr4N4YuMnwpW9KmLzkT6WGW3lIWGQWMUqDxGTeHcFEYCjijBU8rBrNwXCqLn/pub?output=csv"
 
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
