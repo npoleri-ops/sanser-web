@@ -1,40 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare, MessageCircle } from "lucide-react"
-import { CONTACT } from "@/lib/shed-config"
+import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare } from "lucide-react"
+import { Turnstile } from "@marsidev/react-turnstile"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [turnstileToken, setTurnstileToken] = useState<string>("")
+  const mountTimeRef = useRef<number>(0)
+
+  useEffect(() => {
+    mountTimeRef.current = Date.now()
+  }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setStatus("loading")
+    
     const form = e.currentTarget
+    const formData = new FormData(form)
+    
+    const empresaUrl = formData.get("empresa_url") as string
+    
+    // Honeypot check: si está completo, simulamos éxito y abortamos
+    if (empresaUrl && empresaUrl.trim() !== "") {
+      setStatus("success")
+      form.reset()
+      return
+    }
+
+    // Time-trap check: menos de 2 segundos, simulamos éxito y abortamos
+    const timeElapsed = Date.now() - mountTimeRef.current
+    if (timeElapsed < 2000) {
+      setStatus("success")
+      form.reset()
+      return
+    }
+
+    setStatus("loading")
     
     try {
-      // Reemplazar la URL con el endpoint real de Formspree (ej: https://formspree.io/f/xbjv...)
-      // O si se usa Web3Forms: fetch("https://api.web3forms.com/submit", { ... })
-      const endpoint = "https://formspree.io/f/xyegjjdz"
-      
-      const formData = new FormData(form)
-      const clientName = formData.get("name") || "Cliente"
-      formData.set("_subject", `Nueva consulta de ${clientName} (SANSER Web)`)
-      
-      const response = await fetch(endpoint, {
+      const payload = {
+        name: formData.get("name"),
+        phone: formData.get("phone"),
+        message: formData.get("message"),
+        empresa_url: empresaUrl,
+        mountTime: mountTimeRef.current.toString(),
+        turnstileToken
+      }
+
+      const response = await fetch("/api/contact", {
         method: "POST",
-        body: formData,
         headers: {
-          Accept: "application/json",
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(payload),
       })
       
       if (response.ok) {
         setStatus("success")
         form.reset()
       } else {
-        // Fallback simulación para demostración si el ID no está configurado
+        // Fallback simulación para demostración si el API falla
         setTimeout(() => {
           setStatus("success")
           form.reset()
@@ -85,6 +112,15 @@ export function ContactForm() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* HONEYPOT FIELD - Oculto visualmente */}
+                <input
+                  type="text"
+                  name="empresa_url"
+                  style={{ display: "none", position: "absolute", opacity: 0, pointerEvents: "none" }}
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-medium text-foreground">
                     Nombre completo
@@ -136,12 +172,18 @@ export function ContactForm() {
                   </div>
                 </div>
 
-                {/* Email configurado para recibir */}
-                <input type="hidden" name="_replyto" value="sansermetalurgica@gmail.com" />
+                {/* Turnstile Widget */}
+                <div className="flex justify-center pt-2">
+                  <Turnstile
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onError={() => setStatus("error")}
+                  />
+                </div>
 
                 <Button 
                   type="submit" 
-                  disabled={status === "loading"}
+                  disabled={status === "loading" || !turnstileToken}
                   className="w-full gap-2 bg-[#F97316] text-white hover:bg-[#EA580C]"
                 >
                   {status === "loading" ? (
