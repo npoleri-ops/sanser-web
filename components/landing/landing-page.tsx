@@ -89,7 +89,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
         <div className="pointer-events-none absolute inset-0 hidden lg:block bg-gradient-to-r from-background via-background/70 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 hidden lg:block bg-gradient-to-t from-background to-transparent" />
 
-        <div className="relative z-10 mx-auto flex flex-1 flex-col justify-center px-4 py-6 sm:px-6 lg:h-full lg:max-w-7xl lg:py-0">
+        <div className="pointer-events-none relative z-10 mx-auto flex flex-1 flex-col justify-center px-4 py-6 sm:px-6 lg:h-full lg:max-w-7xl lg:py-0">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/40 bg-[#1E293B] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F97316]">
               <span className="size-1.5 rounded-full bg-[#F97316] animate-pulse" />
@@ -102,7 +102,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
               Diseñamos, fabricamos e instalamos tinglados con perfiles C reticulados.
               Configurá el tuyo en 3D y recibí un presupuesto al instante.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="pointer-events-auto mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 onClick={onGoEditor}
                 size="lg"

@@ -21,7 +21,7 @@ export function HeroScene() {
   return (
     <ErrorBoundary>
       <div 
-        className="relative h-full w-full"
+        className="pointer-events-auto relative h-full w-full"
         onPointerDown={() => {
           if (!interacted) setInteracted(true)
         }}
@@ -34,7 +34,7 @@ export function HeroScene() {
       >
         {/* Interaction Hint Badge */}
         <div 
-          className={`pointer-events-none absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 sm:left-auto sm:right-8 sm:translate-x-0 items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 backdrop-blur-md transition-opacity duration-1000 ${interacted ? "opacity-0" : "opacity-100"}`}
+          className={`pointer-events-none absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 sm:left-auto sm:right-8 sm:translate-x-0 items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 backdrop-blur-md transition-opacity duration-1000 ${interacted ? "opacity-0" : "opacity-100"}`}
         >
           <style>{`
             @keyframes sway {
