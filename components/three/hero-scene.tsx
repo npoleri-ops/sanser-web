@@ -34,7 +34,7 @@ export function HeroScene() {
       >
         {/* Interaction Hint Badge */}
         <div 
-          className={`pointer-events-none absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 sm:left-auto sm:right-8 sm:translate-x-0 items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 backdrop-blur-md transition-opacity duration-1000 ${interacted ? "opacity-0" : "opacity-100"}`}
+          className={`pointer-events-none absolute bottom-4 right-4 z-30 flex items-center gap-1.5 sm:gap-3 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 sm:px-4 sm:py-2.5 backdrop-blur-md transition-opacity duration-500 ${interacted ? "opacity-0" : "opacity-100"}`}
         >
           <style>{`
             @keyframes sway {
@@ -42,11 +42,11 @@ export function HeroScene() {
               50% { transform: translateX(15%) rotate(10deg); }
             }
           `}</style>
-          <div className="flex size-7 items-center justify-center rounded-full bg-[#F97316]/20">
-            <Hand className="size-4 text-[#F97316]" style={{ animation: "sway 2s ease-in-out infinite" }} />
+          <div className="flex size-5 sm:size-7 items-center justify-center rounded-full bg-[#F97316]/20">
+            <Hand className="size-[14px] sm:size-4 text-[#F97316]" style={{ animation: "sway 2s ease-in-out infinite" }} />
           </div>
-          <span className="text-sm font-medium text-white/90">
-            <span className="sm:hidden">Deslizá para rotar en 3D</span>
+          <span className="font-medium text-white/90 text-xs sm:text-sm">
+            <span className="sm:hidden">Deslizá para rotar 3D</span>
             <span className="hidden sm:inline">Arrastrá para rotar en 3D</span>
           </span>
         </div>
