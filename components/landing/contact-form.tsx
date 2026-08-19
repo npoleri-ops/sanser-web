@@ -3,11 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare } from "lucide-react"
-import { Turnstile } from "@marsidev/react-turnstile"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [turnstileToken, setTurnstileToken] = useState<string>("")
   const mountTimeRef = useRef<number>(0)
 
   useEffect(() => {
@@ -45,8 +43,7 @@ export function ContactForm() {
         phone: formData.get("phone"),
         message: formData.get("message"),
         empresa_url: empresaUrl,
-        mountTime: mountTimeRef.current.toString(),
-        turnstileToken
+        mountTime: mountTimeRef.current.toString()
       }
 
       const response = await fetch("/api/contact", {
@@ -172,18 +169,9 @@ export function ContactForm() {
                   </div>
                 </div>
 
-                {/* Turnstile Widget */}
-                <div className="flex justify-center pt-2">
-                  <Turnstile
-                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
-                    onSuccess={(token) => setTurnstileToken(token)}
-                    onError={() => setStatus("error")}
-                  />
-                </div>
-
                 <Button 
                   type="submit" 
-                  disabled={status === "loading" || !turnstileToken}
+                  disabled={status === "loading"}
                   className="w-full gap-2 bg-[#F97316] text-white hover:bg-[#EA580C]"
                 >
                   {status === "loading" ? (

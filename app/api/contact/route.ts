@@ -8,8 +8,7 @@ export async function POST(req: Request) {
       phone, 
       message, 
       empresa_url, 
-      mountTime,
-      turnstileToken 
+      mountTime
     } = body;
 
     // 1. Honeypot check (Trampa invisible para bots)
@@ -29,29 +28,6 @@ export async function POST(req: Request) {
       // Si no viene el tiempo, es sospechoso, pero por ahora podríamos ser permisivos. 
       // Por mayor seguridad, lo descartamos.
       return NextResponse.json({ success: true, message: "Consulta enviada" }, { status: 200 });
-    }
-
-    // 3. Turnstile check (si se envió token)
-    if (!turnstileToken) {
-      return NextResponse.json({ success: false, message: "Falta validación de seguridad." }, { status: 400 });
-    }
-
-    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-    if (turnstileSecret) {
-      const formData = new FormData();
-      formData.append("secret", turnstileSecret);
-      formData.append("response", turnstileToken);
-
-      const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-        method: "POST",
-        body: formData,
-      });
-
-      const turnstileData = await turnstileRes.json();
-
-      if (!turnstileData.success) {
-        return NextResponse.json({ success: false, message: "Validación de seguridad fallida." }, { status: 400 });
-      }
     }
 
     // Enviar a Formspree u otro destino (como el endpoint original https://formspree.io/f/xyegjjdz)
