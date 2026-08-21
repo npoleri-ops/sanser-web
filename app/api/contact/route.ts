@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createLead, readRequestContext } from "@/lib/crm/leads";
+import { isDatabaseConfigured } from "@/lib/crm/db";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +30,32 @@ export async function POST(req: Request) {
       // Si no viene el tiempo, es sospechoso, pero por ahora podríamos ser permisivos. 
       // Por mayor seguridad, lo descartamos.
       return NextResponse.json({ success: true, message: "Consulta enviada" }, { status: 200 });
+    }
+
+    // Guardar en el CRM antes de reenviar. Si la base falla no se pierde la
+    // consulta: Formspree sigue siendo la vía de aviso por correo.
+    if (isDatabaseConfigured()) {
+      try {
+        await createLead(
+          {
+            kind: "contacto",
+            name: name || null,
+            phone: phone || null,
+            message: message || null,
+            sourcePath: body.sourcePath || "/",
+          },
+          readRequestContext(req),
+        );
+      } catch (dbError) {
+        console.error("No se pudo guardar el contacto en el CRM", dbError);
+      }
+    }
+
+    // En local no se reenvía: si no, cada prueba del formulario acaba como correo
+    // real en la casilla de SANSER. Poné FORMSPREE_ENABLED=true para probarlo.
+    if (process.env.NODE_ENV !== "production" && process.env.FORMSPREE_ENABLED !== "true") {
+      console.log("[contacto] Guardado en el CRM; reenvío a Formspree omitido fuera de producción");
+      return NextResponse.json({ success: true, message: "Consulta enviada con éxito" });
     }
 
     // Enviar a Formspree u otro destino (como el endpoint original https://formspree.io/f/xyegjjdz)

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"
 import { MessageCircle, Phone, X } from "lucide-react"
 import { CONTACT } from "@/lib/shed-config"
+import { trackLead } from "@/lib/crm/track"
 
 export function WhatsAppModal() {
   const [isOpen, setIsOpen] = useState(false)
@@ -40,7 +41,10 @@ export function WhatsAppModal() {
             href={message ? `${CONTACT.whatsappBase}?text=${encodeURIComponent(message)}` : CONTACT.whatsappBase}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              trackLead({ kind: "whatsapp", message: message || "Clic en WhatsApp" })
+              setIsOpen(false)
+            }}
             className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
           >
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">
@@ -58,7 +62,10 @@ export function WhatsAppModal() {
             href={message ? `${CONTACT.whatsappSecondaryBase}?text=${encodeURIComponent(message)}` : CONTACT.whatsappSecondaryBase}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              trackLead({ kind: "whatsapp", message: message || "Clic en WhatsApp" })
+              setIsOpen(false)
+            }}
             className="group relative flex items-center gap-4 rounded-lg border border-[#F97316]/20 bg-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-[#F97316] hover:bg-[#F97316]/5"
           >
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#F97316]/10 text-[#F97316] group-hover:bg-[#F97316] group-hover:text-white transition-colors">

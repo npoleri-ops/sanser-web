@@ -8,6 +8,7 @@ import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { DEFAULT_CONFIG, TYPE_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
+import { trackLead } from "@/lib/crm/track"
 
 export interface QuoteItem {
   id: string;
@@ -667,6 +668,16 @@ export default function CotizarPage() {
       const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
       doc.save(`Presupuesto_SANSER_${safeTitle}.pdf`)
 
+      // Queda registrado en el CRM: qué se cotizó, por cuánto y para quién.
+      trackLead({
+        kind: "presupuesto",
+        phone: phone || null,
+        cuit: cuit || null,
+        quoteTitle: title,
+        quoteTotal: total,
+        quoteConfig: { ...config, items },
+      })
+
     } catch (error) {
       console.error('Error al generar el PDF', error)
       alert(`Error al generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`)
@@ -688,6 +699,15 @@ export default function CotizarPage() {
     const message = `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\nTotal estimado: *$ ${totalStr}*\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
     const encodedMessage = encodeURIComponent(message)
     
+    trackLead({
+      kind: "whatsapp",
+      phone,
+      cuit: cuit || null,
+      message: `Envío de presupuesto: ${title}`,
+      quoteTitle: title,
+      quoteTotal: total,
+    })
+
     window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank')
   }
 

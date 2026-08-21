@@ -10,8 +10,34 @@ services:
       # node_modules y .next viven en el contenedor, no en el host
       - /app/node_modules
       - next-cache:/app/.next
+    environment:
+      # En producción esto apunta a Neon; en local, al Postgres de aquí al lado.
+      DATABASE_URL: postgres://sanser:sanser@db:5432/sanser
+      ADMIN_PASSWORD: sanser-local
+      AUTH_SECRET: dev-secret-no-usar-en-produccion
+    depends_on:
+      db:
+        condition: service_healthy
     stdin_open: true
     tty: true
 
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sanser
+      POSTGRES_PASSWORD: sanser
+      POSTGRES_DB: sanser
+    ports:
+      # 5432 del host ya lo ocupan otros proyectos; el contenedor sigue en el suyo.
+      - "5547:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sanser -d sanser"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 volumes:
   next-cache:
+  db-data:

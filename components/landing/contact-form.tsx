@@ -43,7 +43,8 @@ export function ContactForm() {
         phone: formData.get("phone"),
         message: formData.get("message"),
         empresa_url: empresaUrl,
-        mountTime: mountTimeRef.current.toString()
+        mountTime: mountTimeRef.current.toString(),
+        sourcePath: window.location.pathname
       }
 
       const response = await fetch("/api/contact", {
