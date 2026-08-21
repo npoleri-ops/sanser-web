@@ -1,0 +1,17 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      # node_modules y .next viven en el contenedor, no en el host
+      - /app/node_modules
+      - next-cache:/app/.next
+    stdin_open: true
+    tty: true
+
+volumes:
+  next-cache:

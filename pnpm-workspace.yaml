@@ -1,2 +1,5 @@
-allowBuilds:
-  msw: set this to true or false
+# core-js solo imprime un banner en su postinstall y msw entra como dependencia
+# transitiva del CLI de shadcn (no se usa para mocking aquí): no necesitan build.
+ignoredBuiltDependencies:
+  - core-js
+  - msw
