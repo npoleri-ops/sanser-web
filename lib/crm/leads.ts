@@ -1,5 +1,12 @@
 import { query } from "./db"
-import { LEAD_STATUSES, type Lead, type LeadKind, type LeadStatus, type NewLead } from "./types"
+import {
+  LEAD_STATUSES,
+  type Lead,
+  type LeadKind,
+  type LeadStats,
+  type LeadStatus,
+  type NewLead,
+} from "./types"
 
 /** Contexto de la visita que sacamos de las cabeceras de la petición. */
 export interface RequestContext {
@@ -41,8 +48,10 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
     `INSERT INTO leads (
        kind, name, phone, cuit, message,
        quote_title, quote_total, quote_config,
-       source_path, referrer, user_agent, ip, city, region, country
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       source_path, referrer, user_agent, ip, city, region, country,
+       status, notes
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+               COALESCE($16, 'nuevo'), $17)
      RETURNING *`,
     [
       lead.kind,
@@ -60,6 +69,8 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
       ctx.city,
       ctx.region,
       ctx.country,
+      lead.status ?? null,
+      lead.notes ?? null,
     ],
   )
   return rows[0]
@@ -71,7 +82,15 @@ export interface LeadFilters {
   search?: string
 }
 
-export async function listLeads(filters: LeadFilters = {}, limit = 200): Promise<Lead[]> {
+export interface LeadPage {
+  leads: Lead[]
+  total: number
+}
+
+export async function listLeads(
+  filters: LeadFilters = {},
+  { limit = 25, offset = 0 }: { limit?: number; offset?: number } = {},
+): Promise<LeadPage> {
   const where: string[] = []
   const params: unknown[] = []
 
@@ -91,14 +110,27 @@ export async function listLeads(filters: LeadFilters = {}, limit = 200): Promise
   }
 
   params.push(limit)
+  const limitParam = params.length
+  params.push(offset)
 
-  return query<Lead>(
-    `SELECT * FROM leads
+  // COUNT(*) OVER() devuelve el total sin filtrar por página en la misma
+  // consulta: nos ahorra un segundo viaje a la base para el paginador.
+  const rows = await query<Lead & { total_count: string }>(
+    `SELECT *, COUNT(*) OVER()::text AS total_count FROM leads
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
      ORDER BY created_at DESC
-     LIMIT $${params.length}`,
+     LIMIT $${limitParam} OFFSET $${params.length}`,
     params,
   )
+
+  return {
+    leads: rows.map(row => {
+      const lead = { ...row } as Partial<Lead & { total_count?: string }>
+      delete lead.total_count
+      return lead as Lead
+    }),
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  }
 }
 
 export async function updateLead(
@@ -124,12 +156,6 @@ export async function updateLead(
     params,
   )
   return rows[0] ?? null
-}
-
-export interface LeadStats {
-  total: number
-  nuevos: number
-  porTipo: Record<LeadKind, number>
 }
 
 export async function getStats(): Promise<LeadStats> {

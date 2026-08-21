@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
-import { listLeads, updateLead } from "@/lib/crm/leads"
-import { LEAD_KINDS, LEAD_STATUSES, type LeadKind, type LeadStatus } from "@/lib/crm/types"
+import { createLead, getStats, listLeads, updateLead } from "@/lib/crm/leads"
+import {
+  DEFAULT_PER_PAGE,
+  LEAD_KINDS,
+  LEAD_STATUSES,
+  type LeadKind,
+  type LeadStatus,
+} from "@/lib/crm/types"
+
+const MAX_PER_PAGE = 500
 
 export async function GET(req: Request) {
   if (!(await isAuthenticated())) {
@@ -13,13 +21,62 @@ export async function GET(req: Request) {
   const status = params.get("status")
   const search = params.get("search")
 
-  const leads = await listLeads({
-    kind: LEAD_KINDS.includes(kind as LeadKind) ? (kind as LeadKind) : undefined,
-    status: LEAD_STATUSES.includes(status as LeadStatus) ? (status as LeadStatus) : undefined,
-    search: search || undefined,
-  })
+  const page = Math.max(1, Number(params.get("page")) || 1)
+  const perPage = Math.min(MAX_PER_PAGE, Math.max(1, Number(params.get("perPage")) || DEFAULT_PER_PAGE))
 
-  return NextResponse.json({ ok: true, leads })
+  // Las cifras de cabecera son del total, no de lo filtrado: si no, cambiarían
+  // al buscar y dejarían de servir como foto del estado del negocio.
+  const [{ leads, total }, stats] = await Promise.all([
+    listLeads(
+      {
+        kind: LEAD_KINDS.includes(kind as LeadKind) ? (kind as LeadKind) : undefined,
+        status: LEAD_STATUSES.includes(status as LeadStatus) ? (status as LeadStatus) : undefined,
+        search: search || undefined,
+      },
+      { limit: perPage, offset: (page - 1) * perPage },
+    ),
+    getStats(),
+  ])
+
+  return NextResponse.json({ ok: true, leads, total, page, perPage, stats })
+}
+
+/** Alta manual desde el panel: la consulta que entró por teléfono o en persona. */
+export async function POST(req: Request) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ ok: false }, { status: 401 })
+  }
+
+  const body = await req.json()
+  const kind = body?.kind as LeadKind
+
+  if (!LEAD_KINDS.includes(kind)) {
+    return NextResponse.json({ ok: false, message: "Tipo de lead no válido" }, { status: 400 })
+  }
+  if (body.status && !LEAD_STATUSES.includes(body.status as LeadStatus)) {
+    return NextResponse.json({ ok: false, message: "Estado no válido" }, { status: 400 })
+  }
+
+  const total = Number(body.quoteTotal)
+
+  const lead = await createLead(
+    {
+      kind,
+      name: body.name || null,
+      phone: body.phone || null,
+      cuit: body.cuit || null,
+      message: body.message || null,
+      quoteTitle: body.quoteTitle || null,
+      quoteTotal: Number.isFinite(total) && total > 0 ? total : null,
+      status: (body.status as LeadStatus) || null,
+      notes: body.notes || null,
+      // Marca de dónde salió: no vino del sitio, lo cargó alguien a mano.
+      sourcePath: "alta manual",
+    },
+    { referrer: null, userAgent: null, ip: null, city: null, region: null, country: null },
+  )
+
+  return NextResponse.json({ ok: true, lead })
 }
 
 export async function PATCH(req: Request) {

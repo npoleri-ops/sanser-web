@@ -1,3 +1,5 @@
+export const DEFAULT_PER_PAGE = 25
+
 export const LEAD_KINDS = ["contacto", "presupuesto", "whatsapp"] as const
 export type LeadKind = (typeof LEAD_KINDS)[number]
 
@@ -41,6 +43,12 @@ export interface Lead {
   country: string | null
 }
 
+export interface LeadStats {
+  total: number
+  nuevos: number
+  porTipo: Record<LeadKind, number>
+}
+
 export interface NewLead {
   kind: LeadKind
   name?: string | null
@@ -51,4 +59,8 @@ export interface NewLead {
   quoteTotal?: number | null
   quoteConfig?: Record<string, unknown> | null
   sourcePath?: string | null
+  // Sólo se usan en el alta manual desde el panel: los leads que entran solos
+  // nacen siempre como 'nuevo' y sin notas.
+  status?: LeadStatus | null
+  notes?: string | null
 }

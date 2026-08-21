@@ -1,5 +1,6 @@
 import { isAuthenticated, missingCrmConfig } from "@/lib/crm/auth"
-import { listLeads } from "@/lib/crm/leads"
+import { getStats, listLeads } from "@/lib/crm/leads"
+import { DEFAULT_PER_PAGE } from "@/lib/crm/types"
 import { LeadsBoard } from "./leads-board"
 import { LoginForm } from "./login-form"
 
@@ -25,5 +26,17 @@ export default async function AdminPage() {
     return <LoginForm />
   }
 
-  return <LeadsBoard initialLeads={await listLeads()} />
+  const [{ leads, total }, stats] = await Promise.all([
+    listLeads({}, { limit: DEFAULT_PER_PAGE }),
+    getStats(),
+  ])
+
+  return (
+    <LeadsBoard
+      initialLeads={leads}
+      initialTotal={total}
+      initialStats={stats}
+      perPage={DEFAULT_PER_PAGE}
+    />
+  )
 }
