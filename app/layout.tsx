@@ -27,25 +27,20 @@ export const metadata: Metadata = {
     google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
   },
   title: {
-    default: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
+    default: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
     template: '%s | SANSER Metalúrgica',
   },
   description:
-    'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
+    'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
   generator: 'Next.js',
   applicationName: 'SANSER Metalúrgica',
   referrer: 'origin-when-cross-origin',
   keywords: [
-    'tinglados Misiones',
-    'galpones Jardín América',
-    'estructuras metálicas Misiones',
-    'perfiles C galvanizados',
-    'cabreadas reticuladas',
-    'metalúrgica Misiones',
-    'SANSER',
-    'cotizador tinglados',
-    'presupuesto galpón',
-    'montaje estructuras acero noreste argentino',
+    'tinglados misiones',
+    'galpones jardin america',
+    'estructuras metalicas',
+    'perfiles C reticulados',
+    'sanser metalurgica',
   ],
   authors: [{ name: 'SANSER Metalúrgica', url: BASE_URL }],
   creator: 'SANSER Metalúrgica',
@@ -55,9 +50,9 @@ export const metadata: Metadata = {
     apple: '/icon.png',
   },
   openGraph: {
-    title: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
+    title: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
     description:
-      'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
+      'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
     url: 'https://www.sansermetalurgica.com.ar/',
     siteName: 'SANSER Metalúrgica',
     images: [
@@ -73,9 +68,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SANSER Metalúrgica | Tinglados, Galpones y Montaje en todo Argentina',
+    title: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
     description:
-      'Diseña tu estructura 3D en tiempo real. Fabricación, fletes coordinados e instalación/montaje en obra para Patagonia, Cuyo, Centro y todo el país.',
+      'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
     images: ['/og-image.png'],
   },
   robots: {
