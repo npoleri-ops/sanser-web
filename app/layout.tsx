@@ -27,11 +27,11 @@ export const metadata: Metadata = {
     google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
   },
   title: {
-    default: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
+    default: 'SANSER Metalúrgica | Tinglados y Galpones en Misiones',
     template: '%s | SANSER Metalúrgica',
   },
   description:
-    'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
+    'Fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados. Cotizá en 3D online.',
   generator: 'Next.js',
   applicationName: 'SANSER Metalúrgica',
   referrer: 'origin-when-cross-origin',
@@ -50,9 +50,9 @@ export const metadata: Metadata = {
     apple: '/icon.png',
   },
   openGraph: {
-    title: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
+    title: 'SANSER Metalúrgica | Tinglados y Galpones en Misiones',
     description:
-      'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
+      'Fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados. Cotizá en 3D online.',
     url: 'https://www.sansermetalurgica.com.ar/',
     siteName: 'SANSER Metalúrgica',
     images: [
@@ -68,9 +68,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SANSER Metalúrgica | Tinglados, Galpones y Estructuras de Acero en Misiones',
+    title: 'SANSER Metalúrgica | Tinglados y Galpones en Misiones',
     description:
-      'Diseño, fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados en Misiones. Cotizá tu estructura en 3D al instante.',
+      'Fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados. Cotizá en 3D online.',
     images: ['/og-image.png'],
   },
   robots: {
