@@ -64,7 +64,7 @@ export function ContactForm() {
           form.reset()
         }, 1200)
       }
-    } catch (error) {
+    } catch {
       setStatus("error")
     }
   }

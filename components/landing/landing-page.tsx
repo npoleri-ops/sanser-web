@@ -7,7 +7,6 @@ import { ArrowRight, Boxes, Factory, HardHat, Ruler, Wrench, MessageCircle } fro
 import { Footer } from "@/components/site/footer"
 import { Button } from "@/components/ui/button"
 import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
-import { CONTACT } from "@/lib/shed-config"
 import { RoofTrussBlueprint } from "@/components/landing/roof-truss-blueprint"
 import { ContactForm } from "@/components/landing/contact-form"
 

@@ -92,8 +92,6 @@ function useBuilt(config: ShedConfig): Built {
 
     const halfW = W / 2
     const halfL = L / 2
-    const gableRise = halfW * Math.tan(pitch)
-    const shedRise = W * Math.tan((8 * Math.PI) / 180)
 
     // Frame positions along length
     const framesZ: number[] = []
@@ -561,8 +559,6 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
     apply(gCovering.current, roofMat, 3, 6)
     apply(gCovering.current, wallMat, 3, 6)
   })
-
-  const halfW = config.width / 2
 
   return (
     <group>

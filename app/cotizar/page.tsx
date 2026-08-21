@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw } from "lucide-react"
 import jsPDF from "jspdf"
+import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
-import { DEFAULT_CONFIG, CONTACT, computeMateriales, TYPE_LABEL, ShedType } from "@/lib/shed-config"
+import { DEFAULT_CONFIG, TYPE_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 
 export interface QuoteItem {
   id: string;
@@ -20,6 +21,110 @@ const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
   { ssr: false }
 )
+// jspdf-autotable cuelga lastAutoTable del doc, pero no lo declara en los tipos de jsPDF.
+type DocWithAutoTable = jsPDF & { lastAutoTable: { finalY: number } }
+
+// El canvas de react-three-fiber expone su root en __r3f para poder re-renderizar a mano.
+type R3FCanvas = HTMLCanvasElement & {
+  __r3f?: { root: { getState: () => { gl: THREE.WebGLRenderer; camera: THREE.Camera; scene: THREE.Scene } } }
+}
+
+// Fuera del componente: Date.now() durante el render daría resultados inestables.
+const buildQuoteNumber = () =>
+  'SP-' + new Date().getFullYear().toString().slice(-2) + String(Date.now()).slice(-4)
+
+const INITIAL_PRICES = {
+  perfil120: 0,
+  perfil80Negro: 0,
+  perfil80Galv: 0,
+  angulo: 0,
+  chapa: 0,
+  bulonesJuego: 0,
+  arandelas: 0,
+  tornillos: 0,
+  pintura: 0,
+  manoDeObra: 0,
+  flete: 0,
+}
+type Prices = typeof INITIAL_PRICES
+
+// Los inputs de medidas pueden quedar vacíos mientras se escribe: el estado guarda
+// esa cadena vacía aunque ShedConfig declare number.
+const EMPTY_NUMBER = "" as unknown as number
+
+// Cálculo puro: sólo depende de sus argumentos, por eso vive fuera del componente.
+const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) => {
+  const ancho = currentConfig.width || 0;
+  const largo = currentConfig.length || 0;
+  const isUnAgua = currentConfig.type === "shed";
+
+  const numPorticos = Math.ceil(largo / 5) + 1;
+  const numColumnas = numPorticos * 2;
+  const numCabreadas = numPorticos;
+
+  // Perfiles 120 (Barras)
+  const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
+
+  // Perfiles 80 Negro (Barras)
+  const barras80Negro = Math.round(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
+
+  // Correas 80 Galv (Barras)
+  const lineasCorreas = Math.ceil(ancho / 1) + 1;
+  const barras80Galv = Math.ceil((lineasCorreas * largo) / 12);
+
+  // Hierro Ángulo (Barras)
+  const barrasAngulo = isUnAgua ? 1 : 2;
+
+  // Chapas (Metros)
+  const totalMetrosChapa = Math.ceil(ancho / 1.0) * largo * 1.06;
+
+  // Bulones y Tuercas (Juegos)
+  const bulonesJuegos = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
+  
+  // Arandelas (Kg)
+  const arandelaKg = Math.max(1, Math.round((ancho * largo) / 100));
+
+  // Tornillos Autoperforantes (Cajas)
+  const tornillosCajas = Math.max(2, Math.round((ancho * largo * 4) / 100));
+
+  // Pintura (Baldes)
+  const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
+
+  // Cálculo del costo exacto usando precios base de CSV que YA son por unidad/barra
+  const p120 = currentPrices.perfil120 || 93600;
+  const p80N = currentPrices.perfil80Negro || 70800;
+  const p80G = currentPrices.perfil80Galv || 84000;
+  const pAng = currentPrices.angulo || 30000;
+  const pChapa = currentPrices.chapa || 13200;
+  const pBulonJuego = currentPrices.bulonesJuego || 1140;
+  const pAran = currentPrices.arandelas || 3500;
+  const pTornillo = currentPrices.tornillos || 15000;
+  const pPintura = currentPrices.pintura || 45000;
+
+  const subtotalEstructura = 
+    (barras120 * p120) +
+    (barras80Negro * p80N) +
+    (barras80Galv * p80G) +
+    (barrasAngulo * pAng) +
+    (Math.ceil(totalMetrosChapa) * pChapa) +
+    (bulonesJuegos * pBulonJuego) +
+    (arandelaKg * pAran) +
+    (tornillosCajas * pTornillo) +
+    (pinturaBaldes * pPintura);
+
+  const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
+  const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
+  
+  const nuevosItems: QuoteItem[] = [
+    { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalEstructura },
+    { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
+  ];
+
+  const nuevoDetalle = "Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta en chapa T101 C25 / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.";
+
+  return { nuevoTitulo, nuevosItems, nuevoDetalle }
+}
+
 const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSF7Mzej2vMSn1h2u3DSr4N4YuMnwpW9KmLzkT6WGW3lIWGQWMUqDxGTeHcFEYCjijBU8rBrNwXCqLn/pub?output=csv"
 
 export default function CotizarPage() {
@@ -33,7 +138,6 @@ export default function CotizarPage() {
     { id: "5", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: 0 }
   ])
 
-  const pdfRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -58,20 +162,12 @@ export default function CotizarPage() {
   }
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [prices, setPrices] = useState({ 
-    perfil120: 0, 
-    perfil80Negro: 0, 
-    perfil80Galv: 0,
-    angulo: 0,
-    chapa: 0, 
-    bulonesJuego: 0,
-    arandelas: 0,
-    tornillos: 0, 
-    pintura: 0, 
-    manoDeObra: 0, 
-    flete: 0 
-  })
+  const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
+
+  // Las medidas se recuperan de localStorage al montar; hasta que eso pasa no se
+  // guarda nada, o el efecto de guardado pisaría lo almacenado con los valores por defecto.
+  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
     try {
@@ -79,6 +175,8 @@ export default function CotizarPage() {
       const storedLargo = localStorage.getItem('sanser_largo')
       const storedAlto = localStorage.getItem('sanser_alto')
       if (storedAncho && storedLargo && storedAlto) {
+        // Hidratación desde localStorage: sólo puede leerse en cliente, tras montar.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setConfig(prev => ({
           ...prev,
           width: parseFloat(storedAncho) || 15,
@@ -89,9 +187,11 @@ export default function CotizarPage() {
     } catch (e) {
       console.error("Error al cargar localStorage", e)
     }
+    setHydrated(true)
   }, [])
 
   useEffect(() => {
+    if (!hydrated) return
     try {
       localStorage.setItem('sanser_ancho', config.width.toString())
       localStorage.setItem('sanser_largo', config.length.toString())
@@ -99,9 +199,9 @@ export default function CotizarPage() {
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [config.width, config.length, config.height])
+  }, [hydrated, config.width, config.length, config.height])
 
-  const fetchCSV = async (forceRefresh = false) => {
+  const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
     try {
       const bust = forceRefresh ? Date.now() : 'init'
@@ -110,7 +210,7 @@ export default function CotizarPage() {
       if (!res.ok) return
       const text = await res.text()
       const lines = text.split('\n')
-      const newPrices = { ...prices }
+      const newPrices: Partial<Prices> = {}
       
       lines.forEach(line => {
          // Soporta CSVs con comillas (ej: "Tornillos, Caja")
@@ -148,92 +248,27 @@ export default function CotizarPage() {
       })
       
       console.log("DETALLE MATERIALES CSV MAREADOS:", newPrices)
-      setPrices(newPrices)
+      setPrices(prev => ({ ...prev, ...newPrices }))
     } catch (e) {
       console.error("Error fetching CSV", e)
     } finally {
       setIsLoadingPrices(false)
     }
-  }
-
-  useEffect(() => {
-    fetchCSV()
   }, [])
 
-  const calcularPresupuesto = (currentConfig: typeof config, currentPrices: typeof prices) => {
-    const ancho = currentConfig.width || 0;
-    const largo = currentConfig.length || 0;
-    const isUnAgua = currentConfig.type === "shed";
+  useEffect(() => {
+    // El spinner de precios se enciende al montar a propósito: la hoja de Google
+    // es la fuente de verdad y hasta que responde no hay presupuesto que mostrar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCSV()
+  }, [fetchCSV])
 
-    const numPorticos = Math.ceil(largo / 5) + 1;
-    const numColumnas = numPorticos * 2;
-    const numCabreadas = numPorticos;
-
-    // Perfiles 120 (Barras)
-    const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
-
-    // Perfiles 80 Negro (Barras)
-    const barras80Negro = Math.round(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
-
-    // Correas 80 Galv (Barras)
-    const lineasCorreas = Math.ceil(ancho / 1) + 1;
-    const barras80Galv = Math.ceil((lineasCorreas * largo) / 12);
-
-    // Hierro Ángulo (Barras)
-    const barrasAngulo = isUnAgua ? 1 : 2;
-
-    // Chapas (Metros)
-    const totalMetrosChapa = Math.ceil(ancho / 1.0) * largo * 1.06;
-
-    // Bulones y Tuercas (Juegos)
-    const bulonesJuegos = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
-    
-    // Arandelas (Kg)
-    const arandelaKg = Math.max(1, Math.round((ancho * largo) / 100));
-
-    // Tornillos Autoperforantes (Cajas)
-    const tornillosCajas = Math.max(2, Math.round((ancho * largo * 4) / 100));
-
-    // Pintura (Baldes)
-    const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
-
-    // Cálculo del costo exacto usando precios base de CSV que YA son por unidad/barra
-    const p120 = currentPrices.perfil120 || 93600;
-    const p80N = currentPrices.perfil80Negro || 70800;
-    const p80G = currentPrices.perfil80Galv || 84000;
-    const pAng = currentPrices.angulo || 30000;
-    const pChapa = currentPrices.chapa || 13200;
-    const pBulonJuego = currentPrices.bulonesJuego || 1140;
-    const pAran = currentPrices.arandelas || 3500;
-    const pTornillo = currentPrices.tornillos || 15000;
-    const pPintura = currentPrices.pintura || 45000;
-
-    const subtotalEstructura = 
-      (barras120 * p120) +
-      (barras80Negro * p80N) +
-      (barras80Galv * p80G) +
-      (barrasAngulo * pAng) +
-      (Math.ceil(totalMetrosChapa) * pChapa) +
-      (bulonesJuegos * pBulonJuego) +
-      (arandelaKg * pAran) +
-      (tornillosCajas * pTornillo) +
-      (pinturaBaldes * pPintura);
-
-    const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
-    const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
-    
-    const nuevosItems: QuoteItem[] = [
-      { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalEstructura },
-      { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
-    ];
-
-    const nuevoDetalle = "Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta en chapa T101 C25 / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.";
-
-    return { nuevoTitulo, nuevosItems, nuevoDetalle }
-  }
 
   useEffect(() => {
     const { nuevoTitulo, nuevosItems, nuevoDetalle } = calcularPresupuesto(config, prices)
+    // Recalcular pisa lo que el usuario haya tocado a mano: es el comportamiento
+    // querido — al cambiar medidas o precios el presupuesto se rehace entero.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTitle(nuevoTitulo)
     setItems(nuevosItems)
     setMaterials(nuevoDetalle)
@@ -276,7 +311,7 @@ export default function CotizarPage() {
     const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
       try {
-        const fiber = (canvas3d as any).__r3f
+        const fiber = (canvas3d as R3FCanvas).__r3f
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
           gl.render(scene, camera)
@@ -285,7 +320,7 @@ export default function CotizarPage() {
         } else {
           cap1 = canvas3d.toDataURL('image/png')
         }
-      } catch (e) {
+      } catch {
         try { cap1 = canvas3d.toDataURL('image/png') } catch {}
       }
     }
@@ -296,7 +331,6 @@ export default function CotizarPage() {
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
       const W = doc.internal.pageSize.getWidth()   // 210
-      const H = doc.internal.pageSize.getHeight()  // 297
       let y = 0
 
       // ═════════════════════════════════════════════════════════
@@ -362,7 +396,7 @@ export default function CotizarPage() {
       doc.setTextColor(...C.naranja)
       doc.text(`Fecha: ${date}`, W - 10, 24, { align: 'right' })
       doc.setTextColor(200, 205, 215)
-      doc.text('Nº Presupuesto: SP-' + new Date().getFullYear().toString().slice(-2) + String(Date.now()).slice(-4), W - 10, 29, { align: 'right' })
+      doc.text(`Nº Presupuesto: ${buildQuoteNumber()}`, W - 10, 29, { align: 'right' })
 
       y = headerH + 6
 
@@ -578,7 +612,7 @@ export default function CotizarPage() {
       // ═══════════════════════════════════════════════════════
       // 5. CAJA TOTAL FINAL
       // ═══════════════════════════════════════════════════════
-      const tFinalY = (doc as any).lastAutoTable.finalY + 6
+      const tFinalY = (doc as DocWithAutoTable).lastAutoTable.finalY + 6
       const W2 = doc.internal.pageSize.getWidth()
       const H2 = doc.internal.pageSize.getHeight()
       const boxW = 88
@@ -633,9 +667,9 @@ export default function CotizarPage() {
       const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
       doc.save(`Presupuesto_SANSER_${safeTitle}.pdf`)
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error al generar el PDF', error)
-      alert(`Error al generar el PDF: ${error?.message || 'Error desconocido'}`)
+      alert(`Error al generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     } finally {
       setIsGenerating(false)
     }
@@ -707,8 +741,8 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="3" max="50" step="1"
-                  value={config.width === "" as any ? "" : config.width} 
-                  onChange={e => setConfig({ ...config, width: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  value={config.width === EMPTY_NUMBER ? "" : config.width} 
+                  onChange={e => setConfig({ ...config, width: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />
@@ -718,8 +752,8 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="3" max="100" step="1"
-                  value={config.length === "" as any ? "" : config.length} 
-                  onChange={e => setConfig({ ...config, length: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  value={config.length === EMPTY_NUMBER ? "" : config.length} 
+                  onChange={e => setConfig({ ...config, length: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />
@@ -729,8 +763,8 @@ export default function CotizarPage() {
                 <input 
                   type="number" 
                   min="2" max="20" step="0.5"
-                  value={config.height === "" as any ? "" : config.height} 
-                  onChange={e => setConfig({ ...config, height: e.target.value === "" ? "" as any : parseFloat(e.target.value) })}
+                  value={config.height === EMPTY_NUMBER ? "" : config.height} 
+                  onChange={e => setConfig({ ...config, height: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
                 />

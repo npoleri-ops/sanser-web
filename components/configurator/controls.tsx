@@ -11,6 +11,7 @@ import {
   type SheetType,
   type ShedConfig,
   type ShedType,
+  type WallSheetType,
 } from "@/lib/shed-config"
 
 interface Props {
@@ -199,7 +200,7 @@ export function Controls({ config, update }: Props) {
           
           <div className="space-y-1.5">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Paredes / Cerramientos</span>
-            <Segmented<any>
+            <Segmented<WallSheetType>
               value={config.wallSheet}
               onChange={(v) => update("wallSheet", v)}
               options={[
