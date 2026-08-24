@@ -142,6 +142,26 @@ export async function marcarPresupuestoEnviado(pdfToken: string): Promise<Lead |
   return rows[0] ?? null
 }
 
+/**
+ * Cuando el que escribe es el cliente desde el cotizador público, el estado NO
+ * cambia: nadie de SANSER respondió todavía y ponerlo en 'contactado' lo sacaría
+ * del aviso de leads dormidos. Sólo queda anotado, y una sola vez por más clics
+ * que haga.
+ */
+export async function registrarConsultaDelCliente(pdfToken: string): Promise<Lead | null> {
+  const rows = await query<Lead>(
+    `UPDATE leads SET
+       notes = trim(both E'\n' from coalesce(notes, '') || E'\n' ||
+                    'El cliente escribió por WhatsApp desde el cotizador.'),
+       updated_at = now()
+     WHERE id = (SELECT lead_id FROM lead_pdfs WHERE token = $1)
+       AND (notes IS NULL OR notes NOT LIKE '%escribió por WhatsApp%')
+     RETURNING *`,
+    [pdfToken],
+  )
+  return rows[0] ?? null
+}
+
 export interface LeadFilters {
   kind?: LeadKind
   status?: LeadStatus

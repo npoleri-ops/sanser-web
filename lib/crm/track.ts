@@ -13,8 +13,10 @@ interface TrackPayload {
   quoteConfig?: Record<string, unknown> | null
   /** PDF del presupuesto, para poder compartirlo por enlace. */
   pdfBase64?: string
-  /** Al enviar por WhatsApp: marca ese presupuesto como contactado. */
+  /** Al enviar por WhatsApp: identifica el presupuesto sobre el que se actúa. */
   pdfToken?: string
+  /** Quién abre WhatsApp: el vendedor ('interno') o el propio cliente. */
+  origen?: "interno" | "cliente"
 }
 
 export interface LeadRegistrado {

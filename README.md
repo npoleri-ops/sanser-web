@@ -64,6 +64,26 @@ Nota sobre almacenamiento: cada PDF ronda 1 MB y el plan gratuito de Neon da 0,5
 o sea unos 500 presupuestos. Cuando se acerque, lo natural es mover los PDFs a Vercel
 Blob y dejar sólo el enlace en la base.
 
+### El cotizador, público e interno
+
+`/cotizar` es público: el visitante elige medidas, ve su estructura en 3D, deja nombre y
+teléfono y se descarga el presupuesto en PDF — con lo que entra al CRM como lead. Los
+precios y los ítems son de sólo lectura para él: el PDF lleva el membrete de SANSER y
+cualquiera podría fabricar uno con cifras inventadas.
+
+Quien tenga **sesión abierta en `/admin`** ve la misma página en modo interno, con los
+ítems, los precios, el título, el CUIT, la fecha y las fotos editables. Es la misma ruta,
+así que leer la cookie la vuelve dinámica; a cambio no hay dos páginas casi iguales que
+mantener.
+
+El botón de WhatsApp también cambia de destino: el vendedor le escribe al cliente (y eso
+marca el presupuesto como *contactado*), mientras que el visitante nos escribe a nosotros
+(y eso sólo queda anotado en la ficha, sin tocar el estado: nadie respondió todavía).
+
+Aviso: el PDF se genera en el navegador, así que quien sepa usar las herramientas de
+desarrollo puede saltarse el bloqueo. Cerrar esa puerta del todo exige generar el PDF en
+el servidor.
+
 ### Variables de entorno
 
 | Variable            | Para qué                                                                 |

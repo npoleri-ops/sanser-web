@@ -224,11 +224,18 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
             ))}
           </div>
 
-          <div className="mt-12 flex justify-center">
+          <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button onClick={onGoEditor} size="lg" className="gap-2 font-mono text-xs uppercase tracking-wider bg-[#F97316] hover:bg-[#EA580C] text-white">
               Diseñá el tuyo ahora
               <ArrowRight className="size-4" />
             </Button>
+            <a
+              href="/cotizar"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background/40 px-5 py-3 font-mono text-xs uppercase tracking-wider text-foreground transition-all hover:bg-muted"
+            >
+              Cotizá tu tinglado
+              <ArrowRight className="size-4" />
+            </a>
           </div>
         </div>
       </section>

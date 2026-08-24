@@ -1,6 +1,6 @@
 "use client"
 
-import { Columns3, Layers, MessageCircle, SquareStack, Triangle, AlignJustify } from "lucide-react"
+import { Columns3, FileText, Layers, MessageCircle, SquareStack, Triangle, AlignJustify } from "lucide-react"
 import {
   buildWhatsAppMessage,
   computeMateriales,
@@ -61,6 +61,13 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
         <MessageCircle className="size-5" />
         Solicitar Presupuesto por WhatsApp
       </button>
+      <a
+        href="/cotizar"
+        className="flex items-center justify-center gap-2 rounded-md border border-border px-5 py-3 font-display text-sm font-600 uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+      >
+        <FileText className="size-4" />
+        Descargar presupuesto en PDF
+      </a>
       <p className="text-center text-[11px] text-muted-foreground">
         Te respondemos con un presupuesto detallado sin cargo.
       </p>

@@ -4,6 +4,7 @@ import {
   faltaContacto,
   marcarPresupuestoEnviado,
   readRequestContext,
+  registrarConsultaDelCliente,
 } from "@/lib/crm/leads"
 import { notifyLead } from "@/lib/crm/notify"
 import { savePdf } from "@/lib/crm/pdfs"
@@ -37,8 +38,11 @@ export async function POST(req: Request) {
     // Envío del presupuesto por WhatsApp: avanza el lead existente en vez de
     // duplicarlo. El token del PDF dice de cuál se trata.
     if (kind === "whatsapp" && typeof body.pdfToken === "string") {
-      const marcado = await marcarPresupuestoEnviado(body.pdfToken)
-      return NextResponse.json({ ok: true, stored: false, contactado: Boolean(marcado) })
+      const lead =
+        body.origen === "cliente"
+          ? await registrarConsultaDelCliente(body.pdfToken)
+          : await marcarPresupuestoEnviado(body.pdfToken)
+      return NextResponse.json({ ok: true, stored: false, actualizado: Boolean(lead) })
     }
 
     const lead = {
