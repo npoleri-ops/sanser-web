@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createLead, readRequestContext } from "@/lib/crm/leads";
+import { createLead, faltaContacto, readRequestContext } from "@/lib/crm/leads";
 import { isDatabaseConfigured } from "@/lib/crm/db";
 
 export async function POST(req: Request) {
@@ -30,6 +30,15 @@ export async function POST(req: Request) {
       // Si no viene el tiempo, es sospechoso, pero por ahora podríamos ser permisivos. 
       // Por mayor seguridad, lo descartamos.
       return NextResponse.json({ success: true, message: "Consulta enviada" }, { status: 200 });
+    }
+
+    // El formulario ya los pide como obligatorios; esto cubre a quien mande el
+    // POST por su cuenta saltándose el navegador.
+    if (faltaContacto({ kind: "contacto", name, phone })) {
+      return NextResponse.json(
+        { success: false, message: "Hace falta tu nombre y tu teléfono para poder responderte." },
+        { status: 400 },
+      );
     }
 
     // Guardar en el CRM antes de reenviar. Si la base falla no se pierde la

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createLead, readRequestContext } from "@/lib/crm/leads"
+import { createLead, faltaContacto, readRequestContext } from "@/lib/crm/leads"
 import { isDatabaseConfigured } from "@/lib/crm/db"
 import { LEAD_KINDS, type LeadKind } from "@/lib/crm/types"
 
@@ -20,20 +20,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, stored: false })
     }
 
-    await createLead(
-      {
-        kind,
-        name: body.name || null,
-        phone: body.phone || null,
-        cuit: body.cuit || null,
-        message: body.message || null,
-        quoteTitle: body.quoteTitle || null,
-        quoteTotal: typeof body.quoteTotal === "number" ? body.quoteTotal : null,
-        quoteConfig: body.quoteConfig ?? null,
-        sourcePath: body.sourcePath || null,
-      },
-      readRequestContext(req),
-    )
+    const lead = {
+      kind,
+      name: body.name || null,
+      phone: body.phone || null,
+      cuit: body.cuit || null,
+      message: body.message || null,
+      quoteTitle: body.quoteTitle || null,
+      quoteTotal: typeof body.quoteTotal === "number" ? body.quoteTotal : null,
+      quoteConfig: body.quoteConfig ?? null,
+      sourcePath: body.sourcePath || null,
+    }
+
+    if (faltaContacto(lead)) {
+      return NextResponse.json(
+        { ok: false, message: "Falta el nombre o el teléfono del cliente" },
+        { status: 400 },
+      )
+    }
+
+    await createLead(lead, readRequestContext(req))
 
     return NextResponse.json({ ok: true, stored: true })
   } catch (error) {

@@ -130,6 +130,7 @@ const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
+  const [clientName, setClientName] = useState("")
   const [cuit, setCuit] = useState("")
   const [phone, setPhone] = useState("")
   const [title, setTitle] = useState("TINGLADO 10X20 A UN AGUA")
@@ -292,6 +293,11 @@ export default function CotizarPage() {
   const total = items.reduce((acc, item) => acc + item.quantity * item.price, 0)
 
   const generatePDF = async () => {
+    if (faltanDatosCliente) {
+      alert("Completá el nombre y el teléfono del cliente antes de generar el PDF.")
+      return
+    }
+
     setIsGenerating(true)
 
     // ── Paleta corporativa SANSER ───────────────────────────────────────────
@@ -426,7 +432,7 @@ export default function CotizarPage() {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(...C.oscuro2)
-      doc.text(cuit ? 'Ver CUIT' : 'Consumidor Final', cx, y + 11)
+      doc.text(clientName || (cuit ? 'Ver CUIT' : 'Consumidor Final'), cx, y + 11)
       doc.text(cuit || '—', cx + 55, y + 11)
       doc.text(phone || '—', cx + 105, y + 11)
 
@@ -671,6 +677,7 @@ export default function CotizarPage() {
       // Queda registrado en el CRM: qué se cotizó, por cuánto y para quién.
       trackLead({
         kind: "presupuesto",
+        name: clientName || null,
         phone: phone || null,
         cuit: cuit || null,
         quoteTitle: title,
@@ -686,9 +693,13 @@ export default function CotizarPage() {
     }
   }
 
+  // Sin nombre ni teléfono el presupuesto entra al CRM sin nadie a quien llamar,
+  // que es justo lo que hace inútil el registro.
+  const faltanDatosCliente = !clientName.trim() || !phone.trim()
+
   const sendToWhatsApp = () => {
-    if (!phone) {
-      alert("Por favor ingresa el teléfono del cliente.")
+    if (faltanDatosCliente) {
+      alert("Completá el nombre y el teléfono del cliente antes de enviar.")
       return
     }
     
@@ -701,6 +712,7 @@ export default function CotizarPage() {
     
     trackLead({
       kind: "whatsapp",
+      name: clientName || null,
       phone,
       cuit: cuit || null,
       message: `Envío de presupuesto: ${title}`,
@@ -792,7 +804,20 @@ export default function CotizarPage() {
             </div>
 
             <h2 className="text-xl font-bold border-b border-border pb-2 mt-6">Datos y Descripción</h2>
-            
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Nombre del Cliente <span className="text-primary">*</span>
+              </label>
+              <input
+                type="text"
+                value={clientName}
+                onChange={e => setClientName(e.target.value)}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                placeholder="Ej: Marta Gómez"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase text-muted-foreground">Fecha</label>
@@ -816,7 +841,9 @@ export default function CotizarPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Teléfono Cliente (WhatsApp)</label>
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Teléfono Cliente (WhatsApp) <span className="text-primary">*</span>
+              </label>
               <input 
                 type="text" 
                 value={phone} 
@@ -953,11 +980,18 @@ export default function CotizarPage() {
           </div>
         </div>
 
+        {faltanDatosCliente && (
+          <p className="pt-4 text-right text-xs text-primary">
+            Completá el nombre y el teléfono del cliente para generar el presupuesto.
+          </p>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
           <div className="flex flex-col items-end gap-1">
             <Button 
               onClick={sendToWhatsApp}
               variant="outline"
+              disabled={faltanDatosCliente}
               className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400 w-full sm:w-auto"
             >
               <Send className="size-4" /> Enviar a WhatsApp
@@ -966,7 +1000,7 @@ export default function CotizarPage() {
           </div>
           <Button 
             onClick={generatePDF}
-            disabled={isGenerating}
+            disabled={isGenerating || faltanDatosCliente}
             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {isGenerating ? (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
-import { createLead, getStats, listLeads, updateLead } from "@/lib/crm/leads"
+import { createLead, faltaContacto, getStats, listLeads, updateLead } from "@/lib/crm/leads"
 import {
   DEFAULT_PER_PAGE,
   LEAD_KINDS,
@@ -58,6 +58,18 @@ export async function POST(req: Request) {
   }
 
   const total = Number(body.quoteTotal)
+
+  const datos = {
+    kind,
+    name: body.name || null,
+    phone: body.phone || null,
+  }
+  if (faltaContacto(datos)) {
+    return NextResponse.json(
+      { ok: false, message: "El nombre y el teléfono son obligatorios" },
+      { status: 400 },
+    )
+  }
 
   const lead = await createLead(
     {

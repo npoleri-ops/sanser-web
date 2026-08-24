@@ -522,9 +522,9 @@ function NewLeadForm({
   const [error, setError] = useState<string | null>(null)
 
   const esPresupuesto = kind === "presupuesto"
-  // Con un nombre o un teléfono ya hay a quién volver a llamar; sin ninguno de
-  // los dos, el registro no sirve para nada.
-  const puedeGuardar = Boolean(name.trim() || phone.trim())
+  // Nombre y teléfono son la razón de ser del registro: sin ellos no hay a quién
+  // volver a llamar.
+  const puedeGuardar = Boolean(name.trim() && phone.trim())
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -585,11 +585,11 @@ function NewLeadForm({
             </select>
           </Campo>
 
-          <Campo label="Nombre">
+          <Campo label="Nombre *">
             <input value={name} onChange={e => setName(e.target.value)} className={inputClass} autoFocus />
           </Campo>
 
-          <Campo label="Teléfono">
+          <Campo label="Teléfono *">
             <input
               value={phone}
               onChange={e => setPhone(e.target.value)}
@@ -670,7 +670,7 @@ function NewLeadForm({
           </Button>
           {!puedeGuardar && (
             <p className="self-center text-xs text-muted-foreground">
-              Hace falta al menos un nombre o un teléfono.
+              El nombre y el teléfono son obligatorios.
             </p>
           )}
         </div>

@@ -43,6 +43,15 @@ export function readRequestContext(req: Request): RequestContext {
   }
 }
 
+/**
+ * Un clic a WhatsApp no trae datos —es sólo una señal de interés—, pero un
+ * presupuesto o una consulta sin nombre y teléfono no sirven para vender.
+ */
+export function faltaContacto(lead: NewLead) {
+  if (lead.kind === "whatsapp") return false
+  return !lead.name?.trim() || !lead.phone?.trim()
+}
+
 export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Lead> {
   const rows = await query<Lead>(
     `INSERT INTO leads (
