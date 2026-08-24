@@ -3,6 +3,14 @@ export const DEFAULT_PER_PAGE = 25
 export const LEAD_KINDS = ["contacto", "presupuesto", "whatsapp"] as const
 export type LeadKind = (typeof LEAD_KINDS)[number]
 
+export const QUOTE_STATES = ["borrador", "confirmado"] as const
+export type QuoteState = (typeof QUOTE_STATES)[number]
+
+export const QUOTE_STATE_LABEL: Record<QuoteState, string> = {
+  borrador: "Borrador",
+  confirmado: "Confirmado",
+}
+
 export const LEAD_STATUSES = ["nuevo", "contactado", "presupuestado", "ganado", "perdido"] as const
 export type LeadStatus = (typeof LEAD_STATUSES)[number]
 
@@ -41,6 +49,11 @@ export interface Lead {
   city: string | null
   region: string | null
   country: string | null
+  /** Borrador mientras Santi puede tocarlo; confirmado cuando ya es el documento. */
+  quote_state: QuoteState
+  /** Correlativo, asignado sólo al confirmar. */
+  quote_number: string | null
+  confirmed_at: string | null
   /** Token del PDF guardado, si el presupuesto se generó desde el cotizador. */
   pdf_token?: string | null
   /** Cuántos registros hay en total con este mismo teléfono. */

@@ -54,3 +54,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS lead_pdfs_token_idx ON lead_pdfs (token);
 
 -- Para agrupar el historial de un mismo cliente por teléfono.
 CREATE INDEX IF NOT EXISTS leads_phone_idx ON leads (phone);
+
+-- Estado del documento, distinto del estado comercial: mientras es borrador
+-- Santi puede tocarlo, y sólo al confirmarlo se convierte en presupuesto
+-- entregado. El número se asigna en ese momento, no antes.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_state  TEXT NOT NULL DEFAULT 'borrador'
+  CHECK (quote_state IN ('borrador', 'confirmado'));
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_number TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS leads_quote_number_idx ON leads (quote_number)
+  WHERE quote_number IS NOT NULL;
+
+-- Serie correlativa de presupuestos. No se reinicia cada año: el año va en el
+-- prefijo y así el número nunca se repite.
+CREATE SEQUENCE IF NOT EXISTS quote_number_seq START 1;

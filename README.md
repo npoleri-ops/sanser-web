@@ -36,7 +36,7 @@ Panel interno en **/admin**, protegido con una contraseña única. Registra tres
 | Tipo          | Se crea cuando…                                        |
 | ------------- | ------------------------------------------------------ |
 | `contacto`    | alguien envía el formulario de la landing              |
-| `presupuesto` | se genera un PDF en el cotizador (medidas y total)     |
+| `presupuesto` | alguien pide un presupuesto en el cotizador            |
 | `whatsapp`    | se abre WhatsApp desde el modal o desde el cotizador   |
 
 De cada lead se guarda además el contexto de la visita: página de origen, referrer,
@@ -64,21 +64,31 @@ Nota sobre almacenamiento: cada PDF ronda 1 MB y el plan gratuito de Neon da 0,5
 o sea unos 500 presupuestos. Cuando se acerque, lo natural es mover los PDFs a Vercel
 Blob y dejar sólo el enlace en la base.
 
-### El cotizador, público e interno
+### El cotizador: pedido, borrador y presupuesto
 
-`/cotizar` es público: el visitante elige medidas, ve su estructura en 3D, deja nombre y
-teléfono y se descarga el presupuesto en PDF — con lo que entra al CRM como lead. Los
-precios y los ítems son de sólo lectura para él: el PDF lleva el membrete de SANSER y
-cualquiera podría fabricar uno con cifras inventadas.
+`/cotizar` es público, pero el visitante **no se lleva ningún papel**: configura su
+tinglado, ve el total en pantalla, deja nombre y teléfono y pide el presupuesto. Eso
+entra al CRM como **borrador**, sin número. El precio que vio es orientativo y nadie de
+SANSER lo firmó todavía.
 
-Quien tenga **sesión abierta en `/admin`** ve la misma página en modo interno, con los
-ítems, los precios, el título, el CUIT, la fecha y las fotos editables. Es la misma ruta,
-así que leer la cookie la vuelve dinámica; a cambio no hay dos páginas casi iguales que
-mantener.
+Quien tenga **sesión abierta en `/admin`** ve la misma página en modo interno, con ítems,
+precios, título, CUIT, fecha y fotos editables. Desde la ficha del lead, *Abrir y
+confirmar* reabre ese borrador en el cotizador con todo cargado —medidas, ítems, detalle—
+para ajustarlo.
 
-El botón de WhatsApp también cambia de destino: el vendedor le escribe al cliente (y eso
-marca el presupuesto como *contactado*), mientras que el visitante nos escribe a nosotros
-(y eso sólo queda anotado en la ficha, sin tocar el estado: nadie respondió todavía).
+**Confirmar** es el acto que convierte el borrador en documento: la base le asigna un
+número correlativo (`SP-26-0001`, de `quote_number_seq`), el lead pasa a *presupuestado* y
+recién ahí se genera y guarda el PDF definitivo. Después Santi aprieta *Enviar al cliente*
+—nunca sale solo— y el mensaje va con el enlace al PDF.
+
+Los dos PDF se distinguen a propósito: el borrador dice "BORRADOR — sujeto a confirmación"
+y no lleva número ni validez; el confirmado lleva su número y los 7 días de validez. Un
+presupuesto ya confirmado no se puede editar por detrás: cambiaría el precio de algo que
+el cliente ya tiene.
+
+Ojo con no mezclar los dos estados que conviven: `quote_state` (borrador/confirmado) es el
+del documento, y `status` (nuevo → contactado → presupuestado → ganado/perdido) es el del
+negocio. Confirmar no es que el cliente aceptó.
 
 Aviso: el PDF se genera en el navegador, así que quien sepa usar las herramientas de
 desarrollo puede saltarse el bloqueo. Cerrar esa puerta del todo exige generar el PDF en

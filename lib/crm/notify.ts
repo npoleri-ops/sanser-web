@@ -20,7 +20,7 @@ export async function notifyLead(lead: Lead, pdfUrl?: string | null) {
 
   const titulo =
     lead.kind === "presupuesto"
-      ? `Nuevo presupuesto: ${lead.quote_title ?? "sin título"}`
+      ? `Pedido de presupuesto: ${lead.quote_title ?? "sin título"}`
       : "Nueva consulta desde la web"
 
   const lineas = [
@@ -34,6 +34,9 @@ export async function notifyLead(lead: Lead, pdfUrl?: string | null) {
       : null,
     pdfUrl ? `PDF: ${pdfUrl}` : null,
     "",
+    lead.kind === "presupuesto"
+      ? "Es un pedido del cliente: hay que revisarlo y confirmarlo antes de enviárselo."
+      : null,
     `Ver en el CRM: ${SITE_URL}/admin`,
   ].filter(Boolean)
 

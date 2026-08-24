@@ -1,14 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2 } from "lucide-react"
 import jsPDF from "jspdf"
 import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
+import type { Lead } from "@/lib/crm/types"
 
 export interface QuoteItem {
   id: string;
@@ -29,10 +30,6 @@ type DocWithAutoTable = jsPDF & { lastAutoTable: { finalY: number } }
 type R3FCanvas = HTMLCanvasElement & {
   __r3f?: { root: { getState: () => { gl: THREE.WebGLRenderer; camera: THREE.Camera; scene: THREE.Scene } } }
 }
-
-// Fuera del componente: Date.now() durante el render daría resultados inestables.
-const buildQuoteNumber = () =>
-  'SP-' + new Date().getFullYear().toString().slice(-2) + String(Date.now()).slice(-4)
 
 const INITIAL_PRICES = {
   perfil120: 0,
@@ -132,22 +129,46 @@ const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
  * `interno` distingue al vendedor (sesión del CRM abierta) del visitante: sólo
  * el primero puede tocar precios, ítems y textos del presupuesto.
  */
-export function Cotizador({ interno }: { interno: boolean }) {
+export function Cotizador({
+  interno,
+  leadInicial,
+}: {
+  interno: boolean
+  leadInicial?: Lead | null
+}) {
+  // Un presupuesto reabierto trae su configuración e ítems ya ajustados a mano.
+  const guardadoCrudo = (leadInicial?.quote_config ?? null) as
+    | (ShedConfig & { items?: QuoteItem[]; materials?: string })
+    | null
+  // Sin ítems no hay presupuesto que respetar: se recalcula como uno nuevo, o
+  // el cotizador se abriría en cero.
+  const guardado = guardadoCrudo?.items?.length ? guardadoCrudo : null
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
   const [pdfCompartido, setPdfCompartido] = useState<{
     url: string
     token: string
     title: string
   } | null>(null)
-  const [clientName, setClientName] = useState("")
-  const [cuit, setCuit] = useState("")
-  const [phone, setPhone] = useState("")
-  const [title, setTitle] = useState("TINGLADO 10X20 A UN AGUA")
-  const [materials, setMaterials] = useState("Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Chapas T101 / Tornillos")
+  // Presupuesto en curso: existe en el CRM desde que se guarda como borrador.
+  const [leadId, setLeadId] = useState<string | null>(leadInicial?.id ?? null)
+  const [numeroPresupuesto, setNumeroPresupuesto] = useState<string | null>(
+    leadInicial?.quote_number ?? null,
+  )
+  const [pedidoEnviado, setPedidoEnviado] = useState(false)
+  const [clientName, setClientName] = useState(leadInicial?.name ?? "")
+  const [cuit, setCuit] = useState(leadInicial?.cuit ?? "")
+  const [phone, setPhone] = useState(leadInicial?.phone ?? "")
+  const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
+  const [materials, setMaterials] = useState(
+    guardado?.materials ??
+      "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Chapas T101 / Tornillos",
+  )
   const [images, setImages] = useState<string[]>([])
-  const [items, setItems] = useState<QuoteItem[]>([
-    { id: "5", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: 0 }
-  ])
+  const [items, setItems] = useState<QuoteItem[]>(
+    guardado?.items ?? [
+      { id: "5", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: 0 },
+    ],
+  )
 
   const [isGenerating, setIsGenerating] = useState(false)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +193,9 @@ export function Cotizador({ interno }: { interno: boolean }) {
     })
   }
 
-  const [config, setConfig] = useState(DEFAULT_CONFIG)
+  const [config, setConfig] = useState<ShedConfig>(
+    guardado ? { ...DEFAULT_CONFIG, ...guardado } : DEFAULT_CONFIG,
+  )
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
@@ -275,11 +298,17 @@ export function Cotizador({ interno }: { interno: boolean }) {
   }, [fetchCSV])
 
 
+  const configCargada = useRef(guardado ? JSON.stringify({ ...DEFAULT_CONFIG, ...guardado }) : null)
+
   useEffect(() => {
+    // Presupuesto reabierto: mientras no cambien las medidas, mandan los valores
+    // guardados, no los que recalcularía la hoja de precios.
+    if (configCargada.current && JSON.stringify(config) === configCargada.current) return
+    configCargada.current = null
+
+    // Al cambiar medidas o precios el presupuesto se rehace entero, incluso si
+    // se había tocado a mano: es el comportamiento querido.
     const { nuevoTitulo, nuevosItems, nuevoDetalle } = calcularPresupuesto(config, prices)
-    // Recalcular pisa lo que el usuario haya tocado a mano: es el comportamiento
-    // querido — al cambiar medidas o precios el presupuesto se rehace entero.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTitle(nuevoTitulo)
     setItems(nuevosItems)
     setMaterials(nuevoDetalle)
@@ -301,13 +330,11 @@ export function Cotizador({ interno }: { interno: boolean }) {
 
   const total = items.reduce((acc, item) => acc + item.quantity * item.price, 0)
 
-  const generatePDF = async () => {
-    if (faltanDatosCliente) {
-      alert(interno ? "Completá el nombre y el teléfono del cliente antes de generar el PDF." : "Dejanos tu nombre y tu teléfono para descargar el presupuesto.")
-      return
-    }
-
-    setIsGenerating(true)
+  /**
+   * Arma el PDF y lo descarga. Sin número es un borrador y así se rotula: sin
+   * validez y con el aviso de que está sujeto a confirmación.
+   */
+  const construirPDF = async (numero: string | null): Promise<string | null> => {
 
     // ── Paleta corporativa SANSER ───────────────────────────────────────────
     const C = {
@@ -412,7 +439,10 @@ export function Cotizador({ interno }: { interno: boolean }) {
       doc.setTextColor(...C.naranja)
       doc.text(`Fecha: ${date}`, W - 10, 24, { align: 'right' })
       doc.setTextColor(200, 205, 215)
-      doc.text(`Nº Presupuesto: ${buildQuoteNumber()}`, W - 10, 29, { align: 'right' })
+      doc.text(
+        numero ? `Nº Presupuesto: ${numero}` : 'BORRADOR — sujeto a confirmación',
+        W - 10, 29, { align: 'right' },
+      )
 
       y = headerH + 6
 
@@ -669,7 +699,9 @@ export function Cotizador({ interno }: { interno: boolean }) {
       doc.setFontSize(7)
       doc.setTextColor(...C.grisTexto)
       doc.text(
-        'Presupuesto válido por 7 días. Precios sujetos a variación de materiales.',
+        numero
+          ? 'Presupuesto válido por 7 días. Precios sujetos a variación de materiales.'
+          : 'Borrador interno — no válido como presupuesto hasta su confirmación.',
         W2 / 2, footerY + 5, { align: 'center' }
       )
       doc.setFont('helvetica', 'bold')
@@ -679,38 +711,118 @@ export function Cotizador({ interno }: { interno: boolean }) {
         W2 / 2, footerY + 10, { align: 'center' }
       )
 
-      // Guardar
       const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
-      doc.save(`Presupuesto_SANSER_${safeTitle}.pdf`)
+      doc.save(`${numero ? numero + '_' : 'BORRADOR_'}SANSER_${safeTitle}.pdf`)
 
-      // Queda registrado en el CRM: qué se cotizó, por cuánto y para quién. El
-      // PDF viaja con él para poder mandarlo después como enlace por WhatsApp.
-      const registrado = await registrarLead({
-        kind: "presupuesto",
-        name: clientName || null,
-        phone: phone || null,
-        cuit: cuit || null,
-        quoteTitle: title,
-        quoteTotal: total,
-        quoteConfig: { ...config, items },
-        pdfBase64: doc.output("datauristring").split(",")[1],
-      })
-
-      if (registrado?.pdfUrl && registrado.pdfToken) {
-        setPdfCompartido({ url: registrado.pdfUrl, token: registrado.pdfToken, title })
-      }
-
+      return doc.output("datauristring").split(",")[1]
     } catch (error) {
       console.error('Error al generar el PDF', error)
       alert(`Error al generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`)
-    } finally {
-      setIsGenerating(false)
+      return null
     }
   }
 
   // Sin nombre ni teléfono el presupuesto entra al CRM sin nadie a quien llamar,
   // que es justo lo que hace inútil el registro.
   const faltanDatosCliente = !clientName.trim() || !phone.trim()
+
+  const datosDelPresupuesto = () => ({
+    kind: "presupuesto" as const,
+    name: clientName || null,
+    phone: phone || null,
+    cuit: cuit || null,
+    quoteTitle: title,
+    quoteTotal: total,
+    quoteConfig: { ...config, items, materials },
+  })
+
+  /** Deja el presupuesto guardado como borrador y devuelve su id. */
+  const guardarBorrador = async (): Promise<string | null> => {
+    if (leadId) return leadId
+    const registrado = await registrarLead(datosDelPresupuesto())
+    if (registrado?.leadId) setLeadId(registrado.leadId)
+    return registrado?.leadId ?? null
+  }
+
+  /** Lo que hace el visitante: pedir el presupuesto, sin llevarse ningún papel. */
+  const pedirPresupuesto = async () => {
+    if (faltanDatosCliente) {
+      alert("Dejanos tu nombre y tu teléfono para que podamos responderte.")
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      await registrarLead(datosDelPresupuesto())
+      setPedidoEnviado(true)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  /** Santi descarga el borrador para revisarlo; no se guarda en el CRM. */
+  const descargarBorrador = async () => {
+    if (faltanDatosCliente) {
+      alert("Completá el nombre y el teléfono del cliente antes de generar el PDF.")
+      return
+    }
+    setIsGenerating(true)
+    try {
+      await guardarBorrador()
+      // Si ya está confirmado, lo que se descarga es el documento con su número.
+      await construirPDF(numeroPresupuesto)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  /**
+   * Confirmar es el acto que convierte el borrador en documento: la base le da
+   * su número correlativo y recién ahí se genera y guarda el PDF definitivo.
+   */
+  const confirmarPresupuesto = async () => {
+    if (faltanDatosCliente) {
+      alert("Completá el nombre y el teléfono del cliente antes de confirmar.")
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const id = await guardarBorrador()
+      if (!id) {
+        alert("No se pudo guardar el presupuesto. Probá de nuevo.")
+        return
+      }
+
+      const confirmacion = await fetch("/api/admin/leads", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...datosDelPresupuesto() }),
+      })
+      if (!confirmacion.ok) {
+        alert("No se pudo confirmar el presupuesto.")
+        return
+      }
+
+      const { lead } = await confirmacion.json()
+      setNumeroPresupuesto(lead.quote_number)
+
+      const pdfBase64 = await construirPDF(lead.quote_number)
+      if (!pdfBase64) return
+
+      const guardado = await fetch(`/api/admin/leads/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64 }),
+      })
+      if (guardado.ok) {
+        const { pdfUrl, pdfToken } = await guardado.json()
+        if (pdfUrl && pdfToken) setPdfCompartido({ url: pdfUrl, token: pdfToken, title })
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   const sendToWhatsApp = () => {
     if (faltanDatosCliente) {
@@ -1076,42 +1188,84 @@ export function Cotizador({ interno }: { interno: boolean }) {
           </p>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
-          <div className="flex flex-col items-end gap-1">
-            <Button 
-              onClick={sendToWhatsApp}
+        {interno ? (
+          <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                onClick={sendToWhatsApp}
+                variant="outline"
+                disabled={faltanDatosCliente || !numeroPresupuesto}
+                className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400 w-full sm:w-auto"
+              >
+                <Send className="size-4" /> Enviar al cliente
+              </Button>
+              <span className="text-[10px] text-muted-foreground">
+                {numeroPresupuesto
+                  ? "(El mensaje incluye el enlace al PDF)"
+                  : "(Confirmá el presupuesto para poder enviarlo)"}
+              </span>
+            </div>
+
+            <Button
+              onClick={descargarBorrador}
               variant="outline"
-              disabled={faltanDatosCliente}
-              className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400 w-full sm:w-auto"
+              disabled={isGenerating || faltanDatosCliente}
+              className="gap-2"
             >
-              <Send className="size-4" />
-              {interno ? "Enviar a WhatsApp" : "Consultar por WhatsApp"}
+              <Download className="size-4" />
+              {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
+            </Button>
+
+            <Button
+              onClick={confirmarPresupuesto}
+              disabled={isGenerating || faltanDatosCliente || Boolean(numeroPresupuesto)}
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              {isGenerating ? (
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              {numeroPresupuesto ? `Confirmado ${numeroPresupuesto}` : "Confirmar presupuesto"}
+            </Button>
+          </div>
+        ) : pedidoEnviado ? (
+          <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-6 text-center">
+            <CheckCircle2 className="mx-auto mb-3 size-8 text-primary" />
+            <h2 className="text-lg font-bold">
+              Listo{clientName ? `, ${clientName.split(" ")[0]}` : ""}. Recibimos tu pedido.
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Estamos preparando el presupuesto de tu <strong>{title}</strong>. Te lo
+              confirmamos por WhatsApp al {phone}, revisado por nuestro equipo.
+            </p>
+            <button
+              onClick={sendToWhatsApp}
+              className="mt-4 text-sm text-primary hover:underline"
+            >
+              ¿Es urgente? Escribinos ahora
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-end gap-2 pt-4">
+            <Button
+              onClick={pedirPresupuesto}
+              disabled={isGenerating || faltanDatosCliente}
+              size="lg"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
+            >
+              {isGenerating ? (
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              {isGenerating ? "Enviando..." : "Pedir presupuesto"}
             </Button>
             <span className="text-[10px] text-muted-foreground">
-              {pdfCompartido?.title === title
-                ? "(El mensaje incluye el enlace al PDF)"
-                : interno
-                  ? "(Generá el PDF primero y el mensaje irá con su enlace)"
-                  : "(Descargá el presupuesto y el mensaje irá con su enlace)"}
+              Te lo confirmamos por WhatsApp, revisado por nuestro equipo.
             </span>
           </div>
-          <Button 
-            onClick={generatePDF}
-            disabled={isGenerating || faltanDatosCliente}
-            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            {isGenerating ? (
-              <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <Download className="size-4" />
-            )}
-            {isGenerating
-              ? "Generando PDF..."
-              : interno
-                ? "Descargar Presupuesto PDF"
-                : "Descargar mi presupuesto"}
-          </Button>
-        </div>
+        )}
 
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Download,
   FileDown,
+  FilePen,
   FileText,
   Filter,
   LogOut,
@@ -22,6 +23,7 @@ import {
   KIND_LABEL,
   LEAD_KINDS,
   LEAD_STATUSES,
+  QUOTE_STATE_LABEL,
   STATUS_LABEL,
   type Lead,
   type LeadKind,
@@ -327,6 +329,15 @@ export function LeadsBoard({
                     <td className="max-w-md px-4 py-3">
                       {lead.kind === "presupuesto" ? (
                         <span>
+                          {lead.quote_state === "borrador" ? (
+                            <span className="mr-2 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                              Borrador
+                            </span>
+                          ) : (
+                            <span className="mr-2 font-mono text-xs text-emerald-400">
+                              {lead.quote_number}
+                            </span>
+                          )}
                           {lead.quote_title}
                           {lead.quote_total && (
                             <span className="ml-2 font-mono text-primary">
@@ -490,6 +501,30 @@ function LeadDetail({
               )}
             </>
           )}
+          {lead.kind === "presupuesto" && (
+            <Field label="Documento">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs ${
+                    lead.quote_state === "confirmado"
+                      ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {QUOTE_STATE_LABEL[lead.quote_state]}
+                  {lead.quote_number ? ` · ${lead.quote_number}` : ""}
+                </span>
+                <a
+                  href={`/cotizar?lead=${lead.id}`}
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <FilePen className="size-4" />
+                  {lead.quote_state === "confirmado" ? "Ver en el cotizador" : "Abrir y confirmar"}
+                </a>
+              </div>
+            </Field>
+          )}
+
           {lead.pdf_token && (
             <Field label="PDF del presupuesto">
               <div className="flex flex-wrap items-center gap-2">

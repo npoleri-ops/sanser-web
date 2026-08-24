@@ -104,6 +104,7 @@ export async function createOrUpdateLead(lead: NewLead, ctx: RequestContext): Pr
        WHERE id = (
          SELECT id FROM leads
          WHERE kind = $5 AND phone = $6 AND quote_title = $7
+           AND quote_state = 'borrador'
            AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
          ORDER BY created_at DESC
          LIMIT 1
@@ -159,6 +160,78 @@ export async function registrarConsultaDelCliente(pdfToken: string): Promise<Lea
      RETURNING *`,
     [pdfToken],
   )
+  return rows[0] ?? null
+}
+
+/** Campos del presupuesto que Santi puede ajustar mientras es borrador. */
+export interface DatosPresupuesto {
+  name?: string | null
+  phone?: string | null
+  cuit?: string | null
+  quoteTitle?: string | null
+  quoteTotal?: number | null
+  quoteConfig?: Record<string, unknown> | null
+}
+
+/**
+ * Vuelca en el borrador lo que hay en pantalla. Un presupuesto ya confirmado no
+ * se toca: es un documento entregado, y cambiarlo por detrás sería cambiarle el
+ * precio a alguien que ya lo tiene.
+ */
+export async function actualizarBorrador(
+  id: string,
+  datos: DatosPresupuesto,
+): Promise<Lead | null> {
+  const rows = await query<Lead>(
+    `UPDATE leads SET
+       name         = COALESCE($2, name),
+       phone        = COALESCE($3, phone),
+       cuit         = COALESCE($4, cuit),
+       quote_title  = COALESCE($5, quote_title),
+       quote_total  = COALESCE($6, quote_total),
+       quote_config = COALESCE($7, quote_config),
+       updated_at   = now()
+     WHERE id = $1 AND kind = 'presupuesto' AND quote_state = 'borrador'
+     RETURNING *`,
+    [
+      id,
+      datos.name ?? null,
+      datos.phone ?? null,
+      datos.cuit ?? null,
+      datos.quoteTitle ?? null,
+      datos.quoteTotal ?? null,
+      datos.quoteConfig ? JSON.stringify(datos.quoteConfig) : null,
+    ],
+  )
+  return rows[0] ?? null
+}
+
+/**
+ * Confirma un presupuesto: le da número correlativo y lo congela como documento
+ * entregado. Es idempotente — si ya estaba confirmado devuelve el mismo número,
+ * para que un doble clic no consuma otro de la serie.
+ */
+export async function confirmarPresupuesto(id: string): Promise<Lead | null> {
+  const rows = await query<Lead>(
+    `UPDATE leads SET
+       quote_state  = 'confirmado',
+       quote_number = COALESCE(
+         quote_number,
+         'SP-' || to_char(now(), 'YY') || '-' || lpad(nextval('quote_number_seq')::text, 4, '0')
+       ),
+       confirmed_at = COALESCE(confirmed_at, now()),
+       status       = CASE WHEN status = 'nuevo' THEN 'presupuestado' ELSE status END,
+       updated_at   = now()
+     WHERE id = $1 AND kind = 'presupuesto'
+     RETURNING *`,
+    [id],
+  )
+  return rows[0] ?? null
+}
+
+/** Datos que necesita el cotizador para reabrir un presupuesto y seguir editándolo. */
+export async function getLead(id: string): Promise<Lead | null> {
+  const rows = await query<Lead>(`SELECT * FROM leads WHERE id = $1`, [id])
   return rows[0] ?? null
 }
 

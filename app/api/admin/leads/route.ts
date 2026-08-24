@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
-import { createLead, faltaContacto, getStats, listLeads, updateLead } from "@/lib/crm/leads"
+import {
+  actualizarBorrador,
+  confirmarPresupuesto,
+  createLead,
+  faltaContacto,
+  getStats,
+  listLeads,
+  updateLead,
+} from "@/lib/crm/leads"
 import {
   DEFAULT_PER_PAGE,
   LEAD_KINDS,
@@ -88,6 +96,36 @@ export async function POST(req: Request) {
     },
     { referrer: null, userAgent: null, ip: null, city: null, region: null, country: null },
   )
+
+  return NextResponse.json({ ok: true, lead })
+}
+
+/** Confirmar un presupuesto: sólo desde el panel, nunca desde el cotizador público. */
+export async function PUT(req: Request) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ ok: false }, { status: 401 })
+  }
+
+  const body = await req.json()
+  if (!body?.id) return NextResponse.json({ ok: false }, { status: 400 })
+
+  // Se confirma lo que Santi tiene en pantalla, no lo que se guardó al pedirlo.
+  await actualizarBorrador(String(body.id), {
+    name: body.name,
+    phone: body.phone,
+    cuit: body.cuit,
+    quoteTitle: body.quoteTitle,
+    quoteTotal: typeof body.quoteTotal === "number" ? body.quoteTotal : null,
+    quoteConfig: body.quoteConfig ?? null,
+  })
+
+  const lead = await confirmarPresupuesto(String(body.id))
+  if (!lead) {
+    return NextResponse.json(
+      { ok: false, message: "No se encontró el presupuesto" },
+      { status: 404 },
+    )
+  }
 
   return NextResponse.json({ ok: true, lead })
 }
