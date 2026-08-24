@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Oswald } from 'next/font/google'
+import { SITE_URL } from '@/lib/site'
 import Script from 'next/script'
 import './globals.css'
 
@@ -18,11 +19,11 @@ const oswald = Oswald({
   display: 'swap',
 })
 
-const BASE_URL = 'https://www.sansermetalurgica.com.ar'
+const BASE_URL = SITE_URL
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.sansermetalurgica.com.ar/'),
-  alternates: { canonical: 'https://www.sansermetalurgica.com.ar/' },
+  metadataBase: new URL(`${SITE_URL}/`),
+  alternates: { canonical: `${SITE_URL}/` },
   verification: {
     google: 'LGEuMJck_BmRYrusej9LvICocAKosYMBbXX-4wlr3o8',
   },
@@ -53,7 +54,7 @@ export const metadata: Metadata = {
     title: 'SANSER Metalúrgica | Tinglados y Galpones en Misiones',
     description:
       'Fabricación y montaje de tinglados y galpones a medida con perfiles C reticulados. Cotizá en 3D online.',
-    url: 'https://www.sansermetalurgica.com.ar/',
+    url: `${SITE_URL}/`,
     siteName: 'SANSER Metalúrgica',
     images: [
       {
@@ -96,7 +97,7 @@ const localBusinessSchema = {
   '@type': ['LocalBusiness', 'HomeAndConstructionBusiness', 'Organization'],
   name: 'SANSER Metalúrgica',
   alternateName: 'Sanser',
-  image: 'https://www.sansermetalurgica.com.ar/logo.png',
+  image: `${SITE_URL}/logo.png`,
   description:
     'Fabricación e instalación de tinglados, galpones a un agua y dos aguas, estructuras metálicas, corte y plegado de perfiles de acero en Jardín América, Misiones.',
   url: BASE_URL,

@@ -1,8 +1,7 @@
 import type { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/site'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://sanser-web-eta.vercel.app'
-
   return {
     rules: {
       userAgent: '*',
@@ -10,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       // El CRM es interno: fuera de los buscadores.
       disallow: ['/admin'],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   }
 }

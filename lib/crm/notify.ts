@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site"
 import type { Lead } from "./types"
 
 // Reutilizamos el Formspree que ya avisa de las consultas del formulario: no
@@ -33,7 +34,7 @@ export async function notifyLead(lead: Lead, pdfUrl?: string | null) {
       : null,
     pdfUrl ? `PDF: ${pdfUrl}` : null,
     "",
-    "Ver en el CRM: https://www.sansermetalurgica.com.ar/admin",
+    `Ver en el CRM: ${SITE_URL}/admin`,
   ].filter(Boolean)
 
   try {
