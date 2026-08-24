@@ -38,3 +38,19 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS leads_created_at_idx ON leads (created_at DESC);
 CREATE INDEX IF NOT EXISTS leads_kind_idx       ON leads (kind);
 CREATE INDEX IF NOT EXISTS leads_status_idx     ON leads (status);
+
+-- PDFs de los presupuestos, para poder mandarlos por WhatsApp sin adjuntar a
+-- mano. Van en su propia tabla: el bytea no debe engordar cada SELECT de leads.
+CREATE TABLE IF NOT EXISTS lead_pdfs (
+  lead_id     BIGINT       PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+  -- El enlace viaja por WhatsApp, así que el token tiene que ser impredecible.
+  token       UUID         NOT NULL DEFAULT gen_random_uuid(),
+  content     BYTEA        NOT NULL,
+  size_bytes  INTEGER      NOT NULL,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS lead_pdfs_token_idx ON lead_pdfs (token);
+
+-- Para agrupar el historial de un mismo cliente por teléfono.
+CREATE INDEX IF NOT EXISTS leads_phone_idx ON leads (phone);

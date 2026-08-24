@@ -42,7 +42,27 @@ Panel interno en **/admin**, protegido con una contraseña única. Registra tres
 De cada lead se guarda además el contexto de la visita: página de origen, referrer,
 user agent, IP y —en producción, vía cabeceras de Vercel— ciudad, provincia y país.
 Desde el panel se cambia el estado (nuevo → contactado → presupuestado → ganado/perdido),
-se escriben notas y se exporta todo a CSV.
+se escriben notas, se dan de alta registros a mano y se exporta todo a CSV.
+
+Además:
+
+- **Aviso por correo** de cada presupuesto y cada consulta, en cuanto entra. Sale por el
+  mismo Formspree que ya recibía el formulario; `LEAD_NOTIFY_ENDPOINT` permite apuntarlo
+  a otro servicio sin tocar código. Los clics a WhatsApp no avisan: serían ruido.
+- **El PDF viaja con el presupuesto.** Se guarda en `lead_pdfs` y se sirve en
+  `/api/presupuesto/<token>`, con un token UUID que es toda la protección del enlace
+  (va por WhatsApp, no puede pedir sesión). El mensaje de WhatsApp del cotizador lo
+  incluye, y desde la ficha se puede abrir o copiar.
+- **Aviso de leads dormidos**: los que llevan más de 48 h en `nuevo` salen destacados
+  arriba y el cartel filtra por ellos.
+- **Sin duplicados**: regenerar el mismo presupuesto (mismo teléfono y título, dentro de
+  media hora) actualiza el registro en vez de crear otro. Y enviarlo por WhatsApp marca
+  ese presupuesto como *contactado* en lugar de sumar una fila suelta.
+- **Historial por cliente**: la ficha enlaza a todos los registros de ese teléfono.
+
+Nota sobre almacenamiento: cada PDF ronda 1 MB y el plan gratuito de Neon da 0,5 GB,
+o sea unos 500 presupuestos. Cuando se acerque, lo natural es mover los PDFs a Vercel
+Blob y dejar sólo el enlace en la base.
 
 ### Variables de entorno
 
@@ -51,7 +71,8 @@ se escriben notas y se exporta todo a CSV.
 | `DATABASE_URL`      | Postgres donde viven los leads. En producción, la cadena de Neon.         |
 | `ADMIN_PASSWORD`    | Contraseña de acceso a `/admin`.                                          |
 | `AUTH_SECRET`       | Clave con la que se firma la cookie de sesión (cadena larga y aleatoria). |
-| `FORMSPREE_ENABLED` | Opcional. `true` fuerza el reenvío a Formspree también fuera de producción. |
+| `FORMSPREE_ENABLED` | Opcional. `true` fuerza los correos (formulario y avisos) fuera de producción. |
+| `LEAD_NOTIFY_ENDPOINT` | Opcional. Destino de los avisos de lead; por defecto, el Formspree del formulario. |
 
 En local ya vienen puestas en `docker-compose.yml` (contraseña `sanser-local`).
 Si falta alguna, el sitio sigue funcionando y `/admin` avisa de lo que falta en vez de romper.

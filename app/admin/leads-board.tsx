@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
+  AlarmClock,
   ChevronLeft,
   ChevronRight,
   Download,
+  FileDown,
   FileText,
   Filter,
   LogOut,
@@ -82,14 +84,16 @@ export function LeadsBoard({
   const [selected, setSelected] = useState<Lead | null>(null)
   const [creating, setCreating] = useState(false)
   const [stats, setStats] = useState(initialStats)
+  const [soloDormidos, setSoloDormidos] = useState(false)
 
   const filterParams = useCallback(() => {
     const params = new URLSearchParams()
     if (kind) params.set("kind", kind)
     if (status) params.set("status", status)
     if (search.trim()) params.set("search", search.trim())
+    if (soloDormidos) params.set("dormidos", "1")
     return params
-  }, [kind, status, search])
+  }, [kind, status, search, soloDormidos])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -199,6 +203,30 @@ export function LeadsBoard({
           </Button>
         </div>
       </header>
+
+      {stats.dormidos > 0 && (
+        <button
+          onClick={() => {
+            setSoloDormidos(v => !v)
+            setPage(1)
+          }}
+          className={`mb-4 flex w-full items-center gap-2 rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+            soloDormidos
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15"
+          }`}
+        >
+          <AlarmClock className="size-4 shrink-0" />
+          <span>
+            <strong>{stats.dormidos}</strong>{" "}
+            {stats.dormidos === 1 ? "registro lleva" : "registros llevan"} más de 48 h sin
+            atender.
+          </span>
+          <span className="ml-auto text-xs opacity-80">
+            {soloDormidos ? "Ver todos" : "Ver sólo esos"}
+          </span>
+        </button>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
@@ -385,6 +413,14 @@ export function LeadsBoard({
           lead={selected}
           onClose={() => setSelected(null)}
           onPatch={patchLead}
+          onVerHistorial={telefono => {
+            setSelected(null)
+            setSoloDormidos(false)
+            setKind("")
+            setStatus("")
+            setSearch(telefono)
+            setPage(1)
+          }}
         />
       )}
     </main>
@@ -395,13 +431,16 @@ function LeadDetail({
   lead,
   onClose,
   onPatch,
+  onVerHistorial,
 }: {
   lead: Lead
   onClose: () => void
   onPatch: (id: string, changes: { status?: LeadStatus; notes?: string }) => Promise<void>
+  onVerHistorial: (telefono: string) => void
 }) {
   const [notes, setNotes] = useState(lead.notes ?? "")
   const [saving, setSaving] = useState(false)
+  const [enlaceCopiado, setEnlaceCopiado] = useState(false)
 
   return (
     <div
@@ -437,16 +476,57 @@ function LeadDetail({
               <Field label="Total">
                 {lead.quote_total ? money.format(Number(lead.quote_total)) : "—"}
               </Field>
-              {/* Los presupuestos cargados a mano no traen configuración del 3D. */}
+              {/* Los presupuestos cargados a mano no traen configuración del 3D.
+                  Va plegada: ocupa media pantalla y se consulta de vez en cuando. */}
               {lead.quote_config && (
-                <Field label="Configuración">
-                  <pre className="overflow-x-auto rounded bg-muted/50 p-2 font-mono text-xs">
+                <details>
+                  <summary className="cursor-pointer text-xs font-semibold uppercase text-muted-foreground hover:text-foreground">
+                    Configuración del modelo
+                  </summary>
+                  <pre className="mt-2 max-h-64 overflow-auto rounded bg-muted/50 p-2 font-mono text-xs">
                     {JSON.stringify(lead.quote_config, null, 2)}
                   </pre>
-                </Field>
+                </details>
               )}
             </>
           )}
+          {lead.pdf_token && (
+            <Field label="PDF del presupuesto">
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={`/api/presupuesto/${lead.pdf_token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <FileDown className="size-4" /> Abrir
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(
+                      `${window.location.origin}/api/presupuesto/${lead.pdf_token}`,
+                    )
+                    setEnlaceCopiado(true)
+                  }}
+                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+                >
+                  {enlaceCopiado ? "Enlace copiado" : "Copiar enlace"}
+                </button>
+              </div>
+            </Field>
+          )}
+
+          {lead.phone && (lead.phone_count ?? 0) > 1 && (
+            <Field label="Historial">
+              <button
+                onClick={() => onVerHistorial(lead.phone!)}
+                className="text-primary hover:underline"
+              >
+                Ver los {lead.phone_count} registros de este teléfono
+              </button>
+            </Field>
+          )}
+
           <Field label="Ubicación">
             {[lead.city, lead.region, lead.country].filter(Boolean).join(", ") || "—"}
           </Field>

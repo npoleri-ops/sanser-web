@@ -8,7 +8,7 @@ import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { DEFAULT_CONFIG, TYPE_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
-import { trackLead } from "@/lib/crm/track"
+import { registrarLead, trackLead } from "@/lib/crm/track"
 
 export interface QuoteItem {
   id: string;
@@ -130,6 +130,11 @@ const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 
 export default function CotizarPage() {
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
+  const [pdfCompartido, setPdfCompartido] = useState<{
+    url: string
+    token: string
+    title: string
+  } | null>(null)
   const [clientName, setClientName] = useState("")
   const [cuit, setCuit] = useState("")
   const [phone, setPhone] = useState("")
@@ -674,8 +679,9 @@ export default function CotizarPage() {
       const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
       doc.save(`Presupuesto_SANSER_${safeTitle}.pdf`)
 
-      // Queda registrado en el CRM: qué se cotizó, por cuánto y para quién.
-      trackLead({
+      // Queda registrado en el CRM: qué se cotizó, por cuánto y para quién. El
+      // PDF viaja con él para poder mandarlo después como enlace por WhatsApp.
+      const registrado = await registrarLead({
         kind: "presupuesto",
         name: clientName || null,
         phone: phone || null,
@@ -683,7 +689,12 @@ export default function CotizarPage() {
         quoteTitle: title,
         quoteTotal: total,
         quoteConfig: { ...config, items },
+        pdfBase64: doc.output("datauristring").split(",")[1],
       })
+
+      if (registrado?.pdfUrl && registrado.pdfToken) {
+        setPdfCompartido({ url: registrado.pdfUrl, token: registrado.pdfToken, title })
+      }
 
     } catch (error) {
       console.error('Error al generar el PDF', error)
@@ -707,18 +718,27 @@ export default function CotizarPage() {
     const cleanPhone = phone.replace(/\D/g, '')
     const totalStr = total.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     
-    const message = `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\nTotal estimado: *$ ${totalStr}*\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
+    const enlacePdf = pdfCompartido?.title === title ? pdfCompartido.url : null
+    const bloquePdf = enlacePdf ? `\n\nPodés descargarlo acá:\n${enlacePdf}` : ""
+
+    const message = `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\nTotal estimado: *$ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
     const encodedMessage = encodeURIComponent(message)
     
-    trackLead({
-      kind: "whatsapp",
-      name: clientName || null,
-      phone,
-      cuit: cuit || null,
-      message: `Envío de presupuesto: ${title}`,
-      quoteTitle: title,
-      quoteTotal: total,
-    })
+    // Si el presupuesto ya está en el CRM, enviarlo lo marca como contactado en
+    // lugar de crear otro registro del mismo cliente.
+    if (enlacePdf && pdfCompartido) {
+      trackLead({ kind: "whatsapp", pdfToken: pdfCompartido.token })
+    } else {
+      trackLead({
+        kind: "whatsapp",
+        name: clientName || null,
+        phone,
+        cuit: cuit || null,
+        message: `Envío de presupuesto: ${title}`,
+        quoteTitle: title,
+        quoteTotal: total,
+      })
+    }
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank')
   }
@@ -996,7 +1016,11 @@ export default function CotizarPage() {
             >
               <Send className="size-4" /> Enviar a WhatsApp
             </Button>
-            <span className="text-[10px] text-muted-foreground">(Descargá el PDF primero y luego adjuntalo en el chat)</span>
+            <span className="text-[10px] text-muted-foreground">
+              {pdfCompartido?.title === title
+                ? "(El mensaje incluye el enlace al PDF)"
+                : "(Generá el PDF primero y el mensaje irá con su enlace)"}
+            </span>
           </div>
           <Button 
             onClick={generatePDF}

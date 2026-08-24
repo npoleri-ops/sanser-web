@@ -32,6 +32,7 @@ export async function GET(req: Request) {
         kind: LEAD_KINDS.includes(kind as LeadKind) ? (kind as LeadKind) : undefined,
         status: LEAD_STATUSES.includes(status as LeadStatus) ? (status as LeadStatus) : undefined,
         search: search || undefined,
+        dormidos: params.get("dormidos") === "1",
       },
       { limit: perPage, offset: (page - 1) * perPage },
     ),

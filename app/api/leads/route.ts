@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server"
-import { createLead, faltaContacto, readRequestContext } from "@/lib/crm/leads"
+import {
+  createOrUpdateLead,
+  faltaContacto,
+  marcarPresupuestoEnviado,
+  readRequestContext,
+} from "@/lib/crm/leads"
+import { notifyLead } from "@/lib/crm/notify"
+import { savePdf } from "@/lib/crm/pdfs"
 import { isDatabaseConfigured } from "@/lib/crm/db"
 import { LEAD_KINDS, type LeadKind } from "@/lib/crm/types"
 
@@ -8,6 +15,13 @@ import { LEAD_KINDS, type LeadKind } from "@/lib/crm/types"
  * generado en el cotizador o un clic al WhatsApp. Nunca debe romper la
  * experiencia del usuario, así que ante cualquier fallo responde 200.
  */
+function publicOrigin(req: Request) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host")
+  if (!host) return new URL(req.url).origin
+  const proto = req.headers.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https")
+  return `${proto}://${host}`
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -18,6 +32,13 @@ export async function POST(req: Request) {
     }
     if (!isDatabaseConfigured()) {
       return NextResponse.json({ ok: true, stored: false })
+    }
+
+    // Envío del presupuesto por WhatsApp: avanza el lead existente en vez de
+    // duplicarlo. El token del PDF dice de cuál se trata.
+    if (kind === "whatsapp" && typeof body.pdfToken === "string") {
+      const marcado = await marcarPresupuestoEnviado(body.pdfToken)
+      return NextResponse.json({ ok: true, stored: false, contactado: Boolean(marcado) })
     }
 
     const lead = {
@@ -39,9 +60,29 @@ export async function POST(req: Request) {
       )
     }
 
-    await createLead(lead, readRequestContext(req))
+    const guardado = await createOrUpdateLead(lead, readRequestContext(req))
 
-    return NextResponse.json({ ok: true, stored: true })
+    // El PDF llega en base64 junto al presupuesto: así el vendedor puede mandar
+    // un enlace por WhatsApp en vez de adjuntar el archivo a mano.
+    let pdfUrl: string | null = null
+    let pdfToken: string | null = null
+    if (typeof body.pdfBase64 === "string" && body.pdfBase64.length > 0) {
+      const pdf = await savePdf(guardado.id, body.pdfBase64)
+      // El enlace se manda al cliente, así que tiene que llevar el dominio real:
+      // req.url trae el host interno con el que arrancó el servidor.
+      if (pdf) {
+        pdfUrl = `${publicOrigin(req)}/api/presupuesto/${pdf.token}`
+        pdfToken = pdf.token
+      }
+    }
+
+    // El aviso no bloquea la respuesta: el cotizador no tiene por qué esperar a
+    // que Formspree conteste.
+    if (kind !== "whatsapp") {
+      void notifyLead(guardado, pdfUrl)
+    }
+
+    return NextResponse.json({ ok: true, stored: true, leadId: guardado.id, pdfUrl, pdfToken })
   } catch (error) {
     console.error("No se pudo registrar el lead", error)
     return NextResponse.json({ ok: true, stored: false })

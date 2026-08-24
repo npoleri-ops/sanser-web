@@ -41,11 +41,17 @@ export interface Lead {
   city: string | null
   region: string | null
   country: string | null
+  /** Token del PDF guardado, si el presupuesto se generó desde el cotizador. */
+  pdf_token?: string | null
+  /** Cuántos registros hay en total con este mismo teléfono. */
+  phone_count?: number
 }
 
 export interface LeadStats {
   total: number
   nuevos: number
+  /** Leads en 'nuevo' con más de 48 h: los que se están enfriando. */
+  dormidos: number
   porTipo: Record<LeadKind, number>
 }
 

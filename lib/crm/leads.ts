@@ -85,10 +85,69 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
   return rows[0]
 }
 
+/**
+ * Regenerar el mismo presupuesto creaba una fila nueva cada vez (pasó con los
+ * registros 8 y 9). Si en la última media hora ya hay uno igual —mismo teléfono
+ * y mismo título— se actualiza en lugar de duplicar.
+ */
+const VENTANA_DUPLICADOS = "30 minutes"
+
+export async function createOrUpdateLead(lead: NewLead, ctx: RequestContext): Promise<Lead> {
+  if (lead.phone && lead.quoteTitle) {
+    const rows = await query<Lead>(
+      `UPDATE leads SET
+         quote_total  = COALESCE($1, quote_total),
+         quote_config = COALESCE($2, quote_config),
+         name         = COALESCE($3, name),
+         cuit         = COALESCE($4, cuit),
+         updated_at   = now()
+       WHERE id = (
+         SELECT id FROM leads
+         WHERE kind = $5 AND phone = $6 AND quote_title = $7
+           AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
+         ORDER BY created_at DESC
+         LIMIT 1
+       )
+       RETURNING *`,
+      [
+        lead.quoteTotal ?? null,
+        lead.quoteConfig ? JSON.stringify(lead.quoteConfig) : null,
+        lead.name ?? null,
+        lead.cuit ?? null,
+        lead.kind,
+        lead.phone,
+        lead.quoteTitle,
+      ],
+    )
+
+    if (rows[0]) return rows[0]
+  }
+
+  return createLead(lead, ctx)
+}
+
+/**
+ * Mandar el presupuesto por WhatsApp es contactar al cliente: en vez de crear un
+ * registro suelto, avanza el que ya existe. Se identifica por el token del PDF,
+ * que es un UUID: los ids son correlativos y se podrían adivinar desde fuera.
+ */
+export async function marcarPresupuestoEnviado(pdfToken: string): Promise<Lead | null> {
+  const rows = await query<Lead>(
+    `UPDATE leads SET status = 'contactado', updated_at = now()
+     WHERE id = (SELECT lead_id FROM lead_pdfs WHERE token = $1)
+       AND status = 'nuevo'
+     RETURNING *`,
+    [pdfToken],
+  )
+  return rows[0] ?? null
+}
+
 export interface LeadFilters {
   kind?: LeadKind
   status?: LeadStatus
   search?: string
+  /** Sólo los que llevan más de 48 h sin atender. */
+  dormidos?: boolean
 }
 
 export interface LeadPage {
@@ -105,17 +164,20 @@ export async function listLeads(
 
   if (filters.kind) {
     params.push(filters.kind)
-    where.push(`kind = $${params.length}`)
+    where.push(`leads.kind = $${params.length}`)
   }
   if (filters.status) {
     params.push(filters.status)
-    where.push(`status = $${params.length}`)
+    where.push(`leads.status = $${params.length}`)
   }
   if (filters.search) {
     params.push(`%${filters.search}%`)
     where.push(
-      `(name ILIKE $${params.length} OR phone ILIKE $${params.length} OR message ILIKE $${params.length} OR quote_title ILIKE $${params.length})`,
+      `(leads.name ILIKE $${params.length} OR leads.phone ILIKE $${params.length} OR leads.message ILIKE $${params.length} OR leads.quote_title ILIKE $${params.length})`,
     )
+  }
+  if (filters.dormidos) {
+    where.push(`(leads.status = 'nuevo' AND leads.created_at < now() - INTERVAL '48 hours')`)
   }
 
   params.push(limit)
@@ -125,9 +187,15 @@ export async function listLeads(
   // COUNT(*) OVER() devuelve el total sin filtrar por página en la misma
   // consulta: nos ahorra un segundo viaje a la base para el paginador.
   const rows = await query<Lead & { total_count: string }>(
-    `SELECT *, COUNT(*) OVER()::text AS total_count FROM leads
+    `SELECT leads.*,
+            pdfs.token AS pdf_token,
+            (SELECT count(*)::int FROM leads otros
+              WHERE otros.phone IS NOT NULL AND otros.phone = leads.phone) AS phone_count,
+            COUNT(*) OVER()::text AS total_count
+     FROM leads
+     LEFT JOIN lead_pdfs pdfs ON pdfs.lead_id = leads.id
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY created_at DESC
+     ORDER BY leads.created_at DESC
      LIMIT $${limitParam} OFFSET $${params.length}`,
     params,
   )
@@ -168,13 +236,23 @@ export async function updateLead(
 }
 
 export async function getStats(): Promise<LeadStats> {
-  const rows = await query<{ kind: LeadKind; status: LeadStatus; total: string }>(
-    `SELECT kind, status, COUNT(*)::text AS total FROM leads GROUP BY kind, status`,
+  const rows = await query<{
+    kind: LeadKind
+    status: LeadStatus
+    total: string
+    dormidos: string
+  }>(
+    `SELECT kind, status, COUNT(*)::text AS total,
+            COUNT(*) FILTER (
+              WHERE status = 'nuevo' AND created_at < now() - INTERVAL '48 hours'
+            )::text AS dormidos
+     FROM leads GROUP BY kind, status`,
   )
 
   const stats: LeadStats = {
     total: 0,
     nuevos: 0,
+    dormidos: 0,
     porTipo: { contacto: 0, presupuesto: 0, whatsapp: 0 },
   }
 
@@ -182,6 +260,7 @@ export async function getStats(): Promise<LeadStats> {
     const n = Number(row.total)
     stats.total += n
     if (row.status === "nuevo") stats.nuevos += n
+    stats.dormidos += Number(row.dormidos)
     stats.porTipo[row.kind] = (stats.porTipo[row.kind] ?? 0) + n
   }
 
