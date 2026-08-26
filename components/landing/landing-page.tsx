@@ -194,12 +194,9 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
 
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {OBRAS.map((o) => (
-              <a
+              <div
                 key={o.src}
-                href={o.src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#F97316]/50"
+                className="group cursor-default relative flex h-80 flex-col justify-end overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#F97316]/50"
               >
                 <div className="absolute inset-0 z-0">
                   <Image
@@ -208,7 +205,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                     width={1200}
                     height={800}
                     quality={80}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="pointer-events-none h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent transition-opacity group-hover:opacity-90" />
                 </div>
@@ -220,7 +217,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
                     {o.desc}
                   </p>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
 
