@@ -54,8 +54,8 @@ const OBRAS = [
   { src: "/obras/cabreada-reticulada.webp", title: "Fabricación", desc: "Cabreadas reticuladas en perfil C en taller" },
   // 3 nuevas obras solicitadas
   { src: "/obras/obra 1.webp", title: "Estructura A Dos Aguas Reticulada", desc: "Tinglado tradicional a dos aguas con cabreadas y columnas de perfil C reticulado." },
-  { src: "/obras/obra 2.webp", title: "Galpón Industrial con Portón Corredizo", desc: "Gran estructura metálica cerrada con portones corredizos de acceso para vehículos." },
-  { src: "/obras/obra 3.webp", title: "Tinglado Depósito A Una Agua", desc: "Estructura compacta a una agua, cerramiento completo en chapa con aberturas." },
+  { src: "/obras/obra 2.webp", title: "GALPÓN CERRADO CON VENTANA", desc: "Espacio multipropósito con cerramiento completo en chapa y carpintería metálica." },
+  { src: "/obras/obra 3.webp", title: "DEPÓSITO / TALLER CERRADO", desc: "Galpón totalmente revestido en chapa con portón corredizo principal y puerta de servicio." },
 ]
 
 export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
