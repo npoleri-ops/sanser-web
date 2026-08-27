@@ -61,11 +61,20 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const numColumnas = numPorticos * 2;
   const numCabreadas = numPorticos;
 
+  const altoLibre = currentConfig.height || 5;
+  const factorColumna = (altoLibre + 1) / 6;
+
   // Perfiles 120 (Barras)
-  const barras120 = isUnAgua ? (numColumnas * 1 + numCabreadas * 1) : (numColumnas * 1 + numCabreadas * 2);
+  const barras120 = Math.ceil(isUnAgua 
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1)) 
+    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2))
+  );
 
   // Perfiles 80 Negro (Barras)
-  const barras80Negro = Math.round(isUnAgua ? (numColumnas * 1 + numCabreadas * 1.33) : (numColumnas * 1 + numCabreadas * 2.33));
+  const barras80Negro = Math.ceil(isUnAgua 
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33)) 
+    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
+  );
 
   // Correas 80 Galv (Barras)
   const lineasCorreas = Math.ceil(ancho / 1) + 1;
