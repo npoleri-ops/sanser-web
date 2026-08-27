@@ -73,9 +73,9 @@ export function ContactForm() {
   return (
     <section id="te-llamamos" className="relative border-t border-border bg-[#0d0e11] py-20 lg:py-28 overflow-hidden">
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-12 lg:flex-row lg:items-center">
+        <div className="mx-auto flex max-w-6xl flex-col gap-12 lg:flex-row lg:gap-16 lg:items-start">
           
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 space-y-6 lg:pt-4">
             <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#F97316]">
               Contacto Directo
             </span>
@@ -96,7 +96,7 @@ export function ContactForm() {
                   Misiones, Argentina
                 </p>
               </div>
-              <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 h-[250px] w-full">
+              <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 h-[300px] lg:h-[380px] w-full">
                 <iframe 
                   src="https://maps.google.com/maps?q=Ecuador%20811,%20Jardin%20America,%20Misiones&t=&z=15&ie=UTF8&iwloc=&output=embed"
                   width="100%" 
