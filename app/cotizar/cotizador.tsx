@@ -80,8 +80,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   // Bulones y Tuercas (Juegos)
   const bulonesJuegos = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
   
-  // Arandelas (Kg)
-  const arandelaKg = Math.max(1, Math.round((ancho * largo) / 100));
+  // Cálculo ajustado de arandelas (mínimo 3 kg, redondeo superior cada 60 m2)
+  const arandelaKg = Math.max(3, Math.ceil((ancho * largo) / 60));
 
   // Tornillos Autoperforantes (Cajas)
   const factorTornillos = isUnAgua ? 3.5 : 4.0;
