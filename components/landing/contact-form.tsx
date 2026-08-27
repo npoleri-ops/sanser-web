@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare } from "lucide-react"
+import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare, MapPin } from "lucide-react"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
@@ -86,6 +86,30 @@ export function ContactForm() {
               Dejanos tus datos y un breve mensaje sobre lo que estás buscando. 
               Nos pondremos en contacto con vos a la brevedad para asesorarte sin compromiso.
             </p>
+
+            <div className="mt-8 space-y-4">
+              <div className="flex items-start gap-3 text-muted-foreground">
+                <MapPin className="size-5 shrink-0 text-[#F97316] mt-0.5" />
+                <p className="text-sm">
+                  <strong className="text-foreground">Fábrica y Administración:</strong><br/>
+                  Ecuador 811, Jardín América<br/>
+                  Misiones, Argentina
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 h-[250px] w-full">
+                <iframe 
+                  src="https://maps.google.com/maps?q=Ecuador%20811,%20Jardin%20America,%20Misiones&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen={false} 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Ubicación SANSER Metalúrgica"
+                  className="grayscale hover:grayscale-0 transition-all duration-500"
+                ></iframe>
+              </div>
+            </div>
           </div>
 
           <div className="flex-1 rounded-xl border border-border/50 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
