@@ -18,14 +18,6 @@ export function HeroScene() {
 
   const config = { ...DEFAULT_CONFIG, type }
 
-  // Forzar renderizado inicial para que el canvas de 3D se muestre sin interactuar
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event("resize"))
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
-
   return (
     <ErrorBoundary>
       <div 
@@ -62,7 +54,7 @@ export function HeroScene() {
         <Suspense fallback={<div className="flex h-full w-full items-center justify-center bg-background/50"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
           <Canvas
             shadows
-            frameloop="demand"
+            frameloop="always"
             dpr={[1, 1.5]}
             camera={{ position: [24, 13, 26], fov: 42 }}
             gl={{ antialias: false, powerPreference: "high-performance" }}
