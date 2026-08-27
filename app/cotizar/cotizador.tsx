@@ -87,11 +87,11 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const factorTornillos = isUnAgua ? 3.5 : 4.0;
   const tornillosCajas = Math.max(2, Math.ceil((ancho * largo * factorTornillos) / 100));
 
-  // Pintura (Baldes)
-  const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
+  // Pintura (Baldes 4L): mínimo 2 baldes para tinglados estándar, escalando 1 balde cada ~90 m2
+  const pinturaBaldes = Math.max(2, Math.ceil((ancho * largo) / 90));
 
-  // Aguarrás (Baldes 4L)
-  const aguarrasBaldes = Math.max(1, Math.round(pinturaBaldes / 2));
+  // Aguarrás (Baldes 4L): mínimo 1 balde, manteniendo relación de 1 cada 2 baldes de pintura
+  const aguarrasBaldes = Math.max(1, Math.ceil(pinturaBaldes / 2));
 
   // Cálculo del costo exacto usando precios base de CSV que YA son por unidad/barra
   const p120 = currentPrices.perfil120 || 93600;
