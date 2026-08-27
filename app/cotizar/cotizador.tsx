@@ -77,8 +77,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   // Chapas (Metros)
   const totalMetrosChapa = Math.ceil(ancho / 1.0) * largo * 1.06;
 
-  // Bulones y Tuercas (Juegos)
-  const bulonesJuegos = isUnAgua ? (numPorticos * 8) : (numPorticos * 12);
+  // Bulones y Tuercas: 8 por pórtico (1 agua) o 12 por pórtico (2 aguas), más 2 juegos extra de margen por seguridad
+  const bulonesJuegos = (isUnAgua ? (numPorticos * 8) : (numPorticos * 12)) + 2;
   
   // Cálculo ajustado de arandelas (mínimo 3 kg, redondeo superior cada 60 m2)
   const arandelaKg = Math.max(3, Math.ceil((ancho * largo) / 60));
