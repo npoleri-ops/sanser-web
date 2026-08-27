@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare, MapPin } from "lucide-react"
+import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare } from "lucide-react"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
@@ -73,9 +73,9 @@ export function ContactForm() {
   return (
     <section id="te-llamamos" className="relative border-t border-border bg-[#0d0e11] py-20 lg:py-28 overflow-hidden">
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-12 lg:flex-row lg:gap-16 lg:items-start">
+        <div className="mx-auto flex max-w-5xl flex-col gap-12 lg:flex-row lg:items-center">
           
-          <div className="flex-1 space-y-6 lg:pt-4">
+          <div className="flex-1 space-y-6">
             <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#F97316]">
               Contacto Directo
             </span>
@@ -86,30 +86,6 @@ export function ContactForm() {
               Dejanos tus datos y un breve mensaje sobre lo que estás buscando. 
               Nos pondremos en contacto con vos a la brevedad para asesorarte sin compromiso.
             </p>
-
-            <div className="mt-8 space-y-4">
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <MapPin className="size-5 shrink-0 text-[#F97316] mt-0.5" />
-                <p className="text-sm">
-                  <strong className="text-foreground">Fábrica y Administración:</strong><br/>
-                  Ecuador 811, Jardín América<br/>
-                  Misiones, Argentina
-                </p>
-              </div>
-              <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 h-[300px] lg:h-[380px] w-full">
-                <iframe 
-                  src="https://maps.google.com/maps?q=Ecuador%20811,%20Jardin%20America,%20Misiones&t=&z=15&ie=UTF8&iwloc=&output=embed"
-                  width="100%" 
-                  height="100%" 
-                  style={{ border: 0 }} 
-                  allowFullScreen={false} 
-                  loading="lazy" 
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Ubicación SANSER Metalúrgica"
-                  className="grayscale hover:grayscale-0 transition-all duration-500"
-                ></iframe>
-              </div>
-            </div>
           </div>
 
           <div className="flex-1 rounded-xl border border-border/50 bg-card/40 p-6 backdrop-blur-sm sm:p-8">
