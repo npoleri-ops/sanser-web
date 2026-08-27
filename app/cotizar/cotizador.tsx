@@ -84,7 +84,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const arandelaKg = Math.max(1, Math.round((ancho * largo) / 100));
 
   // Tornillos Autoperforantes (Cajas)
-  const tornillosCajas = Math.max(2, Math.round((ancho * largo * 4) / 100));
+  const factorTornillos = isUnAgua ? 3.5 : 4.0;
+  const tornillosCajas = Math.max(2, Math.ceil((ancho * largo * factorTornillos) / 100));
 
   // Pintura (Baldes)
   const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
