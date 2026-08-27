@@ -62,19 +62,21 @@ export function HeroScene() {
             <color attach="background" args={["#1c2027"]} />
             <fog attach="fog" args={["#1c2027", 45, 95]} />
 
-            <ambientLight intensity={2.0} />
-            <directionalLight position={[0, 40, 40]} intensity={2.0} color="#ffffff" />
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[0, 40, 40]} intensity={3.0} color="#ffffff" />
             <directionalLight
               position={[18, 26, 10]}
               intensity={2.8}
-              color="#ffb257"
+              color="#ffffff"
               castShadow
               shadow-mapSize={[512, 512]}
             />
-            <directionalLight position={[-20, 14, -12]} intensity={0.7} color="#9fb4ff" />
+            {/* Fill light from the left */}
+            <directionalLight position={[-20, 14, 20]} intensity={2.0} color="#ffffff" />
             
-            {/* Rim Light for industrial lattice highlights */}
-            <directionalLight position={[-15, 20, -25]} intensity={2.5} color="#ff9944" />
+            {/* Rim Lights for specular highlights on black steel */}
+            <directionalLight position={[-15, 30, -25]} intensity={4.0} color="#ffffff" />
+            <directionalLight position={[25, 30, -25]} intensity={4.0} color="#ffffff" />
             
             <pointLight position={[0, 8, 0]} intensity={20} color="#ff8a2a" distance={40} />
 

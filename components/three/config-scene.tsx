@@ -52,11 +52,15 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       <color attach="background" args={["#1c2027"]} />
       <fog attach="fog" args={["#1c2027", camDist * 1.6, camDist * 3.4]} />
 
-      <ambientLight intensity={2.0} color="#ffffff" />
-      <directionalLight position={[0, 40, 40]} intensity={1.5} color="#ffffff" />
+      <ambientLight intensity={1.5} color="#ffffff" />
+      
+      {/* Front/Top fill light */}
+      <directionalLight position={[0, 40, 40]} intensity={3.0} color="#ffffff" />
+      
+      {/* Main key light (with shadows) */}
       <directionalLight
         position={[15, 30, 15]}
-        intensity={1.2}
+        intensity={2.8}
         color="#ffffff"
         castShadow
         shadow-mapSize={[512, 512]}
@@ -67,7 +71,13 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
         shadow-camera-top={35}
         shadow-camera-bottom={-35}
       />
-      <directionalLight position={[-22, 16, -18]} intensity={0.6} color="#9fb4ff" />
+      
+      {/* Fill light from the left */}
+      <directionalLight position={[-22, 16, 20]} intensity={2.0} color="#ffffff" />
+
+      {/* Rim Lights for specular highlights on black steel from the back/sides */}
+      <directionalLight position={[-20, 30, -25]} intensity={4.0} color="#ffffff" />
+      <directionalLight position={[20, 30, -25]} intensity={4.0} color="#ffffff" />
 
       <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
         <ShedModel config={config} showSlab />
