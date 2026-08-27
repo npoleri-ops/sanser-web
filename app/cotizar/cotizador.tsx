@@ -114,7 +114,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const pPintura = currentPrices.pintura || 50000;
   const pAguarras = currentPrices.aguarras || 30000;
 
-  const subtotalEstructura = 
+  const subtotalMateriales = 
     (barras120 * p120) +
     (barras80Negro * p80N) +
     (barras80Galv * p80G) +
@@ -126,11 +126,18 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     (pinturaBaldes * pPintura) +
     (aguarrasBaldes * pAguarras);
 
+  const superficie = ancho * largo;
+  const subtotalManoObra = Math.round(superficie * 11000);
+  const subtotalPintor = 200000;
+  const totalEstimado = subtotalMateriales + subtotalManoObra + subtotalPintor;
+
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
   const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
   
   const nuevosItems: QuoteItem[] = [
-    { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalEstructura },
+    { id: "tinglado-1", description: "Materiales base", unit: "gl", quantity: 1, price: subtotalMateriales },
+    { id: "mano-obra-1", description: "Mano de obra de fabricación y montaje ($11.000/m2)", unit: "gl", quantity: 1, price: subtotalManoObra },
+    { id: "pintura-1", description: "Pintura y terminación", unit: "gl", quantity: 1, price: subtotalPintor },
     { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
   ];
 
@@ -696,7 +703,7 @@ export function Cotizador({
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(7.5)
       doc.setTextColor(...C.grisTexto)
-      doc.text('TOTAL FINAL', boxX + boxW - 4, tFinalY + 7, { align: 'right' })
+      doc.text('TOTAL ESTIMATIVO GLOBAL', boxX + boxW - 4, tFinalY + 7, { align: 'right' })
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(16)
