@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useCallback } from "react"
+import { Suspense, useState, useCallback, useEffect } from "react"
 import { Canvas } from "@react-three/fiber"
 import { Html, OrbitControls } from "@react-three/drei"
 import { ErrorBoundary } from "../error-boundary"
@@ -17,6 +17,14 @@ export function HeroScene() {
   }, [])
 
   const config = { ...DEFAULT_CONFIG, type }
+
+  // Forzar renderizado inicial para que el canvas de 3D se muestre sin interactuar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event("resize"))
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <ErrorBoundary>
