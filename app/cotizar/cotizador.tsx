@@ -153,12 +153,9 @@ export function Cotizador({
   leadInicial?: Lead | null
 }) {
   // Un presupuesto reabierto trae su configuración e ítems ya ajustados a mano.
-  const guardadoCrudo = (leadInicial?.quote_config ?? null) as
+  const guardado = (leadInicial?.quote_config ?? null) as
     | (ShedConfig & { items?: QuoteItem[]; materials?: string })
     | null
-  // Sin ítems no hay presupuesto que respetar: se recalcula como uno nuevo, o
-  // el cotizador se abriría en cero.
-  const guardado = guardadoCrudo?.items?.length ? guardadoCrudo : null
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
   const [pdfCompartido, setPdfCompartido] = useState<{
     url: string
@@ -220,6 +217,11 @@ export function Cotizador({
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
+    // Si estamos reabriendo un lead, no sobreescribimos con localStorage
+    if (leadInicial) {
+      setHydrated(true)
+      return
+    }
     try {
       const storedAncho = localStorage.getItem('sanser_ancho')
       const storedLargo = localStorage.getItem('sanser_largo')
