@@ -41,6 +41,7 @@ const INITIAL_PRICES = {
   arandelas: 0,
   tornillos: 0,
   pintura: 0,
+  aguarras: 0,
   manoDeObra: 0,
   flete: 0,
 }
@@ -88,6 +89,9 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   // Pintura (Baldes)
   const pinturaBaldes = Math.max(2, Math.round((ancho * largo * 3) / 100));
 
+  // Aguarrás (Baldes 4L)
+  const aguarrasBaldes = Math.max(1, Math.round(pinturaBaldes / 2));
+
   // Cálculo del costo exacto usando precios base de CSV que YA son por unidad/barra
   const p120 = currentPrices.perfil120 || 93600;
   const p80N = currentPrices.perfil80Negro || 70800;
@@ -97,7 +101,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const pBulonJuego = currentPrices.bulonesJuego || 1140;
   const pAran = currentPrices.arandelas || 3500;
   const pTornillo = currentPrices.tornillos || 15000;
-  const pPintura = currentPrices.pintura || 45000;
+  const pPintura = currentPrices.pintura || 50000;
+  const pAguarras = currentPrices.aguarras || 30000;
 
   const subtotalEstructura = 
     (barras120 * p120) +
@@ -108,7 +113,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     (bulonesJuegos * pBulonJuego) +
     (arandelaKg * pAran) +
     (tornillosCajas * pTornillo) +
-    (pinturaBaldes * pPintura);
+    (pinturaBaldes * pPintura) +
+    (aguarrasBaldes * pAguarras);
 
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
   const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
@@ -277,6 +283,7 @@ export function Cotizador({
          else if (textMatch.includes('arandela')) newPrices.arandelas = p
          else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
          else if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('óxido')) newPrices.pintura = p
+         else if (textMatch.includes('aguarrás') || textMatch.includes('aguarras')) newPrices.aguarras = p
          else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
          else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
       })
