@@ -6,7 +6,8 @@ import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 export function Footer() {
   return (
     <footer id="contacto" className="border-t border-border bg-card/40">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+        <div className="grid gap-10 md:grid-cols-3 mb-12">
         <div className="space-y-4">
           <div className="mb-2 scale-110 origin-left">
             <Logo className="text-foreground" />
@@ -89,6 +90,21 @@ export function Footer() {
               </a>
             </div>
           </div>
+        </div>
+
+        {/* Horizontal Map */}
+        <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#111] h-[160px] sm:h-[200px] shadow-sm">
+          <iframe 
+            src="https://maps.google.com/maps?q=Ecuador%20811,%20Jardin%20America,%20Misiones&t=&z=15&ie=UTF8&iwloc=&output=embed"
+            width="100%" 
+            height="100%" 
+            style={{ border: 0 }} 
+            allowFullScreen={false} 
+            loading="lazy" 
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Ubicación SANSER Metalúrgica"
+            className="grayscale hover:grayscale-0 transition-all duration-700"
+          ></iframe>
         </div>
       </div>
 
