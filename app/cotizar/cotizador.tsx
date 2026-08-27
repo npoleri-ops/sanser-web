@@ -898,7 +898,7 @@ export function Cotizador({
             <h2 className="text-xl font-bold border-b border-border pb-2">Dimensiones del Tinglado</h2>
             
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Tipo de Estructura</label>
+              <label className="text-xs font-bold uppercase text-foreground/80">Tipo de Estructura</label>
               <div className="flex flex-wrap gap-2">
                 {(Object.entries(TYPE_LABEL) as [ShedType, string][]).map(([typeVal, label]) => (
                   <button
@@ -918,7 +918,7 @@ export function Cotizador({
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Ancho (m)</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">Ancho (m)</label>
                 <input 
                   type="number" 
                   min="3" max="50" step="1"
@@ -929,7 +929,7 @@ export function Cotizador({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Largo (m)</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">Largo (m)</label>
                 <input 
                   type="number" 
                   min="3" max="100" step="1"
@@ -940,7 +940,7 @@ export function Cotizador({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Alto (m)</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">Alto (m)</label>
                 <input 
                   type="number" 
                   min="2" max="20" step="0.5"
@@ -957,7 +957,7 @@ export function Cotizador({
             </h2>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
+              <label className="text-xs font-bold uppercase text-foreground/80">
                 {interno ? "Nombre del Cliente" : "Tu nombre"}{" "}
                 <span className="text-primary">*</span>
               </label>
@@ -973,7 +973,7 @@ export function Cotizador({
             {interno && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Fecha</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">Fecha</label>
                 <input 
                   type="text" 
                   value={date} 
@@ -982,7 +982,7 @@ export function Cotizador({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">CUIT Cliente</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">CUIT Cliente</label>
                 <input 
                   type="text" 
                   value={cuit} 
@@ -995,7 +995,7 @@ export function Cotizador({
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
+              <label className="text-xs font-bold uppercase text-foreground/80">
                 {interno ? "Teléfono Cliente (WhatsApp)" : "Tu teléfono (WhatsApp)"}{" "}
                 <span className="text-primary">*</span>
               </label>
@@ -1009,7 +1009,7 @@ export function Cotizador({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
+              <label className="text-xs font-bold uppercase text-foreground/80">
                 {interno ? "Título del Trabajo" : "Tu presupuesto"}
               </label>
               {interno ? (
@@ -1027,7 +1027,7 @@ export function Cotizador({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
+              <label className="text-xs font-bold uppercase text-foreground/80">
                 {interno ? "Detalle de Materiales" : "Qué incluye"}
               </label>
               {interno ? (
@@ -1037,7 +1037,7 @@ export function Cotizador({
                   className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary min-h-[100px]"
                 />
               ) : (
-                <p className="rounded-md border border-border bg-background/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                <p className="rounded-md border border-border bg-background/50 px-3 py-2 text-xs leading-relaxed text-foreground/80 font-medium">
                   {materials}
                 </p>
               )}
@@ -1045,7 +1045,7 @@ export function Cotizador({
 
             {interno && (
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Imágenes Adicionales Opcionales</label>
+              <label className="text-xs font-bold uppercase text-foreground/80">Imágenes Adicionales Opcionales</label>
               <div className="flex items-center gap-4">
                 <label className="cursor-pointer bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2 border border-border transition-colors">
                   <ImageIcon className="size-4" />
@@ -1098,7 +1098,7 @@ export function Cotizador({
                   >
                     <div>
                       <p className="text-sm font-medium">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs font-medium text-foreground/80">
                         {item.quantity} {item.unit}
                       </p>
                     </div>
@@ -1133,7 +1133,7 @@ export function Cotizador({
                   
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground">Unidad</label>
+                      <label className="text-[10px] font-bold uppercase text-foreground/90">Unidad</label>
                       <input 
                         type="text" 
                         value={item.unit}
@@ -1142,7 +1142,7 @@ export function Cotizador({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground">Cant.</label>
+                      <label className="text-[10px] font-bold uppercase text-foreground/90">Cant.</label>
                       <input 
                         type="number" 
                         value={item.quantity}
@@ -1151,7 +1151,7 @@ export function Cotizador({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground">Precio Unit.</label>
+                      <label className="text-[10px] font-bold uppercase text-foreground/90">Precio Unit.</label>
                       <input 
                         type="number" 
                         value={item.price}
@@ -1166,7 +1166,7 @@ export function Cotizador({
             )}
 
             <div className="pt-4 border-t border-border flex justify-between items-center">
-              <span className="font-bold text-lg text-muted-foreground">TOTAL:</span>
+              <span className="font-bold text-lg text-foreground/90">TOTAL:</span>
               <span className="font-bold text-2xl text-primary">
                 {isLoadingPrices ? (
                   <span className="text-sm font-normal text-muted-foreground italic flex items-center gap-2">
@@ -1235,7 +1235,7 @@ export function Cotizador({
             <h2 className="text-lg font-bold">
               Listo{clientName ? `, ${clientName.split(" ")[0]}` : ""}. Recibimos tu pedido.
             </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            <p className="mx-auto mt-2 max-w-md text-sm text-foreground/80 font-medium">
               Estamos preparando el presupuesto de tu <strong>{title}</strong>. Te lo
               confirmamos por WhatsApp al {phone}, revisado por nuestro equipo.
             </p>

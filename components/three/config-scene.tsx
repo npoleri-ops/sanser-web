@@ -17,7 +17,7 @@ function CotaLabel({
 }) {
   return (
     <Html position={position} center distanceFactor={30} zIndexRange={[10, 0]}>
-      <div className="whitespace-nowrap rounded-sm border border-primary/60 bg-background/85 px-2 py-1 font-mono text-[11px] font-600 tracking-wider text-primary backdrop-blur-sm">
+      <div className="whitespace-nowrap rounded-md border border-white/20 bg-[#12141a]/95 px-2.5 py-1 font-mono text-[13px] font-bold tracking-wider text-white backdrop-blur-md shadow-lg">
         {children}
       </div>
     </Html>
@@ -49,10 +49,10 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       style={{ touchAction: "pan-y" }}
       gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance", antialias: false }}
     >
-      <color attach="background" args={["#12141a"]} />
-      <fog attach="fog" args={["#12141a", camDist * 1.6, camDist * 3.4]} />
+      <color attach="background" args={["#1c2027"]} />
+      <fog attach="fog" args={["#1c2027", camDist * 1.6, camDist * 3.4]} />
 
-      <ambientLight intensity={0.7} color="#ffffff" />
+      <ambientLight intensity={1.0} color="#ffffff" />
       <directionalLight
         position={[15, 30, 15]}
         intensity={1.2}
@@ -78,10 +78,10 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
         args={[120, 120]}
         cellSize={2}
         cellThickness={0.6}
-        cellColor="#2a2d33"
+        cellColor="#3a3d45"
         sectionSize={10}
         sectionThickness={1}
-        sectionColor="#4a4030"
+        sectionColor="#5a5040"
         fadeDistance={100}
         fadeStrength={1.5}
         infiniteGrid

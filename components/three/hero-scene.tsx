@@ -59,10 +59,10 @@ export function HeroScene() {
             camera={{ position: [24, 13, 26], fov: 42 }}
             gl={{ antialias: false, powerPreference: "high-performance" }}
           >
-            <color attach="background" args={["#0d0e11"]} />
-            <fog attach="fog" args={["#0d0e11", 45, 95]} />
+            <color attach="background" args={["#1c2027"]} />
+            <fog attach="fog" args={["#1c2027", 45, 95]} />
 
-            <ambientLight intensity={0.7} />
+            <ambientLight intensity={1.0} />
             <directionalLight
               position={[18, 26, 10]}
               intensity={2.8}
