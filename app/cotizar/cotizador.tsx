@@ -1228,7 +1228,7 @@ export function Cotizador({
           <p className="pt-4 text-right text-xs text-primary">
             {interno
               ? "Completá el nombre y el teléfono del cliente para generar el presupuesto."
-              : "Dejanos tu nombre y tu teléfono para descargar el presupuesto."}
+              : "Dejanos tu celular y nombre para enviarte el presupuesto."}
           </p>
         )}
 
