@@ -374,7 +374,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
   const mats = useMemo(() => {
     const make = () =>
       new THREE.MeshStandardMaterial({
-        color: "#17181c",
+        color: "#94a3b8",
         metalness: 0.7,
         roughness: 0.35,
         transparent: animated,

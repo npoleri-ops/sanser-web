@@ -62,7 +62,8 @@ export function HeroScene() {
             <color attach="background" args={["#1c2027"]} />
             <fog attach="fog" args={["#1c2027", 45, 95]} />
 
-            <ambientLight intensity={1.0} />
+            <ambientLight intensity={2.0} />
+            <directionalLight position={[0, 40, 40]} intensity={2.0} color="#ffffff" />
             <directionalLight
               position={[18, 26, 10]}
               intensity={2.8}

@@ -52,7 +52,8 @@ export function ConfigScene({ config }: { config: ShedConfig }) {
       <color attach="background" args={["#1c2027"]} />
       <fog attach="fog" args={["#1c2027", camDist * 1.6, camDist * 3.4]} />
 
-      <ambientLight intensity={1.0} color="#ffffff" />
+      <ambientLight intensity={2.0} color="#ffffff" />
+      <directionalLight position={[0, 40, 40]} intensity={1.5} color="#ffffff" />
       <directionalLight
         position={[15, 30, 15]}
         intensity={1.2}
