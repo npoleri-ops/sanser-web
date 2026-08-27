@@ -1116,22 +1116,33 @@ export function Cotizador({
 
             {!interno && (
               <div className="space-y-3">
-                {items.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-3 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{item.description}</p>
-                      <p className="text-xs font-medium text-foreground/80">
-                        {item.quantity} {item.unit}
-                      </p>
+                {items.map(item => {
+                  const isTransporte = item.description.includes("Transporte / Flete / Instalación")
+                  const isCero = item.quantity * item.price === 0
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-3 last:border-0"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{item.description}</p>
+                        <p className="text-xs font-medium text-foreground/80">
+                          {item.quantity} {item.unit}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-mono text-sm">
+                        {isTransporte && isCero ? (
+                          <span className="inline-flex items-center rounded-sm bg-[#F97316]/10 px-2 py-0.5 text-xs font-bold text-[#F97316] ring-1 ring-inset ring-[#F97316]/20">
+                            A cotizar
+                          </span>
+                        ) : (
+                          `$ ${(item.quantity * item.price).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                        )}
+                      </span>
                     </div>
-                    <span className="shrink-0 font-mono text-sm">
-                      $ {(item.quantity * item.price).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
@@ -1190,17 +1201,25 @@ export function Cotizador({
             </div>
             )}
 
-            <div className="pt-4 border-t border-border flex justify-between items-center">
-              <span className="font-bold text-lg text-foreground/90">TOTAL:</span>
-              <span className="font-bold text-2xl text-primary">
-                {isLoadingPrices ? (
-                  <span className="text-sm font-normal text-muted-foreground italic flex items-center gap-2">
-                    <RefreshCw className="size-4 animate-spin" /> Calculando...
-                  </span>
-                ) : (
-                  `$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
-                )}
-              </span>
+            <div className="pt-4 border-t border-border flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-lg text-foreground/90">TOTAL ESTIMADO:</span>
+                <span className="font-bold text-2xl text-primary">
+                  {isLoadingPrices ? (
+                    <span className="text-sm font-normal text-muted-foreground italic flex items-center gap-2">
+                      <RefreshCw className="size-4 animate-spin" /> Calculando...
+                    </span>
+                  ) : (
+                    `$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                  )}
+                </span>
+              </div>
+              {!interno && (
+                <p className="text-xs text-muted-foreground leading-relaxed text-right">
+                  El monto corresponde a la estructura base. <br className="hidden sm:block" />
+                  <strong className="text-foreground/80">El flete y la instalación se cotizan según la ubicación de entrega.</strong>
+                </p>
+              )}
             </div>
           </div>
         </div>
