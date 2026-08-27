@@ -5,113 +5,89 @@ import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 
 export function Footer() {
   return (
-    <footer id="contacto" className="border-t border-border bg-card/40">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-3 mb-12">
-        <div className="space-y-4">
-          <div className="mb-2 scale-110 origin-left">
-            <Logo className="text-foreground" />
+    <footer id="contacto" className="bg-[#09090b] border-t border-border text-zinc-400 py-12 px-6">
+      <div className="mx-auto max-w-7xl grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+        
+        {/* Column 1: Brand */}
+        <div>
+          <div className="mb-4 scale-110 origin-left">
+            <Logo className="text-white" />
           </div>
-          <p className="max-w-xs text-pretty text-sm leading-relaxed text-muted-foreground">
+          <p className="text-sm leading-relaxed">
             Fabricación e instalación de tinglados y galpones a medida en perfiles C
             reticulados. Estructuras que aguantan.
           </p>
         </div>
 
-        <div className="space-y-4">
-          <h3 className="font-display text-sm uppercase tracking-widest text-primary">Contacto</h3>
-          
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-widest">Oficina / Alternativa</span>
-            <a
-              href={`tel:${CONTACT.phoneSecondaryRaw}`}
-              className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Phone className="size-4 text-primary" /> {CONTACT.phoneSecondaryDisplay}
+        {/* Column 2: Contacto */}
+        <div>
+          <h4 className="text-white font-semibold mb-4 uppercase tracking-widest text-sm">Contacto</h4>
+          <div className="space-y-3">
+            <a href={`tel:${CONTACT.phoneSecondaryRaw}`} className="flex items-center gap-2 text-sm transition-colors hover:text-white">
+              <Phone className="size-4 text-[#F97316]" /> 
+              <span>Oficina: {CONTACT.phoneSecondaryDisplay}</span>
+            </a>
+            <a href={`tel:${CONTACT.phoneRaw}`} className="flex items-center gap-2 text-sm transition-colors hover:text-white">
+              <Phone className="size-4 text-[#F97316]" /> 
+              <span>Ventas: {CONTACT.phoneDisplay}</span>
+            </a>
+            <a href={`mailto:${CONTACT.email}`} className="flex items-center gap-2 text-sm transition-colors hover:text-white">
+              <Mail className="size-4 text-[#F97316]" /> 
+              {CONTACT.email}
             </a>
           </div>
-          
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-widest">Ventas y Cotizaciones 3D</span>
-            <a
-              href={`tel:${CONTACT.phoneRaw}`}
-              className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Phone className="size-4 text-primary" /> {CONTACT.phoneDisplay}
-            </a>
-          </div>
+        </div>
 
-          <a
-            href={`mailto:${CONTACT.email}`}
-            className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Mail className="size-4 text-primary" /> {CONTACT.email}
-          </a>
-          <p className="flex items-center gap-3 text-sm text-muted-foreground">
-            <MapPin className="size-4 text-primary shrink-0" /> {CONTACT.address}
+        {/* Column 3: Ubicación */}
+        <div>
+          <h4 className="text-white font-semibold mb-4 uppercase tracking-widest text-sm">Ubicación</h4>
+          <p className="flex items-start gap-2 text-sm">
+            <MapPin className="size-4 text-[#F97316] shrink-0 mt-0.5" /> 
+            {CONTACT.address}
           </p>
         </div>
 
-        <div className="space-y-4">
-          <h3 className="font-display text-sm uppercase tracking-widest text-primary">
-            Atención al Cliente
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Asesoramiento personalizado sin cargo.
-          </p>
+        {/* Column 4: Atención al cliente */}
+        <div>
+          <h4 className="text-white font-semibold mb-4 uppercase tracking-widest text-sm">Atención al cliente</h4>
+          <p className="text-sm mb-4">Asesoramiento personalizado sin cargo.</p>
           <button
             onClick={openWhatsAppModal}
-            className="inline-flex items-center gap-2 rounded-sm bg-primary px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-primary-foreground transition-opacity hover:opacity-90"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-[#F97316] px-4 py-2 font-mono text-xs uppercase tracking-wider text-white transition-opacity hover:opacity-90"
           >
             <MessageCircle className="size-4" />
-            Consultar por WhatsApp
+            Vía WhatsApp
           </button>
-
-          <div className="pt-4 space-y-3">
-            <h4 className="font-display text-xs uppercase tracking-widest text-muted-foreground">Seguinos en nuestras redes:</h4>
+          
+          <div className="pt-6">
             <div className="flex gap-4">
-              <a 
-                href="https://www.instagram.com/sansermetalurgica/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-gray-300 transition-colors hover:text-[#FF7A00]"
-                aria-label="Instagram"
-              >
-                <InstagramIcon className="w-7 h-7 inline-block" />
+              <a href="https://www.instagram.com/sansermetalurgica/" target="_blank" rel="noopener noreferrer" className="text-zinc-500 transition-colors hover:text-[#F97316]" aria-label="Instagram">
+                <InstagramIcon className="w-5 h-5" />
               </a>
-              <a 
-                href="https://www.facebook.com/sansermetalurgica" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-gray-300 transition-colors hover:text-[#FF7A00]"
-                aria-label="Facebook"
-              >
-                <FacebookIcon className="w-7 h-7 inline-block" />
+              <a href="https://www.facebook.com/sansermetalurgica" target="_blank" rel="noopener noreferrer" className="text-zinc-500 transition-colors hover:text-[#F97316]" aria-label="Facebook">
+                <FacebookIcon className="w-5 h-5" />
               </a>
             </div>
           </div>
         </div>
-
-        {/* Horizontal Map */}
-        <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#111] h-[160px] sm:h-[200px] shadow-sm">
-          <iframe 
-            src="https://maps.google.com/maps?q=Ecuador%20811,%20Jardin%20America,%20Misiones&t=&z=15&ie=UTF8&iwloc=&output=embed"
-            width="100%" 
-            height="100%" 
-            style={{ border: 0 }} 
-            allowFullScreen={false} 
-            loading="lazy" 
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Ubicación SANSER Metalúrgica"
-            className="grayscale hover:grayscale-0 transition-all duration-700"
-          ></iframe>
-        </div>
       </div>
 
-      <div className="border-t border-border/60 py-5">
-        <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          © {new Date().getFullYear()} SANSER Metalúrgica — Todos los derechos reservados
-        </p>
+      {/* Horizontal Map */}
+      <div className="max-w-7xl mx-auto w-full h-40 md:h-48 rounded-xl overflow-hidden border border-zinc-800/60 mb-8 shadow-sm">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3548.8!2d-55.23!3d-27.03!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjdoMDInMDAuMCJTIDU1wrAxMyc0OC4wIlc!5e0!3m2!1ses!2sar!4v1650000000000!5m2!1ses!2sar"
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          allowFullScreen={true}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="grayscale hover:grayscale-0 transition-all duration-700"
+        />
+      </div>
+
+      <div className="max-w-7xl mx-auto border-t border-zinc-900 pt-6 text-center text-[10px] sm:text-xs font-mono uppercase tracking-[0.2em] text-zinc-600">
+        © {new Date().getFullYear()} SANSER Metalúrgica — Todos los derechos reservados
       </div>
     </footer>
   )
