@@ -129,15 +129,14 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const superficie = ancho * largo;
   const subtotalManoObra = Math.round(superficie * 11000);
   const subtotalPintor = 200000;
-  const totalEstimado = subtotalMateriales + subtotalManoObra + subtotalPintor;
+  
+  const subtotalTingladoCompleto = subtotalMateriales + subtotalManoObra + subtotalPintor;
 
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
   const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
   
   const nuevosItems: QuoteItem[] = [
-    { id: "tinglado-1", description: "Materiales base", unit: "gl", quantity: 1, price: subtotalMateriales },
-    { id: "mano-obra-1", description: "Mano de obra de fabricación y montaje ($11.000/m2)", unit: "gl", quantity: 1, price: subtotalManoObra },
-    { id: "pintura-1", description: "Pintura y terminación", unit: "gl", quantity: 1, price: subtotalPintor },
+    { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTingladoCompleto },
     { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
   ];
 
