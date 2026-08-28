@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   AlarmClock,
   ChevronLeft,
@@ -18,6 +19,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Wallet,
 } from "lucide-react"
 import {
   KIND_LABEL,
@@ -200,6 +202,9 @@ export function LeadsBoard({
           <Button variant="outline" size="lg" onClick={exportCSV}>
             <Download /> CSV
           </Button>
+          <Link href="/admin/finanzas" className={buttonVariants({ variant: "outline", size: "lg" })}>
+            <Wallet /> Finanzas
+          </Link>
           <Button variant="ghost" size="lg" onClick={logout}>
             <LogOut /> Salir
           </Button>

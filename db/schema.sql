@@ -69,3 +69,89 @@ CREATE UNIQUE INDEX IF NOT EXISTS leads_quote_number_idx ON leads (quote_number)
 -- Serie correlativa de presupuestos. No se reinicia cada año: el año va en el
 -- prefijo y así el número nunca se repite.
 CREATE SEQUENCE IF NOT EXISTS quote_number_seq START 1;
+
+-- ───────────────────────────────────────────────────────── gestión de gastos
+
+-- Un solo libro para todo el dinero que entra y sale, con el tipo como columna
+-- en vez de una tabla por cada cosa. Casi toda pregunta del negocio es «sumá el
+-- período y agrupá por tipo»; con cuatro tablas eso son cuatro consultas y una
+-- unión, y además el gasto imputado a una obra dejaría de ser un simple JOIN.
+--
+-- El monto va siempre en positivo: el signo lo pone el tipo. Guardar negativos
+-- invita a que un ingreso mal cargado reste sin que nadie lo note.
+CREATE TABLE IF NOT EXISTS fin_movimientos (
+  id          BIGSERIAL    PRIMARY KEY,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+  -- La fecha del hecho económico, no la de carga: si Santi carga en marzo una
+  -- factura de febrero, el mes de febrero tiene que cambiar.
+  fecha       DATE         NOT NULL,
+
+  tipo        TEXT         NOT NULL
+                           CHECK (tipo IN ('ingreso', 'fijo', 'variable', 'produccion')),
+
+  concepto    TEXT         NOT NULL,
+  categoria   TEXT,
+  monto       NUMERIC(14,2) NOT NULL CHECK (monto > 0),
+
+  medio_pago  TEXT,
+  proveedor   TEXT,
+  notas       TEXT,
+
+  -- La obra a la que se imputa. Sin esto no hay rentabilidad por obra, que es
+  -- la única cifra que dice si un tinglado se hizo ganando o perdiendo plata.
+  -- ON DELETE SET NULL: borrar un lead no puede llevarse por delante el gasto,
+  -- que ya ocurrió y tiene que seguir contando en el mes.
+  lead_id     BIGINT       REFERENCES leads(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS fin_mov_fecha_idx   ON fin_movimientos (fecha DESC);
+CREATE INDEX IF NOT EXISTS fin_mov_tipo_idx    ON fin_movimientos (tipo);
+CREATE INDEX IF NOT EXISTS fin_mov_lead_idx    ON fin_movimientos (lead_id);
+
+-- Los gastos fijos se repiten todos los meses, pero se guardan igual como
+-- movimientos reales: el libro tiene que decir lo que se pagó, no lo que
+-- tendría que pagarse. Esto es sólo la lista para no volver a tipearlos, y un
+-- botón que genera el mes a partir de ella.
+CREATE TABLE IF NOT EXISTS fin_gastos_fijos (
+  id          BIGSERIAL    PRIMARY KEY,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  concepto    TEXT         NOT NULL,
+  categoria   TEXT,
+  monto       NUMERIC(14,2) NOT NULL CHECK (monto > 0),
+  proveedor   TEXT,
+  -- Un fijo dado de baja no se borra: los meses ya generados lo siguen teniendo.
+  activo      BOOLEAN      NOT NULL DEFAULT true,
+  -- Día del mes en que suele pagarse. Sólo para ordenar y para la fecha que se
+  -- propone al generar.
+  dia_pago    SMALLINT     CHECK (dia_pago BETWEEN 1 AND 31)
+);
+
+-- Generar dos veces el mismo mes no puede duplicar el alquiler. Se marca de qué
+-- plantilla y de qué mes salió cada movimiento generado, y el par es único.
+ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS fijo_id BIGINT
+  REFERENCES fin_gastos_fijos(id) ON DELETE SET NULL;
+ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS periodo TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS fin_mov_fijo_periodo_idx
+  ON fin_movimientos (fijo_id, periodo)
+  WHERE fijo_id IS NOT NULL AND periodo IS NOT NULL;
+
+-- Comprobantes. Mismo patrón que lead_pdfs —el binario en su propia tabla para
+-- no engordar cada SELECT—, pero con una diferencia deliberada: el de un
+-- presupuesto viaja por WhatsApp y por eso su token es toda la protección;
+-- éstos son internos y además exigen sesión para descargarse.
+CREATE TABLE IF NOT EXISTS fin_comprobantes (
+  id            BIGSERIAL    PRIMARY KEY,
+  movimiento_id BIGINT       NOT NULL REFERENCES fin_movimientos(id) ON DELETE CASCADE,
+  token         UUID         NOT NULL DEFAULT gen_random_uuid(),
+  filename      TEXT         NOT NULL,
+  mime          TEXT         NOT NULL,
+  content       BYTEA        NOT NULL,
+  size_bytes    INTEGER      NOT NULL,
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS fin_comprobantes_token_idx ON fin_comprobantes (token);
+CREATE INDEX IF NOT EXISTS fin_comprobantes_mov_idx ON fin_comprobantes (movimiento_id);

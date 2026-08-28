@@ -94,6 +94,87 @@ Aviso: el PDF se genera en el navegador, así que quien sepa usar las herramient
 desarrollo puede saltarse el bloqueo. Cerrar esa puerta del todo exige generar el PDF en
 el servidor.
 
+## Gestión de gastos
+
+Panel en **/admin/finanzas**, con la misma sesión que el CRM. Responde tres preguntas:
+cuánto entró y salió, qué obra dejó plata, y cuánto hay que facturar para no perder.
+
+### Cómo está pensado
+
+**Un solo libro, no cuatro tablas.** Todo movimiento —ingreso, gasto fijo, variable o de
+producción— es una fila de `fin_movimientos` con el tipo como columna. Casi toda pregunta
+del negocio es «sumá el período y agrupá por tipo»; con una tabla por tipo eso serían
+cuatro consultas y una unión. El monto va siempre positivo: el signo lo pone el tipo.
+
+**La separación de gastos no es cosmética:**
+
+| tipo | qué es | se imputa a una obra |
+| --- | --- | --- |
+| `fijo` | existe aunque no se venda nada: alquiler, sueldos, seguro | no |
+| `variable` | acompaña a la actividad pero no es de una obra: combustible, herramientas | no |
+| `produccion` | material y mano de obra de **una** obra | sí |
+| `ingreso` | plata que entró | sí, si corresponde a una obra |
+
+Un alquiler imputado a un tinglado le arruinaría la rentabilidad, así que el formulario
+sólo ofrece imputar en los dos tipos que corresponde.
+
+**Los gastos fijos se guardan dos veces a propósito.** En `fin_gastos_fijos` está la
+lista de lo que se paga todos los meses —para no tipearla— y el botón *Generar el mes*
+la vuelca como movimientos reales. Podría calcularse al vuelo y ahorrarse las filas, pero
+entonces el libro diría lo que *debería* pagarse en vez de lo que se pagó, y en cuanto un
+mes el alquiler suba las cuentas dejarían de cuadrar con el banco. Generar dos veces el
+mismo mes no duplica nada: lo impide un índice único.
+
+**Los ingresos no son las ventas.** Una venta ya vive en el CRM (un lead `ganado` con su
+`quote_total`); un ingreso es plata efectivamente cobrada. Se llevan separados porque
+casi nunca coinciden —seña, saldo, cuotas— y la diferencia entre lo presupuestado y lo
+cobrado es justamente lo que se quiere ver en la tabla de obras.
+
+### «ROI» son dos números distintos
+
+La palabra significa cosas distintas según quién pregunte, así que se muestran las dos
+con su nombre en vez de una cifra ambigua:
+
+- **Margen** = (ingresos − gastos) / ingresos → de cada peso facturado, cuánto queda.
+- **Retorno** = (ingresos − gastos) / gastos → por cada peso puesto, cuánto vuelve.
+- **ROI por obra** = (cobrado − costo de producción) / costo → si conviene volver a tomar
+  un trabajo así.
+
+Donde no se puede dividir se muestra «—» y no un cero: un ROI sin costos cargados no es
+cero, es desconocido.
+
+### Proyección
+
+No adivina: proyecta lo medido. El **punto de equilibrio** sale de los fijos mensuales y
+del margen bruto, y contesta lo único que importa a fin de mes —cuánto hay que facturar
+para no perder plata—. Lo **esperado** es lo presupuestado y todavía abierto por la tasa
+histórica de cierre. El mes en curso no entra en las medias: está a medias y las tira
+hacia abajo. Con menos de tres meses cerrados la pantalla avisa de que eso es una cuenta
+y no una previsión.
+
+### Comprobantes
+
+Se sube una foto o un PDF por movimiento, hasta **4 MB** —el tope no es caprichoso:
+Vercel corta el cuerpo de una petición en 4,5 MB—. Se guardan en la base como los PDF de
+presupuesto, pero con una diferencia deliberada: aquél viaja por WhatsApp y su token es
+toda la protección; **éstos exigen sesión** además del token.
+
+El filtro *Sin comprobante* deja ver de un vistazo lo que falta respaldar.
+
+Mismo aviso de capacidad que los presupuestos: el plan gratuito da 0,5 GB. El pie de la
+tabla muestra cuánto se lleva usado; cuando apriete, el binario se mueve a Vercel Blob y
+sólo queda el enlace —la tabla ya está separada para que ese cambio no toque nada más—.
+
+### Probarlo
+
+```bash
+docker compose exec web node scripts/smoke-finanzas.mjs
+```
+
+Recorre el circuito entero contra el entorno local: sesión, altas, validaciones,
+generación del mes por duplicado, subida y descarga de comprobantes, las cuentas y la
+página. No es un framework de tests —el repo no tiene ninguno— pero cubre lo que da miedo.
+
 ### Un solo dominio
 
 El sitio responde por tres nombres —el canónico, `sansermetalurgica.com` y el
