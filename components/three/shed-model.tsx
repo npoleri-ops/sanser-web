@@ -136,7 +136,7 @@ function useBuilt(config: ShedConfig): Built {
         [halfW, eaveR],
       ]
       if (type === "shed" && config.centralColumns) {
-        sides.push([0, topFn(0)])
+        sides.push([0, bottomFn(0)])
       }
       for (const [x, top] of sides) {
         // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
