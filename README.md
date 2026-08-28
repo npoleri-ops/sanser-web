@@ -94,6 +94,22 @@ Aviso: el PDF se genera en el navegador, así que quien sepa usar las herramient
 desarrollo puede saltarse el bloqueo. Cerrar esa puerta del todo exige generar el PDF en
 el servidor.
 
+### Un solo dominio
+
+El sitio responde por tres nombres —el canónico, `sansermetalurgica.com` y el
+`sansermetalurgica.vercel.app` que Vercel le asigna al proyecto— y los dos últimos
+redirigen al bueno con **308**, conservando ruta y query. Eso lo hace
+[`proxy.ts`](proxy.ts), no el panel de Vercel: si la redirección vive sólo en el panel,
+basta que alguien la toque para que Google vuelva a indexar dos sitios sin que quede
+rastro en el código.
+
+Sólo actúa en producción: las vistas previas siguen sirviendo en su propia URL, que es
+para lo que existen.
+
+Y si un host equivocado ya está indexado, esto no lo borra: hay que esperar a que Google
+lo vuelva a rastrear y vea el 308 —de una a cuatro semanas—. Nunca convertirlo en 404: el
+redirect permanente traspasa la autoridad al dominio bueno y el 404 la tira.
+
 ### Variables de entorno
 
 | Variable            | Para qué                                                                 |
