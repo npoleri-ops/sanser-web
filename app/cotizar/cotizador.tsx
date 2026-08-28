@@ -976,6 +976,21 @@ export function Cotizador({
                 />
               </div>
             </div>
+            
+            {config.type === "shed" && (
+              <div className="flex items-center gap-2 pt-2">
+                <input 
+                  type="checkbox"
+                  id="centralColumns"
+                  checked={!!config.centralColumns}
+                  onChange={e => setConfig({ ...config, centralColumns: e.target.checked })}
+                  className="size-4 rounded border-input bg-background text-primary focus:ring-primary"
+                />
+                <label htmlFor="centralColumns" className="text-sm font-medium text-foreground/80 cursor-pointer">
+                  Columnas intermedias de apoyo
+                </label>
+              </div>
+            )}
 
             <h2 className="text-xl font-bold border-b border-border pb-2 mt-6">
               {interno ? "Datos y Descripción" : "Tus datos"}

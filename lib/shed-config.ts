@@ -16,6 +16,7 @@ export interface ShedConfig {
   walls: boolean // cerramientos laterales
   gate: boolean // portón frontal
   gateBack: boolean // portón trasero
+  centralColumns?: boolean // columnas intermedias de apoyo (1 agua)
 }
 
 export const DEFAULT_CONFIG: ShedConfig = {
@@ -30,6 +31,7 @@ export const DEFAULT_CONFIG: ShedConfig = {
   walls: false,
   gate: false,
   gateBack: false,
+  centralColumns: false,
 }
 
 export const LIMITS = {
@@ -83,7 +85,10 @@ export function computeMateriales(config: ShedConfig): Computo {
   const frames = bays + 1
 
   // Cada pórtico transversal lleva 2 columnas reticuladas
-  const columnas = frames * 2
+  let columnas = frames * 2
+  if (type === "shed" && config.centralColumns) {
+    columnas += frames
+  }
   const cabreadas = frames
 
   const superficiePlanta = width * length
