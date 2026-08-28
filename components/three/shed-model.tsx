@@ -27,6 +27,7 @@ function lattice(
   panels: number,
   chordT: number,
   webT: number,
+  slantFn?: (x: number) => number
 ): Seg[] {
   const segs: Seg[] = []
   const half = perp.clone().multiplyScalar(depth / 2)
@@ -34,6 +35,12 @@ function lattice(
   const aB = a.clone().sub(half)
   const bF = b.clone().add(half)
   const bB = b.clone().sub(half)
+
+  if (slantFn) {
+    bF.y = slantFn(bF.x)
+    bB.y = slantFn(bB.x)
+  }
+
   segs.push([aF, bF, chordT])
   segs.push([aB, bB, chordT])
   for (let i = 0; i < panels; i++) {
@@ -139,9 +146,16 @@ function useBuilt(config: ShedConfig): Built {
         sides.push([0, bottomFn(0)])
       }
       for (const [x, top] of sides) {
+        let slantFn: ((x: number) => number) | undefined
+        if (type === "shed" && x > 0) {
+          slantFn = topFn
+        } else if (type === "gable_portico") {
+          slantFn = bottomFn
+        }
+        
         // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
         // diagonal-braced face points toward a front-facing camera (columns rotated 90° on their vertical axis).
-        columns.push(...lattice(v(x, 0.3, z), v(x, top, z), v(1, 0, 0), colDepth, colPanels, chordT, webT))
+        columns.push(...lattice(v(x, 0.3, z), v(x, top, z), v(1, 0, 0), colDepth, colPanels, chordT, webT, slantFn))
         // base plate as 4 short stubs forming a box footprint
         bases.push([v(x - 0.35, 0.14, z - 0.35), v(x + 0.35, 0.14, z - 0.35), 0.28])
         bases.push([v(x - 0.35, 0.14, z + 0.35), v(x + 0.35, 0.14, z + 0.35), 0.28])
