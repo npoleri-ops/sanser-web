@@ -125,8 +125,8 @@ function useBuilt(config: ShedConfig): Built {
       return H
     }
 
-    const eaveL = type === "gable_portico" ? bottomFn(-halfW) : H
-    const eaveR = type === "gable_portico" ? bottomFn(halfW) : (type === "gable" ? H : topFn(halfW))
+    const eaveL = bottomFn(-halfW)
+    const eaveR = bottomFn(halfW)
     const outL = halfL + chordT / 2
 
     const bases: Seg[] = []
@@ -147,9 +147,7 @@ function useBuilt(config: ShedConfig): Built {
       }
       for (const [x, top] of sides) {
         let slantFn: ((x: number) => number) | undefined
-        if (type === "shed" && x > 0) {
-          slantFn = topFn
-        } else if (type === "gable_portico") {
+        if (type === "gable_portico") {
           slantFn = bottomFn
         }
         
