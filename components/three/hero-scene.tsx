@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useCallback, useEffect } from "react"
+import { Suspense, useState, useCallback } from "react"
 import { Canvas } from "@react-three/fiber"
 import { Html, OrbitControls } from "@react-three/drei"
 import { ErrorBoundary } from "../error-boundary"

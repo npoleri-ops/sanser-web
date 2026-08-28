@@ -222,9 +222,21 @@ export function Cotizador({
   // guarda nada, o el efecto de guardado pisaría lo almacenado con los valores por defecto.
   const [hydrated, setHydrated] = useState(false)
 
+  // Si el cotizador se abrió con un lead, mandan sus medidas y no se lee nada de
+  // localStorage. La decisión se toma al montar y se guarda aquí: si dependiera de
+  // la prop, un simple cambio de identidad volvería a disparar la lectura y pisaría
+  // las medidas que Santi está editando.
+  const reabriendoLead = useRef(Boolean(leadInicial))
+
+  // Este efecto actualiza estado a propósito y no se puede evitar: localStorage no
+  // existe en el servidor, así que sólo se puede leer una vez montado, y de ahí la
+  // segunda pasada de render. Y `hydrated` tiene que ser estado, no una ref, porque
+  // es lo que hace que el efecto de guardado vuelva a correr ya con las medidas
+  // cargadas; con una ref guardaría los valores por defecto encima de lo almacenado,
+  // que es exactamente lo que esto evita.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    // Si estamos reabriendo un lead, no sobreescribimos con localStorage
-    if (leadInicial) {
+    if (reabriendoLead.current) {
       setHydrated(true)
       return
     }
@@ -233,8 +245,6 @@ export function Cotizador({
       const storedLargo = localStorage.getItem('sanser_largo')
       const storedAlto = localStorage.getItem('sanser_alto')
       if (storedAncho && storedLargo && storedAlto) {
-        // Hidratación desde localStorage: sólo puede leerse en cliente, tras montar.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setConfig(prev => ({
           ...prev,
           width: parseFloat(storedAncho) || 15,
@@ -247,6 +257,7 @@ export function Cotizador({
     }
     setHydrated(true)
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hydrated) return
