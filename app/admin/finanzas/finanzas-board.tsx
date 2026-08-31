@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { Cargar } from "./cargar"
 import {
   ArrowLeft,
   Download,
@@ -91,6 +92,9 @@ export function FinanzasBoard(props: Props) {
   const [sinComprobante, setSinComprobante] = useState(false)
   const [page, setPage] = useState(1)
 
+  // Arranca en «Cargar» a propósito: lo que se hace veinte veces por semana es
+  // anotar una factura desde el galpón, no mirar el tablero.
+  const [vista, setVista] = useState<"cargar" | "numeros">("cargar")
   const [loading, setLoading] = useState(false)
   const [creando, setCreando] = useState(false)
   const [verFijos, setVerFijos] = useState(false)
@@ -180,24 +184,30 @@ export function FinanzasBoard(props: Props) {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold uppercase tracking-wide">Finanzas SANSER</h1>
-          <p className="text-sm text-muted-foreground">
-            {resumen.movimientos} movimientos entre {fechaCorta(resumen.desde)} y {fechaCorta(resumen.hasta)}
-            {resumen.sinComprobante > 0 && ` · ${resumen.sinComprobante} sin comprobante`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="lg" onClick={() => setCreando(true)}><Plus /> Nuevo</Button>
-          <Button variant="outline" size="lg" onClick={() => setVerFijos(true)}><Repeat /> Gastos fijos</Button>
-          <Button variant="outline" size="lg" onClick={() => void refrescar()} disabled={loading}>
-            <RefreshCw className={loading ? "animate-spin" : ""} /> Actualizar
-          </Button>
-          <Button variant="outline" size="lg" onClick={exportarCSV}><Download /> CSV</Button>
-          <Link href="/admin" className={buttonVariants({ variant: "ghost", size: "lg" })}>
-            <ArrowLeft /> CRM
+      <header className="mb-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <h1 className="font-heading text-2xl font-bold uppercase tracking-wide">Plata de SANSER</h1>
+          <Link href="/admin" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <ArrowLeft /> Ir al CRM
           </Link>
+        </div>
+
+        {/* Dos pestañas y no un menú: sólo hay dos cosas que hacer aquí, cargar
+            y mirar. Grandes, porque se aprietan con el pulgar. */}
+        <div className="grid grid-cols-2 gap-2">
+          {([["cargar", "Cargar"], ["numeros", "Los números"]] as const).map(([v, etiqueta]) => (
+            <button
+              key={v}
+              onClick={() => setVista(v)}
+              className={`min-h-12 rounded-xl border text-base font-semibold transition-colors ${
+                vista === v
+                  ? "border-primary bg-primary/15 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {etiqueta}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -207,6 +217,24 @@ export function FinanzasBoard(props: Props) {
           <button onClick={() => setAviso(null)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
         </div>
       )}
+
+      {vista === "cargar" ? (
+        <Cargar obras={obras} ultimos={movimientos} onGuardado={refrescar} />
+      ) : (
+      <>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => setCreando(true)}><Plus /> Carga detallada</Button>
+        <Button variant="outline" size="sm" onClick={() => setVerFijos(true)}><Repeat /> Gastos de todos los meses</Button>
+        <Button variant="outline" size="sm" onClick={() => void refrescar()} disabled={loading}>
+          <RefreshCw className={loading ? "animate-spin" : ""} /> Actualizar
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportarCSV}><Download /> CSV</Button>
+      </div>
+
+      <p className="mb-4 text-sm text-muted-foreground">
+        {resumen.movimientos} anotaciones entre {fechaCorta(resumen.desde)} y {fechaCorta(resumen.hasta)}
+        {resumen.sinComprobante > 0 && ` · ${resumen.sinComprobante} sin foto de comprobante`}
+      </p>
 
       {/* Período: manda sobre todo lo de abajo, así que va primero. */}
       <section className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
@@ -298,6 +326,9 @@ export function FinanzasBoard(props: Props) {
           El plan gratuito de la base da 0,5 GB en total, presupuestos incluidos.
         </p>
       </section>
+
+      </>
+      )}
 
       {creando && (
         <ModalMovimiento

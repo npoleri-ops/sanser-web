@@ -99,6 +99,22 @@ el servidor.
 Panel en **/admin/finanzas**, con la misma sesión que el CRM. Responde tres preguntas:
 cuánto entró y salió, qué obra dejó plata, y cuánto hay que facturar para no perder.
 
+### Dos pantallas, y la que importa es la de cargar
+
+**Cargar** es la que se abre. Está pensada para el teléfono, en el galpón, con la factura
+en la mano: primero si entró o salió plata, después cuánto, después qué era —con botones
+grandes que dicen *Perfilería*, *Chapa*, *Sueldos*, *Alquiler*—, la foto de la factura y
+listo. Debajo queda lo último cargado, para confirmar de un vistazo y poder deshacer.
+
+**El que carga nunca elige el tipo contable.** Nadie en un taller piensa «esto es un
+gasto variable»; piensa «compré chapa». El tipo va detrás de cada concepto, en
+[`lib/finanzas/conceptos.ts`](lib/finanzas/conceptos.ts), y lo decide el sistema. Elegir
+*Chapa* hace que además aparezca la pregunta de a qué obra, y elegir *Alquiler* no.
+Los nombres salen del propio cotizador, para que se lea lo mismo que se presupuesta.
+
+**Los números** es la otra pestaña, con el detalle, los filtros, la carga detallada y la
+jerga completa. Ahí sí se habla de márgenes y de tipos.
+
 ### Cómo está pensado
 
 **Un solo libro, no cuatro tablas.** Todo movimiento —ingreso, gasto fijo, variable o de

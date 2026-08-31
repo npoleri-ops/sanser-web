@@ -104,7 +104,9 @@ r = await req(`/api/admin/finanzas/comprobante/${token}`)
 ok("comprobante con sesión se descarga", r.status === 200)
 
 // 8 · los números
-r = await req(`/api/admin/finanzas/resumen?desde=${mes}-01&hasta=${mes}-28`)
+// Hasta hoy, no hasta un día fijo: con el 28 escrito a mano, el rango dejaba
+// fuera los movimientos en cuanto el mes pasaba de esa fecha.
+r = await req(`/api/admin/finanzas/resumen?desde=${mes}-01&hasta=${hoy}`)
 const s = r.body.resumen
 ok("ingresos = 3.000.000", s.ingresos === 3000000, String(s.ingresos))
 ok("producción = 1.500.000", s.produccion === 1500000, String(s.produccion))
@@ -133,4 +135,4 @@ ok("borrar movimiento", r.status === 200)
 
 // 11 · la página
 r = await req("/admin/finanzas")
-ok("la página carga", r.status === 200 && String(r.body).includes("Finanzas SANSER"))
+ok("la página carga", r.status === 200 && String(r.body).includes("Plata de SANSER"))
