@@ -1,6 +1,7 @@
 import { query } from "./db"
 import {
   LEAD_STATUSES,
+  type Cliente,
   type Lead,
   type LeadKind,
   type LeadStats,
@@ -103,8 +104,12 @@ export async function createOrUpdateLead(lead: NewLead, ctx: RequestContext): Pr
          updated_at   = now()
        WHERE id = (
          SELECT id FROM leads
-         WHERE kind = $5 AND phone = $6 AND quote_title = $7
+         -- Por la clave normalizada y no por la cadena: si el cliente escribe
+         -- el teléfono de otra forma, antes se creaba un duplicado.
+         WHERE kind = $5 AND phone_key = NULLIF(RIGHT(REGEXP_REPLACE($6, '\D', '', 'g'), 10), '')
+           AND quote_title = $7
            AND quote_state = 'borrador'
+           AND deleted_at IS NULL
            AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
          ORDER BY created_at DESC
          LIMIT 1
@@ -241,6 +246,10 @@ export interface LeadFilters {
   search?: string
   /** Sólo los que llevan más de 48 h sin atender. */
   dormidos?: boolean
+  /** La papelera: en vez de los vivos, muestra lo borrado. */
+  borrados?: boolean
+  /** Todos los registros de un mismo cliente, por su teléfono normalizado. */
+  phoneKey?: string
 }
 
 export interface LeadPage {
@@ -272,6 +281,13 @@ export async function listLeads(
   if (filters.dormidos) {
     where.push(`(leads.status = 'nuevo' AND leads.created_at < now() - INTERVAL '48 hours')`)
   }
+  if (filters.phoneKey) {
+    params.push(filters.phoneKey)
+    where.push(`leads.phone_key = $${params.length}`)
+  }
+  // Lo borrado no se ve salvo que se pida la papelera a propósito. Va al final
+  // para que ningún filtro de arriba pueda saltárselo por olvido.
+  where.push(filters.borrados ? `leads.deleted_at IS NOT NULL` : `leads.deleted_at IS NULL`)
 
   params.push(limit)
   const limitParam = params.length
@@ -283,7 +299,9 @@ export async function listLeads(
     `SELECT leads.*,
             pdfs.token AS pdf_token,
             (SELECT count(*)::int FROM leads otros
-              WHERE otros.phone IS NOT NULL AND otros.phone = leads.phone) AS phone_count,
+              WHERE otros.phone_key IS NOT NULL
+                AND otros.phone_key = leads.phone_key
+                AND otros.deleted_at IS NULL) AS phone_count,
             COUNT(*) OVER()::text AS total_count
      FROM leads
      LEFT JOIN lead_pdfs pdfs ON pdfs.lead_id = leads.id
@@ -339,7 +357,7 @@ export async function getStats(): Promise<LeadStats> {
             COUNT(*) FILTER (
               WHERE status = 'nuevo' AND created_at < now() - INTERVAL '48 hours'
             )::text AS dormidos
-     FROM leads GROUP BY kind, status`,
+     FROM leads WHERE deleted_at IS NULL GROUP BY kind, status`,
   )
 
   const stats: LeadStats = {
@@ -358,4 +376,112 @@ export async function getStats(): Promise<LeadStats> {
   }
 
   return stats
+}
+
+/* ─────────────────────────────────────────── papelera y agrupado por cliente */
+
+/**
+ * Borrado lógico, en lote. Es lo que hace falta después de meses de pruebas
+ * internas: marcar veinte registros de una y sacarlos de la vista.
+ *
+ * No se borra de verdad a propósito. Un lead borrado puede tener un PDF
+ * entregado, gastos de obra imputados y el historial del cliente colgando de él;
+ * un DELETE se llevaría el rastro de todo eso por delante.
+ */
+export async function borrarLeads(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await query<{ id: string }>(
+    `UPDATE leads SET deleted_at = now(), updated_at = now()
+      WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL
+      RETURNING id`,
+    [ids],
+  )
+  return rows.length
+}
+
+export async function restaurarLeads(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await query<{ id: string }>(
+    `UPDATE leads SET deleted_at = NULL, updated_at = now()
+      WHERE id = ANY($1::bigint[]) AND deleted_at IS NOT NULL
+      RETURNING id`,
+    [ids],
+  )
+  return rows.length
+}
+
+/**
+ * La misma persona vista una sola vez.
+ *
+ * Se agrupa por el teléfono normalizado, que es la única clave que tenemos: el
+ * sitio nunca pide correo, y el CUIT sólo aparece en los presupuestos de
+ * empresas. Quien no dejó teléfono no puede agruparse y queda fuera de esta
+ * lista —se sigue viendo en la de registros—.
+ */
+export async function listClientes(
+  { search }: { search?: string } = {},
+  { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
+): Promise<{ clientes: Cliente[]; total: number }> {
+  const params: unknown[] = []
+  let filtro = ""
+  if (search) {
+    params.push(`%${search}%`)
+    filtro = `AND (name ILIKE $${params.length} OR phone ILIKE $${params.length} OR cuit ILIKE $${params.length})`
+  }
+
+  params.push(limit)
+  const limitParam = params.length
+  params.push(offset)
+
+  const rows = await query<Cliente & { total_count: string }>(
+    `WITH vivos AS (
+       SELECT * FROM leads WHERE deleted_at IS NULL AND phone_key IS NOT NULL ${filtro}
+     )
+     SELECT phone_key,
+            -- El dato más reciente de cada campo, ignorando los vacíos: el
+            -- primer contacto suele venir sin CUIT y el presupuesto sí lo trae.
+            (ARRAY_AGG(name ORDER BY created_at DESC) FILTER (WHERE name IS NOT NULL))[1] AS name,
+            (ARRAY_AGG(phone ORDER BY created_at DESC) FILTER (WHERE phone IS NOT NULL))[1] AS phone,
+            (ARRAY_AGG(cuit ORDER BY created_at DESC) FILTER (WHERE cuit IS NOT NULL))[1] AS cuit,
+            COUNT(*)::int AS registros,
+            COUNT(*) FILTER (WHERE kind = 'presupuesto')::int AS presupuestos,
+            SUM(quote_total) FILTER (WHERE quote_state = 'confirmado')::text AS total_presupuestado,
+            MAX(created_at) AS ultima_actividad,
+            -- El más avanzado al que llegó, no el del último registro: alguien
+            -- que ya compró no vuelve a ser «nuevo» porque escriba otra consulta.
+            (ARRAY_AGG(status ORDER BY CASE status
+                WHEN 'ganado' THEN 1 WHEN 'presupuestado' THEN 2
+                WHEN 'contactado' THEN 3 WHEN 'nuevo' THEN 4 ELSE 5 END))[1] AS estado,
+            COUNT(*) OVER()::text AS total_count
+       FROM vivos
+      GROUP BY phone_key
+      ORDER BY MAX(created_at) DESC
+      LIMIT $${limitParam} OFFSET $${params.length}`,
+    params,
+  )
+
+  return {
+    clientes: rows.map(r => {
+      const c = { ...r } as Partial<Cliente & { total_count?: string }>
+      delete c.total_count
+      return c as Cliente
+    }),
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  }
+}
+
+/** Cuántos registros no se pueden agrupar por no tener teléfono. */
+export async function sinTelefono(): Promise<number> {
+  const rows = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM leads WHERE deleted_at IS NULL AND phone_key IS NULL`,
+  )
+  return Number(rows[0]?.n ?? 0)
+}
+
+/** Cuántos hay en la papelera, para poder ofrecerla sólo si tiene algo. */
+export async function contarBorrados(): Promise<number> {
+  const rows = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM leads WHERE deleted_at IS NOT NULL`,
+  )
+  return Number(rows[0]?.n ?? 0)
 }

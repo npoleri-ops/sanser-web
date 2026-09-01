@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/crm/auth"
 import {
   actualizarBorrador,
   confirmarPresupuesto,
+  contarBorrados,
   createLead,
   faltaContacto,
   getStats,
@@ -34,20 +35,23 @@ export async function GET(req: Request) {
 
   // Las cifras de cabecera son del total, no de lo filtrado: si no, cambiarían
   // al buscar y dejarían de servir como foto del estado del negocio.
-  const [{ leads, total }, stats] = await Promise.all([
+  const [{ leads, total }, stats, borrados] = await Promise.all([
     listLeads(
       {
         kind: LEAD_KINDS.includes(kind as LeadKind) ? (kind as LeadKind) : undefined,
         status: LEAD_STATUSES.includes(status as LeadStatus) ? (status as LeadStatus) : undefined,
         search: search || undefined,
         dormidos: params.get("dormidos") === "1",
+        borrados: params.get("borrados") === "1",
+        phoneKey: params.get("phoneKey") || undefined,
       },
       { limit: perPage, offset: (page - 1) * perPage },
     ),
     getStats(),
+    contarBorrados(),
   ])
 
-  return NextResponse.json({ ok: true, leads, total, page, perPage, stats })
+  return NextResponse.json({ ok: true, leads, total, page, perPage, stats, borrados })
 }
 
 /** Alta manual desde el panel: la consulta que entró por teléfono o en persona. */

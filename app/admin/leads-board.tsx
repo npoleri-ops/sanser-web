@@ -19,6 +19,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   Wallet,
 } from "lucide-react"
 import {
@@ -31,6 +32,7 @@ import {
   type LeadKind,
   type LeadStats,
   type LeadStatus,
+  type Cliente,
 } from "@/lib/crm/types"
 
 const KIND_ICON: Record<LeadKind, typeof FileText> = {
@@ -48,6 +50,14 @@ const STATUS_STYLE: Record<LeadStatus, string> = {
 }
 
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" })
+
+/**
+ * Misma regla que la columna generada de Postgres: sólo dígitos y los últimos
+ * diez. Si las dos se separan, el contador diría una cosa y el filtro otra.
+ */
+function clavePorTelefono(telefono: string) {
+  return telefono.replace(/\D/g, "").slice(-10)
+}
 
 // La zona horaria se fija a Argentina: el servidor corre en UTC y, sin esto, la
 // hora del render inicial no coincide con la del navegador.
@@ -89,6 +99,15 @@ export function LeadsBoard({
   const [creating, setCreating] = useState(false)
   const [stats, setStats] = useState(initialStats)
   const [soloDormidos, setSoloDormidos] = useState(false)
+  /** Ids marcados con la casilla, para borrar o restaurar en lote. */
+  const [marcados, setMarcados] = useState<Set<string>>(new Set())
+  const [papelera, setPapelera] = useState(false)
+  const [enPapelera, setEnPapelera] = useState(0)
+  /** Filtro por cliente: se activa al pinchar uno en la lista de clientes. */
+  const [phoneKey, setPhoneKey] = useState<string | null>(null)
+  const [vista, setVista] = useState<"registros" | "clientes">("registros")
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [sinTel, setSinTel] = useState(0)
 
   const filterParams = useCallback(() => {
     const params = new URLSearchParams()
@@ -96,8 +115,10 @@ export function LeadsBoard({
     if (status) params.set("status", status)
     if (search.trim()) params.set("search", search.trim())
     if (soloDormidos) params.set("dormidos", "1")
+    if (papelera) params.set("borrados", "1")
+    if (phoneKey) params.set("phoneKey", phoneKey)
     return params
-  }, [kind, status, search, soloDormidos])
+  }, [kind, status, search, soloDormidos, papelera, phoneKey])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -115,10 +136,55 @@ export function LeadsBoard({
       setLeads(data.leads ?? [])
       setTotal(data.total ?? 0)
       if (data.stats) setStats(data.stats)
+      if (typeof data.borrados === "number") setEnPapelera(data.borrados)
+      // Lo marcado deja de tener sentido en cuanto cambia lo que se ve: si no,
+      // se podría borrar algo que ya no está en pantalla.
+      setMarcados(new Set())
     } finally {
       setLoading(false)
     }
   }, [filterParams, page, perPage])
+
+  const cargarClientes = useCallback(async () => {
+    setLoading(true)
+    try {
+      const p = new URLSearchParams()
+      if (search.trim()) p.set("search", search.trim())
+      const res = await fetch(`/api/admin/clientes?${p}`)
+      const data = await res.json()
+      if (data.ok) {
+        setClientes(data.clientes)
+        setSinTel(data.sinTelefono ?? 0)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
+
+  /** Borrar o restaurar lo marcado. */
+  const accionEnLote = useCallback(async (accion: "borrar" | "restaurar") => {
+    const ids = [...marcados]
+    if (ids.length === 0) return
+    if (accion === "borrar" && !confirm(
+      `¿Sacar ${ids.length} ${ids.length === 1 ? "registro" : "registros"} de la lista?\n\n` +
+      "No se borran de verdad: quedan en la papelera y se pueden recuperar.",
+    )) return
+
+    const res = await fetch("/api/admin/leads/borrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, accion }),
+    })
+    if (res.ok) await refresh()
+  }, [marcados, refresh])
+
+  function alternarMarca(id: string) {
+    setMarcados(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
 
   useEffect(() => {
     // El texto se busca con un respiro para no consultar en cada tecla.
@@ -280,17 +346,90 @@ export function LeadsBoard({
             <option key={s} value={s}>{STATUS_LABEL[s]}</option>
           ))}
         </select>
+
+        <Button
+          variant={papelera ? "default" : "outline"}
+          size="sm"
+          onClick={() => { setPapelera(v => !v); setPage(1) }}
+          title="Lo borrado no se pierde: se guarda acá y se puede recuperar"
+        >
+          <Trash2 /> Papelera{enPapelera > 0 && ` (${enPapelera})`}
+        </Button>
       </div>
 
-      {leads.length === 0 ? (
+      {/* Dos maneras de mirar lo mismo: cada registro suelto, o una fila por
+          cliente. La segunda es la que evita ver diez veces a la misma persona. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {([["registros", "Registros"], ["clientes", "Clientes"]] as const).map(([v, etiqueta]) => (
+          <button
+            key={v}
+            onClick={() => {
+              setVista(v)
+              setPhoneKey(null)
+              if (v === "clientes") void cargarClientes()
+            }}
+            className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+              vista === v ? "border-primary bg-primary/15" : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+
+        {phoneKey && (
+          <button
+            onClick={() => { setPhoneKey(null); setPage(1) }}
+            className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm"
+          >
+            Viendo un solo cliente · quitar filtro ✕
+          </button>
+        )}
+      </div>
+
+      {marcados.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm">
+          <span className="mr-auto">
+            {marcados.size} {marcados.size === 1 ? "marcado" : "marcados"}
+          </span>
+          {papelera ? (
+            <Button size="sm" onClick={() => void accionEnLote("restaurar")}>
+              <RefreshCw /> Restaurar
+            </Button>
+          ) : (
+            <Button variant="destructive" size="sm" onClick={() => void accionEnLote("borrar")}>
+              <Trash2 /> Borrar de la lista
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setMarcados(new Set())}>Quitar marcas</Button>
+        </div>
+      )}
+
+      {vista === "clientes" ? (
+        <ListaClientes
+          clientes={clientes}
+          sinTelefono={sinTel}
+          onVerRegistros={key => { setPhoneKey(key); setVista("registros"); setPage(1) }}
+        />
+      ) : leads.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border py-16 text-center text-muted-foreground">
-          No hay registros con estos filtros.
+          {papelera ? "La papelera está vacía." : "No hay registros con estos filtros."}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-3xl text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Marcar todos"
+                    className="size-4 accent-primary"
+                    checked={leads.length > 0 && marcados.size === leads.length}
+                    onChange={e =>
+                      setMarcados(e.target.checked ? new Set(leads.map(l => l.id)) : new Set())
+                    }
+                  />
+                </th>
                 <th className="px-4 py-3 font-semibold">Fecha</th>
                 <th className="px-4 py-3 font-semibold">Tipo</th>
                 <th className="px-4 py-3 font-semibold">Contacto</th>
@@ -308,6 +447,16 @@ export function LeadsBoard({
                     onClick={() => setSelected(lead)}
                     className="cursor-pointer border-t border-border transition-colors hover:bg-muted/40"
                   >
+                    {/* El clic en la casilla no debe abrir la ficha del lead. */}
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Marcar ${lead.name ?? "registro"}`}
+                        className="size-4 accent-primary"
+                        checked={marcados.has(lead.id)}
+                        onChange={() => alternarMarca(lead.id)}
+                      />
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                       {formatDate(lead.created_at)}
                     </td>
@@ -434,7 +583,11 @@ export function LeadsBoard({
             setSoloDormidos(false)
             setKind("")
             setStatus("")
-            setSearch(telefono)
+            setSearch("")
+            // Por la clave y no por texto: el contador de al lado se calcula con
+            // el teléfono normalizado, así que buscar la cadena tal cual daría un
+            // número distinto al que se acaba de leer.
+            setPhoneKey(clavePorTelefono(telefono))
             setPage(1)
           }}
         />
@@ -817,5 +970,98 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="text-xs font-semibold uppercase text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 break-words">{children}</dd>
     </div>
+  )
+}
+
+
+/* ──────────────────────────────────────────────────────────────── clientes */
+
+/**
+ * Una fila por persona en vez de una por consulta.
+ *
+ * Se agrupa por el teléfono con los dígitos normalizados, así que el mismo
+ * cliente que escribió una vez por el formulario, otra por WhatsApp y pidió dos
+ * presupuestos aparece una sola vez, con las cuatro cosas contadas.
+ */
+function ListaClientes({
+  clientes,
+  sinTelefono,
+  onVerRegistros,
+}: {
+  clientes: Cliente[]
+  sinTelefono: number
+  onVerRegistros: (phoneKey: string) => void
+}) {
+  if (clientes.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-border py-16 text-center text-muted-foreground">
+        Todavía no hay clientes con teléfono cargado.
+      </p>
+    )
+  }
+
+  return (
+    <>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Cliente</th>
+              <th className="px-4 py-3 font-semibold">Teléfono</th>
+              <th className="px-4 py-3 text-right font-semibold">Registros</th>
+              <th className="px-4 py-3 text-right font-semibold">Presupuestos</th>
+              <th className="px-4 py-3 text-right font-semibold">Confirmado</th>
+              <th className="px-4 py-3 font-semibold">Estado</th>
+              <th className="px-4 py-3 font-semibold">Última vez</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clientes.map(c => (
+              <tr
+                key={c.phone_key}
+                onClick={() => onVerRegistros(c.phone_key)}
+                className="cursor-pointer border-t border-border transition-colors hover:bg-muted/40"
+              >
+                <td className="px-4 py-3">
+                  <span className="font-medium">{c.name || "Sin nombre"}</span>
+                  {c.cuit && <span className="block text-xs text-muted-foreground">CUIT {c.cuit}</span>}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  {c.phone ? (
+                    <a
+                      href={waLink(c.phone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="text-primary hover:underline"
+                    >
+                      {c.phone}
+                    </a>
+                  ) : "—"}
+                </td>
+                <td className="px-4 py-3 text-right">{c.registros}</td>
+                <td className="px-4 py-3 text-right">{c.presupuestos || "—"}</td>
+                <td className="px-4 py-3 text-right font-mono text-primary">
+                  {c.total_presupuestado ? money.format(Number(c.total_presupuestado)) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`rounded border px-2 py-0.5 text-xs ${STATUS_STYLE[c.estado]}`}>
+                    {STATUS_LABEL[c.estado]}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                  {formatDate(c.ultima_actividad)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Pinchá un cliente para ver todos sus registros.
+        {sinTelefono > 0 && ` · ${sinTelefono} registros no se pueden agrupar porque no dejaron teléfono.`}
+      </p>
+    </>
   )
 }

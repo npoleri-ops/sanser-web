@@ -155,3 +155,35 @@ CREATE TABLE IF NOT EXISTS fin_comprobantes (
 
 CREATE UNIQUE INDEX IF NOT EXISTS fin_comprobantes_token_idx ON fin_comprobantes (token);
 CREATE INDEX IF NOT EXISTS fin_comprobantes_mov_idx ON fin_comprobantes (movimiento_id);
+
+-- ────────────────────────────────────── limpieza del CRM y agrupado por cliente
+
+-- Borrado lógico. Las pruebas internas ensucian la lista, pero borrar de verdad
+-- se lleva por delante el historial del cliente y los gastos imputados a esa
+-- obra. Se marca la fecha y se esconde; lo que se borró sigue ahí para
+-- recuperarlo.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Índice parcial: la consulta de todos los días es «los que NO están borrados»,
+-- y así el índice sólo pesa lo que ocupa lo vivo.
+CREATE INDEX IF NOT EXISTS leads_vivos_idx ON leads (created_at DESC)
+  WHERE deleted_at IS NULL;
+
+-- Clave de cliente a partir del teléfono.
+--
+-- Hasta ahora se agrupaba comparando la cadena tal cual, así que «+54 3743
+-- 48-7728», «03743 48-7728» y «3743487728» eran tres clientes distintos y el
+-- historial no encontraba nada. Se queda con los dígitos y con los últimos diez:
+-- eso deja fuera el prefijo de país y el 0 de larga distancia, y conserva
+-- característica más número.
+--
+-- Es una columna generada para que la calcule Postgres: si se hiciera al
+-- insertar, cada camino de alta —formulario, cotizador, alta manual— tendría que
+-- acordarse, y alguno se olvidaría.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone_key TEXT
+  GENERATED ALWAYS AS (
+    NULLIF(RIGHT(REGEXP_REPLACE(COALESCE(phone, ''), '\D', '', 'g'), 10), '')
+  ) STORED;
+
+CREATE INDEX IF NOT EXISTS leads_phone_key_idx ON leads (phone_key)
+  WHERE phone_key IS NOT NULL;

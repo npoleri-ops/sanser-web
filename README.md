@@ -44,6 +44,35 @@ user agent, IP y —en producción, vía cabeceras de Vercel— ciudad, provinci
 Desde el panel se cambia el estado (nuevo → contactado → presupuestado → ganado/perdido),
 se escriben notas, se dan de alta registros a mano y se exporta todo a CSV.
 
+### Papelera y agrupado por cliente
+
+**Borrar saca de la vista, no destruye.** Los registros se marcan con `deleted_at` y
+desaparecen de la lista, de las cifras de cabecera y del agrupado por cliente; el botón
+*Papelera* los muestra y permite restaurarlos. Se hace así porque un lead puede tener un
+PDF ya entregado, gastos de obra imputados y el historial del cliente colgando: un
+borrado de verdad se llevaría el rastro de todo eso por delante.
+
+Se marca con las casillas y se borra en lote, que es el caso real —limpiar de una vez las
+pruebas internas de meses—, no de a uno.
+
+**Un cliente es un teléfono, con los dígitos normalizados.** La pestaña *Clientes* muestra
+una fila por persona: cuántos registros dejó, cuántos presupuestos, cuánto se le confirmó
+y el estado más avanzado al que llegó. Pinchando una fila se ven todos sus registros.
+
+La clave sale de una columna generada en Postgres, `phone_key`: sólo los dígitos y los
+últimos diez, lo que descarta el prefijo de país y el 0 de larga distancia. Antes se
+comparaba la cadena tal cual, así que `+54 3743 48-7728`, `03743 48-7728` y `3743487728`
+eran tres clientes distintos y el historial no encontraba nada. La calcula la base y no
+el código porque hay tres caminos de alta —formulario, cotizador y alta manual— y alguno
+se iba a olvidar.
+
+**Ojo:** el sitio nunca pide correo, así que agrupar por email no es posible hoy. Quien no
+deja teléfono no se puede agrupar y queda fuera de esa lista; el pie dice cuántos son.
+
+```bash
+docker compose exec web node scripts/smoke-crm.mjs
+```
+
 Además:
 
 - **Aviso por correo** de cada presupuesto y cada consulta, en cuanto entra. Sale por el

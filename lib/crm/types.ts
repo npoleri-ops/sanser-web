@@ -83,3 +83,19 @@ export interface NewLead {
   status?: LeadStatus | null
   notes?: string | null
 }
+
+/** Una persona vista una sola vez, agrupando todos sus registros por teléfono. */
+export interface Cliente {
+  phone_key: string
+  /** El nombre más reciente que dejó: la gente corrige cómo se llama. */
+  name: string | null
+  phone: string | null
+  cuit: string | null
+  registros: number
+  presupuestos: number
+  /** Suma de lo presupuestado en documentos confirmados. */
+  total_presupuestado: string | null
+  ultima_actividad: string
+  /** El estado más avanzado al que llegó en cualquiera de sus registros. */
+  estado: LeadStatus
+}
