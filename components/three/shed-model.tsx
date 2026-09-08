@@ -108,7 +108,7 @@ function useBuilt(config: ShedConfig): Built {
     const chordT = 0.13
     const webT = 0.07
     const colPanels = clamp(Math.round(H / 1.0), 3, 9)
-    const trussPanels = clamp(Math.round(W / 1.6), 5, 22)
+    const trussPanels = clamp(Math.round(W / 1.6), 5, 40)
 
     const outX = halfW + colDepth / 2
     const trussDepth = 0.8
@@ -200,7 +200,7 @@ function useBuilt(config: ShedConfig): Built {
     const purlinT = 0.09
     const makePurlinRun = (xStart: number, xEnd: number) => {
       const slope = Math.hypot(xEnd - xStart, topFn(xEnd) - topFn(xStart))
-      const n = clamp(Math.round(slope / 1.6), 3, 14)
+      const n = clamp(Math.round(slope / 1.6), 3, 40)
       for (let i = 0; i <= n; i++) {
         const x = THREE.MathUtils.lerp(xStart, xEnd, i / n)
         const y = topFn(x) + 0.12

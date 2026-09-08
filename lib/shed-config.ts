@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: ShedConfig = {
 }
 
 export const LIMITS = {
-  width: { min: 8, max: 30, step: 1 },
+  width: { min: 8, max: 50, step: 1 },
   length: { min: 10, max: 200, step: 1 },
   height: { min: 4, max: 8, step: 0.5 },
 }
@@ -98,14 +98,14 @@ export function computeMateriales(config: ShedConfig): Computo {
     // dos faldones: ancho inclinado total = width / cos(pitch)
     const slopeLen = (width / 2) / Math.cos(PITCH_RAD)
     superficieTecho = length * (slopeLen * 2)
-    const n = Math.max(3, Math.min(14, Math.round(slopeLen / 1.6)))
+    const n = Math.max(3, Math.min(40, Math.round(slopeLen / 1.6)))
     correas = (n + 1) * 2
   } else {
     const shedRise = width * Math.tan((8 * Math.PI) / 180)
     const ang = Math.atan(shedRise / width)
     const slopeLen = width / Math.cos(ang)
     superficieTecho = length * slopeLen
-    const n = Math.max(3, Math.min(14, Math.round(slopeLen / 1.6)))
+    const n = Math.max(3, Math.min(40, Math.round(slopeLen / 1.6)))
     correas = n + 1
   }
 
