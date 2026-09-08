@@ -205,8 +205,8 @@ export function Controls({ config, update }: Props) {
               onChange={(v) => update("wallSheet", v)}
               options={[
                 { value: "same", label: "Misma que el Techo" },
-                { value: "t101", label: "Trapezoidal T-101" },
-                { value: "sinusoidal", label: "Sinusoidal" },
+                { value: "t101", label: "Cincalum T-110 (Cal. 25)" },
+                { value: "sinusoidal", label: "Sinusoidal (Cal. 25)" },
               ]}
             />
           </div>

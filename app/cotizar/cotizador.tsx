@@ -140,7 +140,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
   ];
 
-  const nuevoDetalle = "Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta en chapa T101 C25 / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.";
+  const nuevoDetalle = `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
   return { nuevoTitulo, nuevosItems, nuevoDetalle }
 }
@@ -180,7 +180,7 @@ export function Cotizador({
   const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
   const [materials, setMaterials] = useState(
     guardado?.materials ??
-      "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Chapas T101 / Tornillos",
+      "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Cubierta: Cincalum T-110 (Cal. 25) / Tornillos",
   )
   const [images, setImages] = useState<string[]>([])
   const [items, setItems] = useState<QuoteItem[]>(

@@ -1,7 +1,7 @@
 export type ShedType = "gable" | "shed" | "gable_portico" // dos aguas / una agua / pórtico
 export type SheetType = "t101" | "sinusoidal"
 export type WallSheetType = "same" | "t101" | "sinusoidal"
-export type RoofColor = "cincalum" | "gris" | "negro"
+export type RoofColor = "cincalum" | "negro"
 export type EnvironmentType = "day" | "afternoon" | "night"
 
 export interface ShedConfig {
@@ -36,25 +36,23 @@ export const DEFAULT_CONFIG: ShedConfig = {
 
 export const LIMITS = {
   width: { min: 8, max: 30, step: 1 },
-  length: { min: 10, max: 60, step: 1 },
+  length: { min: 10, max: 200, step: 1 },
   height: { min: 4, max: 8, step: 0.5 },
 }
 
 export const COLOR_HEX: Record<RoofColor, string> = {
   cincalum: "#c9ced6",
-  gris: "#3b3f46",
   negro: "#141518",
 }
 
 export const COLOR_LABEL: Record<RoofColor, string> = {
   cincalum: "Cincalum (Plateado)",
-  gris: "Gris Oscuro",
   negro: "Negro Mate",
 }
 
 export const SHEET_LABEL: Record<SheetType, string> = {
-  t101: "Cincalum T-101",
-  sinusoidal: "Sinusoidal",
+  t101: "Cincalum T-110 (Cal. 25)",
+  sinusoidal: "Sinusoidal (Cal. 25)",
 }
 
 export const TYPE_LABEL: Record<ShedType, string> = {

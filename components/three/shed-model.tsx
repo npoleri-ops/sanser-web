@@ -430,7 +430,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
           grad.addColorStop(0.75, "#666666")
           grad.addColorStop(1, "#ffffff")
         } else {
-          // Trapezoidal T-101 gradient (Sharp flat crests and valleys)
+          // Trapezoidal T-110 gradient (Sharp flat crests and valleys)
           grad.addColorStop(0, "#ffffff") // Crest flat
           grad.addColorStop(0.2, "#ffffff") // Crest edge
           grad.addColorStop(0.3, "#111111") // Drop to valley
