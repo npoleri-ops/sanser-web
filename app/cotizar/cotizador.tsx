@@ -7,7 +7,7 @@ import jsPDF from "jspdf"
 import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import type { Lead } from "@/lib/crm/types"
 
