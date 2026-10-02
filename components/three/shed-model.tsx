@@ -160,54 +160,68 @@ function varillaColumn(
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// createParallelTruss — genera una viga reticulada de cordón paralelo.
+// createBoxTruss — genera una viga reticulada TIPO CAJÓN (3D) de cordón paralelo.
 //
-// Recibe punto de inicio (startX) y punto final (endX), la función de
-// pendiente del techo (roofFn), y la separación constante entre cordones
-// (depth, ~0.35m).  Genera:
-//   • Cordón superior (tubo a lo largo de roofFn)
-//   • Cordón inferior paralelo (roofFn − depth)
-//   • Zigzag denso de diagonales uniendo ambos cordones de punta a punta
-//   • Montantes verticales de cierre en ambos extremos
+// Recibe punto de inicio y fin, función de pendiente, alto (depth) y ancho (width).
+// Genera:
+//   • 4 cordones longitudinales continuos (2 sup, 2 inf)
+//   • Cuadros de cierre en los extremos
+//   • Celosía en zigzag real tupida (cada ~35 cm) en las caras verticales y horizontales
 // ════════════════════════════════════════════════════════════════════════════
-function createParallelTruss(
+function createBoxTruss(
   startX: number,
   endX: number,
   roofFn: (x: number) => number,
   depth: number,
-  z: number,
+  width: number,
+  zCenter: number,
   chordT: number,
   webT: number,
 ): Seg[] {
   const segs: Seg[] = []
 
-  // Funciones de altura de cada cordón
   const topY = (x: number) => roofFn(x)
   const botY = (x: number) => roofFn(x) - depth
+  
+  const zF = zCenter + width / 2
+  const zB = zCenter - width / 2
 
-  // ── Cordón superior (tubo completo de punta a punta) ──
-  segs.push([v(startX, topY(startX), z), v(endX, topY(endX), z), chordT])
+  // ── 1. Los 4 cordones principales de punta a punta ──
+  for (const z of [zF, zB]) {
+    segs.push([v(startX, topY(startX), z), v(endX, topY(endX), z), chordT]) // Superiores
+    segs.push([v(startX, botY(startX), z), v(endX, botY(endX), z), chordT]) // Inferiores
+  }
 
-  // ── Cordón inferior (tubo completo de punta a punta) ──
-  segs.push([v(startX, botY(startX), z), v(endX, botY(endX), z), chordT])
+  // ── 2. Montantes de cierre en los extremos (cuadros) ──
+  for (const x of [startX, endX]) {
+    segs.push([v(x, botY(x), zF), v(x, topY(x), zF), chordT]) // Cara frontal
+    segs.push([v(x, botY(x), zB), v(x, topY(x), zB), chordT]) // Cara trasera
+    segs.push([v(x, topY(x), zF), v(x, topY(x), zB), chordT]) // Cara superior
+    segs.push([v(x, botY(x), zF), v(x, botY(x), zB), chordT]) // Cara inferior
+  }
 
-  // ── Montantes verticales de cierre en los extremos ──
-  segs.push([v(startX, botY(startX), z), v(startX, topY(startX), z), chordT])
-  segs.push([v(endX, botY(endX), z), v(endX, topY(endX), z), chordT])
-
-  // ── Celosía en zigzag continuo y tupido ──
-  // ~60 cm por panel para que se vea bien la celosía
+  // ── 3. Zigzag tupido (paso fijo de ~0.35m) ──
   const span = Math.abs(endX - startX)
-  const nPanels = Math.max(6, Math.round(span / 0.6))
+  const stepDistance = 0.35
+  const nPanels = Math.max(1, Math.floor(span / stepDistance))
+  
   for (let i = 0; i < nPanels; i++) {
     const xA = THREE.MathUtils.lerp(startX, endX, i / nPanels)
     const xB = THREE.MathUtils.lerp(startX, endX, (i + 1) / nPanels)
+
     if (i % 2 === 0) {
-      // diagonal: inferior-izq → superior-der
-      segs.push([v(xA, botY(xA), z), v(xB, topY(xB), z), webT])
+      // Diagonales caras verticales (frente y dorso)
+      segs.push([v(xA, botY(xA), zF), v(xB, topY(xB), zF), webT])
+      segs.push([v(xA, botY(xA), zB), v(xB, topY(xB), zB), webT])
+      // Diagonales caras horizontales (arriba y abajo) para rigidez cajón
+      segs.push([v(xA, topY(xA), zF), v(xB, topY(xB), zB), webT])
+      segs.push([v(xA, botY(xA), zF), v(xB, botY(xB), zB), webT])
     } else {
-      // diagonal: superior-izq → inferior-der
-      segs.push([v(xA, topY(xA), z), v(xB, botY(xB), z), webT])
+      segs.push([v(xA, topY(xA), zF), v(xB, botY(xB), zF), webT])
+      segs.push([v(xA, topY(xA), zB), v(xB, botY(xB), zB), webT])
+      
+      segs.push([v(xA, topY(xA), zB), v(xB, topY(xB), zF), webT])
+      segs.push([v(xA, botY(xA), zB), v(xB, botY(xB), zF), webT])
     }
   }
 
@@ -245,8 +259,8 @@ function useBuilt(config: ShedConfig): Built {
     // Se solicitan varillas redondas de radio 0.012 (diámetro 0.024) y 0.008 (diámetro 0.016).
     const varChordT = 0.024   // cordón Ø12 (24mm diámetro)
     const varWebT   = 0.016   // diagonal Ø8 (16mm diámetro)
-    const colSection = 0.28   // sección cuadrada de columna (28 cm)
-    const varTrussH  = 0.35   // separación constante entre cordones (35 cm)
+    const colSection = 0.30   // sección cuadrada de columna (30 cm)
+    const varTrussH  = 0.30   // sección cuadrada de viga cajón (30 cm)
 
     const colDepth = isVarillas ? colSection : 0.5
     const chordT = isVarillas ? varChordT : 0.13
@@ -329,45 +343,54 @@ function useBuilt(config: ShedConfig): Built {
     // ═══════════════════════════════════════════════════════════════════════
     for (const z of framesZ) {
       if (type === "gable_varillas") {
-        // ══ 2 AGUAS – RETICULADO LIVIANO ══
-        // Dos vigas reticuladas inclinadas, de columna izq a cumbrera
-        // y de cumbrera a columna der. Cada una con cordón paralelo y
-        // zigzag denso.
+        // ══ 2 AGUAS – RETICULADO LIVIANO (VIGA CAJÓN) ══
+        // Dos vigas reticuladas cajón inclinadas, de columna izq a cumbrera
+        // y de cumbrera a columna der.
 
         // Ala izquierda: columna izq (−outX) → cumbrera (0)
-        trusses.push(...createParallelTruss(-outX, 0, topFn, varTrussH, z, varChordT, varWebT))
+        trusses.push(...createBoxTruss(-outX, 0, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
         // Ala derecha: cumbrera (0) → columna der (outX)
-        trusses.push(...createParallelTruss(0, outX, topFn, varTrussH, z, varChordT, varWebT))
-
-        // Montante vertical de cierre en la cumbrera
-        trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), varChordT])
+        trusses.push(...createBoxTruss(0, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
         // Tensor/puente horizontal rígido que ata ambas caídas (~1.3 m debajo de cumbrera)
         const ridgeY = topFn(0)
         const tieY = ridgeY - 1.3
         if (slope > 0.01 && tieY > H) {
-          // Calcular X donde el cordón inferior está a la altura tieY
           const tieX = clamp(outX - (tieY - H + varTrussH) / slope, 0.5, outX - 0.5)
-          trusses.push([v(-tieX, tieY, z), v(tieX, tieY, z), varChordT])
+          const zF = z + varTrussH / 2
+          const zB = z - varTrussH / 2
+          
+          // Puente frontal y puente trasero
+          trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zF), varChordT])
+          trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zB), varChordT])
+          // Uniones cruzadas para el puente (arriba y abajo si quisieramos, pero bastan diagonales)
+          trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zB), varWebT])
+          trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zF), varWebT])
+
           // Montantes cortos del cordón inferior al tensor
-          trusses.push([v(-tieX, bottomFn(-tieX), z), v(-tieX, tieY, z), varWebT])
-          trusses.push([v( tieX, bottomFn( tieX), z), v( tieX, tieY, z), varWebT])
+          trusses.push([v(-tieX, bottomFn(-tieX), zF), v(-tieX, tieY, zF), varWebT])
+          trusses.push([v(-tieX, bottomFn(-tieX), zB), v(-tieX, tieY, zB), varWebT])
+          trusses.push([v( tieX, bottomFn( tieX), zF), v( tieX, tieY, zF), varWebT])
+          trusses.push([v( tieX, bottomFn( tieX), zB), v( tieX, tieY, zB), varWebT])
         }
 
-        // Jabalcones (ménsulas a ~45° de columna a viga)
+        // Jabalcones (ménsulas a ~45° de columna a viga cajón)
         const braceLen = Math.min(1.2, H * 0.2)
         for (const side of [-1, 1]) {
           const colX = side * halfW
           const startY = bottomFn(colX) - braceLen
           const endX = colX - side * braceLen
-          trusses.push([v(colX, startY, z), v(endX, bottomFn(endX), z), varChordT])
+          const zF = z + varTrussH / 2
+          const zB = z - varTrussH / 2
+          
+          // Jabalcón frontal y trasero
+          trusses.push([v(colX, startY, zF), v(endX, bottomFn(endX), zF), varChordT])
+          trusses.push([v(colX, startY, zB), v(endX, bottomFn(endX), zB), varChordT])
         }
 
       } else if (type === "shed_varillas") {
-        // ══ 1 AGUA – RETICULADO LIVIANO ══
-        // Viga reticulada continua de cordón paralelo con pendiente,
-        // desde columna baja (−outX) hasta columna alta (outX).
-        trusses.push(...createParallelTruss(-outX, outX, topFn, varTrussH, z, varChordT, varWebT))
+        // ══ 1 AGUA – RETICULADO LIVIANO (VIGA CAJÓN) ══
+        trusses.push(...createBoxTruss(-outX, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
         // Jabalcones en ambas columnas
         const braceLen = Math.min(1.2, H * 0.2)
@@ -375,7 +398,10 @@ function useBuilt(config: ShedConfig): Built {
           const startY = bottomFn(colX) - braceLen
           const dir = colX < 0 ? 1 : -1
           const endX = colX + dir * braceLen
-          trusses.push([v(colX, startY, z), v(endX, bottomFn(endX), z), varChordT])
+          const zF = z + varTrussH / 2
+          const zB = z - varTrussH / 2
+          trusses.push([v(colX, startY, zF), v(endX, bottomFn(endX), zF), varChordT])
+          trusses.push([v(colX, startY, zB), v(endX, bottomFn(endX), zB), varChordT])
         }
 
       } else if (type === "gable_portico") {
@@ -416,7 +442,13 @@ function useBuilt(config: ShedConfig): Built {
         // Soquetes / soportes para correas sobre la cabreada
         if (type === "gable_portico" || type === "gable_varillas" || type === "shed_varillas") {
           for (const z of framesZ) {
-            trusses.push([v(x, topFn(x), z), v(x, topFn(x) + 0.08, z), webT])
+            if (isVarillas) {
+              const hSize = varTrussH / 2
+              trusses.push([v(x, topFn(x), z + hSize), v(x, topFn(x) + 0.08, z + hSize), webT])
+              trusses.push([v(x, topFn(x), z - hSize), v(x, topFn(x) + 0.08, z - hSize), webT])
+            } else {
+              trusses.push([v(x, topFn(x), z), v(x, topFn(x) + 0.08, z), webT])
+            }
           }
         }
       }
