@@ -204,6 +204,7 @@ export function Cotizador({
   const [clientName, setClientName] = useState(leadInicial?.name ?? "")
   const [cuit, setCuit] = useState(leadInicial?.cuit ?? "")
   const [phone, setPhone] = useState(leadInicial?.phone ?? "")
+  const [email, setEmail] = useState((guardado as any)?.email ?? "")
   const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
   const [materials, setMaterials] = useState(
     guardado?.materials ??
@@ -787,9 +788,10 @@ export function Cotizador({
     }
   }
 
-  // Sin nombre ni teléfono el presupuesto entra al CRM sin nadie a quien llamar,
-  // que es justo lo que hace inútil el registro.
-  const faltanDatosCliente = !clientName.trim() || !phone.trim()
+  // Validación de contacto para evitar leads fantasma
+  const isPhoneValid = phone.replace(/\D/g, "").length >= 8
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const faltanDatosCliente = !clientName.trim() || !isPhoneValid || !isEmailValid
 
   const datosDelPresupuesto = () => ({
     kind: "presupuesto" as const,
@@ -798,7 +800,7 @@ export function Cotizador({
     cuit: cuit || null,
     quoteTitle: title,
     quoteTotal: total,
-    quoteConfig: { ...config, items, materials },
+    quoteConfig: { ...config, items, materials, email },
   })
 
   /** Deja el presupuesto guardado como borrador y devuelve su id. */
@@ -812,7 +814,7 @@ export function Cotizador({
   /** Lo que hace el visitante: pedir el presupuesto, sin llevarse ningún papel. */
   const pedirPresupuesto = async () => {
     if (faltanDatosCliente) {
-      alert("Dejanos tu nombre y tu teléfono para que podamos responderte.")
+      alert("Por favor completá tu nombre, un teléfono válido y un email correcto.")
       return
     }
 
@@ -902,7 +904,7 @@ export function Cotizador({
 
     const message = interno
       ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\nTotal estimado: *$ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
-      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* por *$ ${totalStr}* y quiero consultar.${bloquePdf}`
+      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* y quiero consultar.${bloquePdf}`
     const encodedMessage = encodeURIComponent(message)
     
     // Si el presupuesto ya está en el CRM, enviarlo lo marca como contactado en
@@ -1090,6 +1092,20 @@ export function Cotizador({
 
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase text-foreground/80">
+                {interno ? "Email Cliente" : "Tu correo electrónico"}{" "}
+                <span className="text-primary">*</span>
+              </label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary" 
+                placeholder="Ej: marta@gmail.com"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold uppercase text-foreground/80">
                 {interno ? "Título del Trabajo" : "Tu presupuesto"}
               </label>
               {interno ? (
@@ -1187,12 +1203,12 @@ export function Cotizador({
                         </p>
                       </div>
                       <span className="shrink-0 font-mono text-sm">
-                        {isTransporte && isCero ? (
-                          <span className="inline-flex items-center rounded-sm bg-[#F97316]/10 px-2 py-0.5 text-xs font-bold text-[#F97316] ring-1 ring-inset ring-[#F97316]/20">
-                            A cotizar
-                          </span>
-                        ) : (
+                        {interno ? (
                           `$ ${(item.quantity * item.price).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                        ) : (
+                          <span className="inline-flex items-center rounded-sm bg-[#F97316]/10 px-2 py-0.5 text-xs font-bold text-[#F97316] ring-1 ring-inset ring-[#F97316]/20">
+                            A cotizar sin cargo
+                          </span>
                         )}
                       </span>
                     </div>
@@ -1258,14 +1274,18 @@ export function Cotizador({
 
             <div className="pt-4 border-t border-border flex flex-col gap-2">
               <div className="flex justify-between items-center">
-                <span className="font-bold text-lg text-foreground/90">TOTAL ESTIMADO:</span>
+                <span className="font-bold text-lg text-foreground/90">
+                  {interno ? "TOTAL ESTIMADO:" : "PRESUPUESTO:"}
+                </span>
                 <span className="font-bold text-2xl text-primary">
-                  {isLoadingPrices ? (
+                  {isLoadingPrices && interno ? (
                     <span className="text-sm font-normal text-muted-foreground italic flex items-center gap-2">
                       <RefreshCw className="size-4 animate-spin" /> Calculando...
                     </span>
-                  ) : (
+                  ) : interno ? (
                     `$ ${total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                  ) : (
+                    <span className="text-lg">Cotización personalizada</span>
                   )}
                 </span>
               </div>
@@ -1279,11 +1299,11 @@ export function Cotizador({
           </div>
         </div>
 
-        {faltanDatosCliente && (
+        {faltanDatosCliente && !pedidoEnviado && (
           <p className="pt-4 text-right text-xs text-primary">
             {interno
-              ? "Completá el nombre y el teléfono del cliente para generar el presupuesto."
-              : "Dejanos tu celular y nombre para enviarte el presupuesto."}
+              ? "Completá el nombre, teléfono y email del cliente para generar el presupuesto."
+              : "Completá nombre, teléfono y correo para poder solicitar la cotización."}
           </p>
         )}
 

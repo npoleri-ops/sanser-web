@@ -50,7 +50,17 @@ export function readRequestContext(req: Request): RequestContext {
  */
 export function faltaContacto(lead: NewLead) {
   if (lead.kind === "whatsapp") return false
-  return !lead.name?.trim() || !lead.phone?.trim()
+  
+  const hasName = Boolean(lead.name?.trim())
+  const hasPhone = Boolean(lead.phone && lead.phone.replace(/\D/g, "").length >= 8)
+  
+  if (lead.kind === "presupuesto") {
+    const email = (lead.quoteConfig as any)?.email
+    const hasEmail = Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return !hasName || !hasPhone || !hasEmail
+  }
+
+  return !hasName || !hasPhone
 }
 
 export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Lead> {
