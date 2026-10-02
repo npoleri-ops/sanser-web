@@ -352,26 +352,28 @@ function useBuilt(config: ShedConfig): Built {
         // Ala derecha: cumbrera (0) → columna der (outX)
         trusses.push(...createBoxTruss(0, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
-        // Tensor/puente horizontal rígido que ata ambas caídas (~1.3 m debajo de cumbrera)
-        const ridgeY = topFn(0)
-        const tieY = ridgeY - 1.3
-        if (slope > 0.01 && tieY > H) {
-          const tieX = clamp(outX - (tieY - H + varTrussH) / slope, 0.5, outX - 0.5)
+        // ── Tensor/refuerzo horizontal (Triángulo compacto en la cumbrera) ──
+        // Conecta los cordones inferiores a una distancia fija del centro (ej. 0.8m para un ancho de 1.6m)
+        const tieX = Math.min(0.8, outX * 0.5)
+        if (tieX > 0) {
+          const tieY = bottomFn(tieX) // La altura exacta donde intersecta el cordón inferior
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
           
-          // Puente frontal y puente trasero
+          // Puente horizontal (tensor) uniendo las alas
           trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zF), varChordT])
           trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zB), varChordT])
-          // Uniones cruzadas para el puente (arriba y abajo si quisieramos, pero bastan diagonales)
-          trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zB), varWebT])
-          trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zF), varWebT])
+          
+          // Celosía horizontal en zigzag para dar rigidez al tensor
+          trusses.push([v(-tieX, tieY, zF), v(0, tieY, zB), varWebT])
+          trusses.push([v(0, tieY, zB), v(tieX, tieY, zF), varWebT])
+          trusses.push([v(-tieX, tieY, zB), v(0, tieY, zF), varWebT])
+          trusses.push([v(0, tieY, zF), v(tieX, tieY, zB), varWebT])
 
-          // Montantes cortos del cordón inferior al tensor
-          trusses.push([v(-tieX, bottomFn(-tieX), zF), v(-tieX, tieY, zF), varWebT])
-          trusses.push([v(-tieX, bottomFn(-tieX), zB), v(-tieX, tieY, zB), varWebT])
-          trusses.push([v( tieX, bottomFn( tieX), zF), v( tieX, tieY, zF), varWebT])
-          trusses.push([v( tieX, bottomFn( tieX), zB), v( tieX, tieY, zB), varWebT])
+          // Parante vertical central CORTO (desde el vértice inferior de la cumbrera hasta el tensor)
+          // Esto evita que cuelgue y forma un triángulo perfecto y rígido.
+          trusses.push([v(0, bottomFn(0), zF), v(0, tieY, zF), varWebT])
+          trusses.push([v(0, bottomFn(0), zB), v(0, tieY, zB), varWebT])
         }
 
         // Jabalcones (ménsulas a ~45° de columna a viga cajón)
