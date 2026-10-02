@@ -299,6 +299,14 @@ function useBuilt(config: ShedConfig): Built {
           // The truss beam (with its full depth) sits on top.
           const colTopY = bottomFn(x)
           columns.push(...varillaColumn(x, z, 0.3, colTopY, colSection, colPanels, varChordT, varWebT))
+          
+          // Capitel (placa de asiento) en el tope de la columna para apoyar la viga
+          flanges.push({ 
+            pos: [x, colTopY, z], 
+            w: colSection + 0.05, 
+            h: 0.04, 
+            d: colSection + 0.05 
+          })
         } else {
           // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
           // diagonal-braced face points toward a front-facing camera (columns rotated 90° on their vertical axis).
