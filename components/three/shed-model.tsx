@@ -142,13 +142,17 @@ function varillaColumn(
     }
   }
 
-  // Simple zigzag on each of the 4 faces
+  // Simple zigzag on each of the 4 faces (tupido cada 35 cm)
+  const stepDistance = 0.35
+  const span = Math.abs(topY - bottomY)
+  const nPanels = Math.max(1, Math.round(span / stepDistance))
+  
   for (let f = 0; f < 4; f++) {
     const [ax, az] = corners[f]
     const [bx, bz] = corners[(f + 1) % 4]
-    for (let i = 0; i < panels; i++) {
-      const y0 = THREE.MathUtils.lerp(bottomY, topY, i / panels)
-      const y1 = THREE.MathUtils.lerp(bottomY, topY, (i + 1) / panels)
+    for (let i = 0; i < nPanels; i++) {
+      const y0 = THREE.MathUtils.lerp(bottomY, topY, i / nPanels)
+      const y1 = THREE.MathUtils.lerp(bottomY, topY, (i + 1) / nPanels)
       if (i % 2 === 0) {
         segs.push([v(ax, y0, az), v(bx, y1, bz), webT])
       } else {
@@ -353,10 +357,10 @@ function useBuilt(config: ShedConfig): Built {
         trusses.push(...createBoxTruss(0, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
         // ── Tensor/refuerzo horizontal (Triángulo compacto en la cumbrera) ──
-        // Conecta los cordones inferiores a una distancia fija del centro (ej. 0.8m para un ancho de 1.6m)
-        const tieX = Math.min(0.8, outX * 0.5)
+        // Conecta los cordones inferiores a una distancia fija del centro (ancho total ~2.3m)
+        const tieX = Math.min(1.15, outX * 0.5)
         if (tieX > 0) {
-          const tieY = bottomFn(tieX) // La altura exacta donde intersecta el cordón inferior
+          const tieY = bottomFn(tieX) // Se alinea limpiamente con el cordón inferior
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
           
@@ -377,17 +381,21 @@ function useBuilt(config: ShedConfig): Built {
         }
 
         // Jabalcones (ménsulas a ~45° de columna a viga cajón)
-        const braceLen = Math.min(1.2, H * 0.2)
+        const braceDrop = 0.8
         for (const side of [-1, 1]) {
           const colX = side * halfW
-          const startY = bottomFn(colX) - braceLen
-          const endX = colX - side * braceLen
+          const startX = colX - side * (colSection / 2) // Arranca desde la cara interior de la columna
+          const startY = bottomFn(colX) - braceDrop     // a ~0.8 m por debajo del capitel
+          
+          const endX = startX - side * braceDrop        // 45 grados: dx = dy = 0.8
+          const endY = bottomFn(endX)                   // Remata firme en el cordón inferior de la cabreada
+          
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
           
           // Jabalcón frontal y trasero
-          trusses.push([v(colX, startY, zF), v(endX, bottomFn(endX), zF), varChordT])
-          trusses.push([v(colX, startY, zB), v(endX, bottomFn(endX), zB), varChordT])
+          trusses.push([v(startX, startY, zF), v(endX, endY, zF), varChordT])
+          trusses.push([v(startX, startY, zB), v(endX, endY, zB), varChordT])
         }
 
       } else if (type === "shed_varillas") {
@@ -395,15 +403,19 @@ function useBuilt(config: ShedConfig): Built {
         trusses.push(...createBoxTruss(-outX, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
         // Jabalcones en ambas columnas
-        const braceLen = Math.min(1.2, H * 0.2)
+        const braceDrop = 0.8
         for (const colX of [-halfW, halfW]) {
-          const startY = bottomFn(colX) - braceLen
-          const dir = colX < 0 ? 1 : -1
-          const endX = colX + dir * braceLen
+          const side = colX < 0 ? -1 : 1
+          const startX = colX - side * (colSection / 2)
+          const startY = bottomFn(colX) - braceDrop
+          const endX = startX - side * braceDrop
+          const endY = bottomFn(endX)
+          
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
-          trusses.push([v(colX, startY, zF), v(endX, bottomFn(endX), zF), varChordT])
-          trusses.push([v(colX, startY, zB), v(endX, bottomFn(endX), zB), varChordT])
+          
+          trusses.push([v(startX, startY, zF), v(endX, endY, zF), varChordT])
+          trusses.push([v(startX, startY, zB), v(endX, endY, zB), varChordT])
         }
 
       } else if (type === "gable_portico") {
