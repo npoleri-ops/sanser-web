@@ -677,9 +677,20 @@ function LeadDetail({
                   className="inline-flex items-center gap-1.5 text-primary hover:underline"
                 >
                   <FilePen className="size-4" />
-                  {lead.quote_state === "confirmado" ? "Ver en el cotizador" : "Abrir y confirmar"}
+                  {lead.quote_state === "confirmado" ? "Ver en el cotizador" : "Cotizar en sistema / Generar PDF"}
                 </a>
               </div>
+            </Field>
+          )}
+          {lead.kind !== "presupuesto" && (
+            <Field label="Presupuesto">
+              <a
+                href={`/cotizar?lead=${lead.id}`}
+                className="inline-flex items-center gap-1.5 text-primary hover:underline font-semibold"
+              >
+                <FilePen className="size-4" />
+                Cotizar en sistema / Generar PDF
+              </a>
             </Field>
           )}
 

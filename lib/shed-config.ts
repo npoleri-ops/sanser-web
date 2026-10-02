@@ -124,7 +124,10 @@ export function computeMateriales(config: ShedConfig): Computo {
 
 const WHATSAPP_NUMBER = "5493743487728" // 03743-487728
 
-export function buildWhatsAppMessage(config: ShedConfig): string {
+export function buildWhatsAppMessage(
+  config: ShedConfig,
+  client?: { name: string; phone: string; email: string }
+): string {
   const { width, length, height, type, color, sheet } = config
   const computo = computeMateriales(config)
 
@@ -139,12 +142,29 @@ export function buildWhatsAppMessage(config: ShedConfig): string {
   }
   const extrasTxt = extras.length ? ` ${extras.join(" y ")}` : ""
 
-  return `¡Hola SANSER Metalúrgica! Quisiera cotizar un tinglado de ` +
-    `${width}m x ${length}m x ${height}m ${TYPE_LABEL[type]}, ` +
-    `con techo ${COLOR_LABEL[color]} de chapa ${SHEET_LABEL[sheet]}${extrasTxt}. ` +
-    `(Superficie de techo aprox. ${computo.superficieTecho} m² · ` +
-    `${computo.columnas} columnas · ${computo.cabreadas} cabreadas · ${computo.correas} líneas de correas). ` +
-    `¿Me pasan un presupuesto?`
+  let msg = `¡Hola SANSER Metalúrgica! `
+  if (client) {
+    msg += `Soy ${client.name} y quisiera solicitar un presupuesto formal con los siguientes detalles:\n\n`
+  } else {
+    msg += `Quisiera cotizar un tinglado con los siguientes detalles:\n\n`
+  }
+
+  msg += `*DATOS TÉCNICOS:*\n`
+  msg += `- Tipología: ${TYPE_LABEL[type]}\n`
+  msg += `- Dimensiones: ${width}m (Ancho) x ${length}m (Largo) x ${height}m (Altura libre)\n`
+  msg += `- Cubierta: Chapa ${SHEET_LABEL[sheet]} (Color: ${COLOR_LABEL[color]})\n`
+  msg += `- Cerramientos laterales: ${config.walls ? "Sí" : "No"}\n`
+  msg += `- Portón frontal: ${config.gate ? "Sí" : "No"}\n`
+  msg += `- Portón trasero: ${config.gateBack ? "Sí" : "No"}\n`
+
+  if (client) {
+    msg += `\n*MIS DATOS DE CONTACTO:*\n`
+    msg += `- Nombre: ${client.name}\n`
+    msg += `- Teléfono: ${client.phone}\n`
+    msg += `- Email: ${client.email}\n`
+  }
+
+  return msg
 }
 
 export function buildWhatsAppUrl(config: ShedConfig): string {
