@@ -361,16 +361,69 @@ function useBuilt(config: ShedConfig): Built {
         const tieX = outX * 0.40
         if (tieX > 0) {
           const tieY = bottomFn(tieX) // La cara superior del puente toca el cordón inferior de las cabreadas
+          const tieBotY = tieY - varTrussH
           
-          // Generamos la SEGUNDA VIGA RETICULADA completamente HORIZONTAL
-          const tieRoofFn = () => tieY
-          trusses.push(...createBoxTruss(-tieX, tieX, tieRoofFn, varTrussH, varTrussH, z, varChordT, varWebT))
-
-          // ── Montante central ──
-          // Las cabreadas principales ya tienen un cierre en x=0 (desde topFn(0) a bottomFn(0)).
-          // Agregamos el parante que baja desde ahí (bottomFn(0)) hasta el punto medio del puente horizontal (tieY).
+          // La intersección exacta del cordón inferior horizontal con el inclinado (corte a inglete)
+          const tieBotX = tieX + varTrussH / slope
+          
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
+
+          // 1. Cordones horizontales del puente
+          // Superior (llega hasta tieX)
+          trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zF), varChordT])
+          trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zB), varChordT])
+          // Inferior (se extiende hasta tieBotX para fundirse con la cabreada)
+          trusses.push([v(-tieBotX, tieBotY, zF), v(tieBotX, tieBotY, zF), varChordT])
+          trusses.push([v(-tieBotX, tieBotY, zB), v(tieBotX, tieBotY, zB), varChordT])
+
+          // 2. Montantes de cierre PERPENDICULARES a la cabreada inclinada
+          // Desde el vértice superior del puente (tieX, tieY) trazamos una perpendicular
+          // hacia el cordón inferior del puente. Esto evita que quede una caja cuadrada colgando.
+          const dx = varTrussH * slope
+          const perpBotX = tieX - dx
+          
+          for (const sign of [-1, 1]) {
+            const sideTieX = tieX * sign
+            const sidePerpBotX = perpBotX * sign
+            
+            // Montantes perpendiculares (frente y dorso del cajón)
+            trusses.push([v(sideTieX, tieY, zF), v(sidePerpBotX, tieBotY, zF), varChordT])
+            trusses.push([v(sideTieX, tieY, zB), v(sidePerpBotX, tieBotY, zB), varChordT])
+          }
+
+          // 3. Arriostramientos horizontales (superior e inferior del puente)
+          trusses.push([v(-tieX, tieY, zF), v(0, tieY, zB), varWebT])
+          trusses.push([v(0, tieY, zB), v(tieX, tieY, zF), varWebT])
+          trusses.push([v(-tieX, tieY, zB), v(0, tieY, zF), varWebT])
+          trusses.push([v(0, tieY, zF), v(tieX, tieY, zB), varWebT])
+
+          trusses.push([v(-tieBotX, tieBotY, zF), v(0, tieBotY, zB), varWebT])
+          trusses.push([v(0, tieBotY, zB), v(tieBotX, tieBotY, zF), varWebT])
+          trusses.push([v(-tieBotX, tieBotY, zB), v(0, tieBotY, zF), varWebT])
+          trusses.push([v(0, tieBotY, zF), v(tieBotX, tieBotY, zB), varWebT])
+
+          // 4. Celosía en zigzag de las caras verticales del puente
+          // Hacemos el zigzag continuo entre los montantes perpendiculares
+          const bridgeSpan = perpBotX * 2
+          const nPanels = Math.max(2, Math.round(bridgeSpan / 0.35))
+          for (let i = 0; i < nPanels; i++) {
+            const bx0 = THREE.MathUtils.lerp(-perpBotX, perpBotX, i / nPanels)
+            const bx1 = THREE.MathUtils.lerp(-perpBotX, perpBotX, (i + 1) / nPanels)
+            const tx0 = THREE.MathUtils.lerp(-tieX, tieX, i / nPanels)
+            const tx1 = THREE.MathUtils.lerp(-tieX, tieX, (i + 1) / nPanels)
+            
+            if (i % 2 === 0) {
+              trusses.push([v(bx0, tieBotY, zF), v(tx1, tieY, zF), varWebT])
+              trusses.push([v(bx0, tieBotY, zB), v(tx1, tieY, zB), varWebT])
+            } else {
+              trusses.push([v(tx0, tieY, zF), v(bx1, tieBotY, zF), varWebT])
+              trusses.push([v(tx0, tieY, zB), v(bx1, tieBotY, zB), varWebT])
+            }
+          }
+
+          // 5. Montante central
+          // Baja desde bottomFn(0) (el vértice inferior de la cabreada principal) hasta el puente.
           trusses.push([v(0, bottomFn(0), zF), v(0, tieY, zF), varChordT])
           trusses.push([v(0, bottomFn(0), zB), v(0, tieY, zB), varChordT])
           
