@@ -351,48 +351,32 @@ function useBuilt(config: ShedConfig): Built {
         // Dos vigas reticuladas cajón inclinadas, de columna izq a cumbrera
         // y de cumbrera a columna der.
 
-        // ── Hueco libre de cumbrera (Ventana limpia) ──
-        const tieX = Math.min(1.15, outX * 0.5)
+        // Ala izquierda: columna izq (−outX) → cumbrera (0)
+        trusses.push(...createBoxTruss(-outX, 0, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
+        // Ala derecha: cumbrera (0) → columna der (outX)
+        trusses.push(...createBoxTruss(0, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
-        // Las vigas cajón con su zigzag se detienen en tieX, dejando el centro libre
-        trusses.push(...createBoxTruss(-outX, -tieX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
-        trusses.push(...createBoxTruss(tieX, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
-
+        // ── Viga de refuerzo horizontal inferior (Puente reticulado) ──
+        // Abarca aprox el 40% del ancho total (es decir, tieX es 40% de outX)
+        const tieX = outX * 0.40
         if (tieX > 0) {
-          const tieY = bottomFn(tieX) // Altura del tensor horizontal
+          const tieY = bottomFn(tieX) // La cara superior del puente toca el cordón inferior de las cabreadas
+          
+          // Generamos la SEGUNDA VIGA RETICULADA completamente HORIZONTAL
+          const tieRoofFn = () => tieY
+          trusses.push(...createBoxTruss(-tieX, tieX, tieRoofFn, varTrussH, varTrussH, z, varChordT, varWebT))
+
+          // ── Montante central ──
+          // Las cabreadas principales ya tienen un cierre en x=0 (desde topFn(0) a bottomFn(0)).
+          // Agregamos el parante que baja desde ahí (bottomFn(0)) hasta el punto medio del puente horizontal (tieY).
           const zF = z + varTrussH / 2
           const zB = z - varTrussH / 2
-
-          // 1. Continuación limpia de los cordones superiores hasta el vértice de la cumbrera
-          trusses.push([v(-tieX, topFn(-tieX), zF), v(0, topFn(0), zF), varChordT])
-          trusses.push([v(-tieX, topFn(-tieX), zB), v(0, topFn(0), zB), varChordT])
-          trusses.push([v(tieX, topFn(tieX), zF), v(0, topFn(0), zF), varChordT])
-          trusses.push([v(tieX, topFn(tieX), zB), v(0, topFn(0), zB), varChordT])
+          trusses.push([v(0, bottomFn(0), zF), v(0, tieY, zF), varChordT])
+          trusses.push([v(0, bottomFn(0), zB), v(0, tieY, zB), varChordT])
           
-          // Arriostramiento superior (techo) para mantener la sección de 30cm armada
-          trusses.push([v(-tieX, topFn(-tieX), zF), v(0, topFn(0), zB), varWebT])
-          trusses.push([v(-tieX, topFn(-tieX), zB), v(0, topFn(0), zF), varWebT])
-          trusses.push([v(tieX, topFn(tieX), zF), v(0, topFn(0), zB), varWebT])
-          trusses.push([v(tieX, topFn(tieX), zB), v(0, topFn(0), zF), varWebT])
-
-          // 2. Puente horizontal (tensor) uniendo las alas (Cierra la 'A' de la cabreada)
-          trusses.push([v(-tieX, tieY, zF), v(tieX, tieY, zF), varChordT])
-          trusses.push([v(-tieX, tieY, zB), v(tieX, tieY, zB), varChordT])
-          
-          // Celosía horizontal en zigzag para dar rigidez al tensor
-          trusses.push([v(-tieX, tieY, zF), v(0, tieY, zB), varWebT])
-          trusses.push([v(0, tieY, zB), v(tieX, tieY, zF), varWebT])
-          trusses.push([v(-tieX, tieY, zB), v(0, tieY, zF), varWebT])
-          trusses.push([v(0, tieY, zF), v(tieX, tieY, zB), varWebT])
-
-          // 3. Parante vertical central ÚNICO (T invertida / triangulación limpia)
-          // Baja desde la verdadera cumbrera (topFn(0)) hasta el tensor horizontal (tieY)
-          trusses.push([v(0, topFn(0), zF), v(0, tieY, zF), varChordT])
-          trusses.push([v(0, topFn(0), zB), v(0, tieY, zB), varChordT])
-          
-          // Cruce diagonal del parante para que la estructura sea rígida en 3D
-          trusses.push([v(0, topFn(0), zF), v(0, tieY, zB), varWebT])
-          trusses.push([v(0, topFn(0), zB), v(0, tieY, zF), varWebT])
+          // Cruz de arriostramiento en el montante para trabar el conjunto en 3D
+          trusses.push([v(0, bottomFn(0), zF), v(0, tieY, zB), varWebT])
+          trusses.push([v(0, bottomFn(0), zB), v(0, tieY, zF), varWebT])
         }
 
         // Jabalcones (ménsulas a ~45° de columna a viga cajón)
