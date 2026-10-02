@@ -147,7 +147,9 @@ export function Controls({ config, update }: Props) {
           options={[
             { value: "gable", label: TYPE_LABEL.gable },
             { value: "gable_portico", label: TYPE_LABEL.gable_portico },
+            { value: "gable_varillas", label: TYPE_LABEL.gable_varillas },
             { value: "shed", label: TYPE_LABEL.shed },
+            { value: "shed_varillas", label: TYPE_LABEL.shed_varillas },
           ]}
         />
       </Group>

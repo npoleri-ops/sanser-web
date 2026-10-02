@@ -79,6 +79,85 @@ function trussWeb(
   return segs
 }
 
+// Warren truss web (zigzag)
+function warrenWeb(
+  bottomFn: (x: number) => number,
+  topFn: (x: number) => number,
+  xL: number,
+  xR: number,
+  z: number,
+  panels: number,
+  webT: number,
+): Seg[] {
+  const segs: Seg[] = []
+  for (let i = 0; i < panels; i++) {
+    const x0 = THREE.MathUtils.lerp(xL, xR, i / panels)
+    const x1 = THREE.MathUtils.lerp(xL, xR, (i + 1) / panels)
+    const xMid = (x0 + x1) / 2
+    
+    segs.push([v(x0, bottomFn(x0), z), v(xMid, topFn(xMid), z), webT])
+    segs.push([v(xMid, topFn(xMid), z), v(x1, bottomFn(x1), z), webT])
+  }
+  return segs
+}
+
+// 4-varilla 3D column with zigzag perimeter
+function lattice3D(
+  baseX: number, baseZ: number,
+  bottomY: number, topY: number,
+  depth: number, width: number,
+  panels: number,
+  chordT: number, webT: number
+): Seg[] {
+  const segs: Seg[] = []
+  const dx = width / 2
+  const dz = depth / 2
+  
+  segs.push(
+    [v(baseX - dx, bottomY, baseZ - dz), v(baseX - dx, topY, baseZ - dz), chordT],
+    [v(baseX + dx, bottomY, baseZ - dz), v(baseX + dx, topY, baseZ - dz), chordT],
+    [v(baseX + dx, bottomY, baseZ + dz), v(baseX + dx, topY, baseZ + dz), chordT],
+    [v(baseX - dx, bottomY, baseZ + dz), v(baseX - dx, topY, baseZ + dz), chordT]
+  )
+  
+  for(let i=0; i<panels; i++) {
+     const t0 = i/panels
+     const t1 = (i+1)/panels
+     const y0 = THREE.MathUtils.lerp(bottomY, topY, t0)
+     const y1 = THREE.MathUtils.lerp(bottomY, topY, t1)
+     
+     segs.push(
+        [v(baseX - dx, y0, baseZ - dz), v(baseX + dx, y0, baseZ - dz), webT],
+        [v(baseX + dx, y0, baseZ - dz), v(baseX + dx, y0, baseZ + dz), webT],
+        [v(baseX + dx, y0, baseZ + dz), v(baseX - dx, y0, baseZ + dz), webT],
+        [v(baseX - dx, y0, baseZ + dz), v(baseX - dx, y0, baseZ - dz), webT]
+     )
+     
+     if(i % 2 === 0) {
+        segs.push(
+           [v(baseX - dx, y0, baseZ - dz), v(baseX + dx, y1, baseZ - dz), webT],
+           [v(baseX + dx, y0, baseZ - dz), v(baseX + dx, y1, baseZ + dz), webT],
+           [v(baseX + dx, y0, baseZ + dz), v(baseX - dx, y1, baseZ + dz), webT],
+           [v(baseX - dx, y0, baseZ + dz), v(baseX - dx, y1, baseZ - dz), webT]
+        )
+     } else {
+        segs.push(
+           [v(baseX + dx, y0, baseZ - dz), v(baseX - dx, y1, baseZ - dz), webT],
+           [v(baseX + dx, y0, baseZ + dz), v(baseX + dx, y1, baseZ - dz), webT],
+           [v(baseX - dx, y0, baseZ + dz), v(baseX + dx, y1, baseZ + dz), webT],
+           [v(baseX - dx, y0, baseZ - dz), v(baseX - dx, y1, baseZ + dz), webT]
+        )
+     }
+  }
+  segs.push(
+     [v(baseX - dx, topY, baseZ - dz), v(baseX + dx, topY, baseZ - dz), webT],
+     [v(baseX + dx, topY, baseZ - dz), v(baseX + dx, topY, baseZ + dz), webT],
+     [v(baseX + dx, topY, baseZ + dz), v(baseX - dx, topY, baseZ + dz), webT],
+     [v(baseX - dx, topY, baseZ + dz), v(baseX - dx, topY, baseZ - dz), webT]
+  )
+  return segs
+}
+
 interface Built {
   slab: { w: number; l: number }
   bases: Seg[]
@@ -104,9 +183,11 @@ function useBuilt(config: ShedConfig): Built {
     const framesZ: number[] = []
     for (let i = 0; i < frames; i++) framesZ.push(THREE.MathUtils.lerp(-halfL, halfL, i / (frames - 1)))
 
-    const colDepth = 0.5
-    const chordT = 0.13
-    const webT = 0.07
+    const isVarillas = type === "gable_varillas" || type === "shed_varillas"
+    const colDepth = isVarillas ? 0.35 : 0.5
+    const colWidth = isVarillas ? 0.35 : 0.5
+    const chordT = isVarillas ? 0.05 : 0.13
+    const webT = isVarillas ? 0.025 : 0.07
     const colPanels = clamp(Math.round(H / 1.0), 3, 9)
     const trussPanels = clamp(Math.round(W / 1.6), 5, 40)
 
@@ -116,12 +197,13 @@ function useBuilt(config: ShedConfig): Built {
     const shedSlope = Math.tan((8 * Math.PI) / 180)
 
     const topFn = (x: number) => {
-      if (type === "gable" || type === "gable_portico") return H + slope * (outX - Math.abs(x))
+      if (type === "gable" || type === "gable_portico" || type === "gable_varillas") return H + slope * (outX - Math.abs(x))
       return H + shedSlope * (x + outX)
     }
     const verticalDepth = trussDepth / Math.cos(pitch)
     const bottomFn = (x: number) => {
-      if (type === "gable_portico") return topFn(x) - verticalDepth
+      if (type === "gable_portico" || type === "gable_varillas") return topFn(x) - verticalDepth
+      if (type === "shed_varillas") return topFn(x) - verticalDepth
       return H
     }
 
@@ -147,13 +229,18 @@ function useBuilt(config: ShedConfig): Built {
       }
       for (const [x, top] of sides) {
         let slantFn: ((x: number) => number) | undefined
-        if (type === "gable_portico") {
+        if (type === "gable_portico" || type === "gable_varillas" || type === "shed_varillas") {
           slantFn = bottomFn
         }
         
-        // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
-        // diagonal-braced face points toward a front-facing camera (columns rotated 90° on their vertical axis).
-        columns.push(...lattice(v(x, 0.3, z), v(x, top, z), v(1, 0, 0), colDepth, colPanels, chordT, webT, slantFn))
+        if (isVarillas) {
+          // 4-varilla 3D column
+          columns.push(...lattice3D(x, z, 0.3, top, colDepth, colWidth, colPanels, chordT, webT))
+        } else {
+          // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
+          // diagonal-braced face points toward a front-facing camera (columns rotated 90° on their vertical axis).
+          columns.push(...lattice(v(x, 0.3, z), v(x, top, z), v(1, 0, 0), colDepth, colPanels, chordT, webT, slantFn))
+        }
         // base plate as 4 short stubs forming a box footprint
         bases.push([v(x - 0.35, 0.14, z - 0.35), v(x + 0.35, 0.14, z - 0.35), 0.28])
         bases.push([v(x - 0.35, 0.14, z + 0.35), v(x + 0.35, 0.14, z + 0.35), 0.28])
@@ -162,7 +249,7 @@ function useBuilt(config: ShedConfig): Built {
 
     // Trusses (cabreadas)
     for (const z of framesZ) {
-      if (type === "gable_portico") {
+      if (type === "gable_portico" || type === "gable_varillas") {
         // bottom chord
         trusses.push([v(-outX, bottomFn(-outX), z), v(0, bottomFn(0), z), chordT])
         trusses.push([v(0, bottomFn(0), z), v(outX, bottomFn(outX), z), chordT])
@@ -172,27 +259,47 @@ function useBuilt(config: ShedConfig): Built {
         
         // Vertical closing member (montante vertical en cumbrera)
         trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), chordT])
+
+        // Refuerzo/tensor horizontal en cumbrera para varillas (puente/collarín)
+        if (type === "gable_varillas" && W > 4) {
+          const tieX = Math.min(2, W / 4);
+          trusses.push([v(-tieX, bottomFn(-tieX), z), v(tieX, bottomFn(tieX), z), chordT])
+        }
         
-        // Flange plate (chapa de unión/brida en el centro)
-        const fH = (topFn(0) - bottomFn(0)) + 0.05
-        const fY = (topFn(0) + bottomFn(0)) / 2
-        flanges.push({ pos: [0, fY, z], w: 0.04, h: fH, d: chordT + 0.08 })
+        // Flange plate (chapa de unión/brida en el centro) solo para pórtico perfil C
+        if (type === "gable_portico") {
+          const fH = (topFn(0) - bottomFn(0)) + 0.05
+          const fY = (topFn(0) + bottomFn(0)) / 2
+          flanges.push({ pos: [0, fY, z], w: 0.04, h: fH, d: chordT + 0.08 })
+        }
 
         // truss web in symmetric halves
         const halfPanels = Math.max(3, Math.floor(trussPanels / 2))
-        trusses.push(...trussWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
-        trusses.push(...trussWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
-      } else {
-        // bottom chord
-        trusses.push([v(-outX, H, z), v(outX, H, z), chordT])
-        if (type === "gable") {
-          trusses.push([v(-outX, H, z), v(0, topFn(0), z), chordT])
-          trusses.push([v(0, topFn(0), z), v(outX, H, z), chordT])
+        if (isVarillas) {
+          trusses.push(...warrenWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
+          trusses.push(...warrenWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
         } else {
-          trusses.push([v(-outX, topFn(-outX), z), v(outX, topFn(outX), z), chordT])
+          trusses.push(...trussWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
+          trusses.push(...trussWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
         }
-        // truss web
-        trusses.push(...trussWeb(bottomFn, topFn, -outX, outX, z, trussPanels, webT))
+      } else {
+        // shed, shed_varillas or gable
+        // bottom chord
+        if (type === "shed_varillas") {
+          trusses.push([v(-outX, bottomFn(-outX), z), v(outX, bottomFn(outX), z), chordT])
+          trusses.push([v(-outX, topFn(-outX), z), v(outX, topFn(outX), z), chordT])
+          trusses.push(...warrenWeb(bottomFn, topFn, -outX, outX, z, trussPanels, webT))
+        } else {
+          trusses.push([v(-outX, H, z), v(outX, H, z), chordT])
+          if (type === "gable") {
+            trusses.push([v(-outX, H, z), v(0, topFn(0), z), chordT])
+            trusses.push([v(0, topFn(0), z), v(outX, H, z), chordT])
+          } else {
+            trusses.push([v(-outX, topFn(-outX), z), v(outX, topFn(outX), z), chordT])
+          }
+          // truss web
+          trusses.push(...trussWeb(bottomFn, topFn, -outX, outX, z, trussPanels, webT))
+        }
       }
     }
 
@@ -207,14 +314,14 @@ function useBuilt(config: ShedConfig): Built {
         roof.push([v(x, y, -outL), v(x, y, outL), purlinT])
         
         // Soquetes / soportes para correas sobre la cabreada
-        if (type === "gable_portico") {
+        if (type === "gable_portico" || type === "gable_varillas" || type === "shed_varillas") {
           for (const z of framesZ) {
             trusses.push([v(x, topFn(x), z), v(x, topFn(x) + 0.08, z), webT])
           }
         }
       }
     }
-    if (type === "gable" || type === "gable_portico") {
+    if (type === "gable" || type === "gable_portico" || type === "gable_varillas") {
       makePurlinRun(-outX, 0)
       makePurlinRun(0, outX)
     } else {
@@ -241,7 +348,7 @@ function useBuilt(config: ShedConfig): Built {
     // Roof sheeting panels
     const roofOffset = 0.18
     const panels: Built["panels"] = []
-    if (type === "gable" || type === "gable_portico") {
+    if (type === "gable" || type === "gable_portico" || type === "gable_varillas") {
       const slopeLen = outX / Math.cos(pitch)
       const centerHeight = topFn(outX / 2)
       panels.push({

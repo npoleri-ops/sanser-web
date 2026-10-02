@@ -13,8 +13,8 @@ import { openWhatsAppModal } from "@/components/site/whatsapp-modal"
 export function QuoteCard({ config }: { config: ShedConfig }) {
   const c = computeMateriales(config)
   const rows = [
-    { icon: Columns3, label: "Columnas reticuladas", value: `${c.columnas} u.` },
-    { icon: Triangle, label: "Cabreadas principales", value: `${c.cabreadas} u.` },
+    { icon: Columns3, label: config.type.includes("varillas") ? "Columnas reticuladas (Varilla)" : "Columnas reticuladas", value: `${c.columnas} u.` },
+    { icon: Triangle, label: config.type.includes("varillas") ? "Cabreadas reticuladas (Varilla)" : "Cabreadas principales", value: `${c.cabreadas} u.` },
     { icon: AlignJustify, label: "Líneas de correas (Perfil C)", value: `${c.correas} u.` },
     { icon: SquareStack, label: "Superficie de techo", value: `${c.superficieTecho} m²` },
     { icon: Layers, label: "Superficie de planta", value: `${c.superficiePlanta} m²` },

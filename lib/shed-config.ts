@@ -1,4 +1,4 @@
-export type ShedType = "gable" | "shed" | "gable_portico" // dos aguas / una agua / pórtico
+export type ShedType = "gable" | "shed" | "gable_portico" | "gable_varillas" | "shed_varillas" // dos aguas / una agua / pórtico / varillas
 export type SheetType = "t101" | "sinusoidal"
 export type WallSheetType = "same" | "t101" | "sinusoidal"
 export type RoofColor = "cincalum" | "negro"
@@ -59,6 +59,8 @@ export const TYPE_LABEL: Record<ShedType, string> = {
   gable: "A 2 Aguas (Triangular)",
   gable_portico: "A 2 Aguas (Pórtico Reticulado)",
   shed: "A 1 Agua",
+  gable_varillas: "2 Aguas - Reticulado Liviano (Varilla Ø12/8)",
+  shed_varillas: "1 Agua - Reticulado Liviano (Varilla Ø12/8)",
 }
 
 // Roof pitch (approx) used both for geometry and area math
@@ -94,7 +96,7 @@ export function computeMateriales(config: ShedConfig): Computo {
   // Superficie de techo considerando la pendiente
   let superficieTecho: number
   let correas: number
-  if (type === "gable" || type === "gable_portico") {
+  if (type === "gable" || type === "gable_portico" || type === "gable_varillas") {
     // dos faldones: ancho inclinado total = width / cos(pitch)
     const slopeLen = (width / 2) / Math.cos(PITCH_RAD)
     superficieTecho = length * (slopeLen * 2)

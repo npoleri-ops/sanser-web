@@ -41,9 +41,10 @@ const INITIAL_PRICES = {
   arandelas: 0,
   tornillos: 0,
   pintura: 0,
-  aguarras: 0,
   manoDeObra: 0,
   flete: 0,
+  varilla12: 0,
+  varilla8: 0,
 }
 type Prices = typeof INITIAL_PRICES
 
@@ -55,7 +56,8 @@ const EMPTY_NUMBER = "" as unknown as number
 const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) => {
   const ancho = currentConfig.width || 0;
   const largo = currentConfig.length || 0;
-  const isUnAgua = currentConfig.type === "shed";
+  const isUnAgua = currentConfig.type === "shed" || currentConfig.type === "shed_varillas";
+  const isVarillas = currentConfig.type === "gable_varillas" || currentConfig.type === "shed_varillas";
 
   const numPorticos = Math.ceil(largo / 5) + 1;
   const numColumnas = numPorticos * 2;
@@ -65,16 +67,34 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const factorColumna = (altoLibre + 1) / 6;
 
   // Perfiles 120 (Barras)
-  const barras120 = Math.ceil(isUnAgua 
+  const barras120 = isVarillas ? 0 : Math.ceil(isUnAgua 
     ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1)) 
     : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2))
   );
 
   // Perfiles 80 Negro (Barras)
-  const barras80Negro = Math.ceil(isUnAgua 
+  const barras80Negro = isVarillas ? 0 : Math.ceil(isUnAgua 
     ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33)) 
     : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
   );
+
+  // Varillas Ø12 y Ø8 (Barras de 12m)
+  let barrasVarilla12 = 0;
+  let barrasVarilla8 = 0;
+  if (isVarillas) {
+    const lengthPerCabreada = isUnAgua ? ancho : (ancho / Math.cos(12 * Math.PI / 180));
+    const metrosCordonesCabreada = lengthPerCabreada * 2; 
+    const metrosZigzagCabreada = lengthPerCabreada * 2.5; 
+
+    const metrosCordonesColumna = altoLibre * 4;
+    const metrosZigzagColumna = altoLibre * 4 * 1.5;
+
+    const totalMetrosVar12 = (numCabreadas * metrosCordonesCabreada) + (numColumnas * metrosCordonesColumna);
+    const totalMetrosVar8 = (numCabreadas * metrosZigzagCabreada) + (numColumnas * metrosZigzagColumna);
+
+    barrasVarilla12 = Math.ceil(totalMetrosVar12 / 12);
+    barrasVarilla8 = Math.ceil(totalMetrosVar8 / 12);
+  }
 
   // Correas 80 Galv (Barras)
   const lineasCorreas = Math.ceil(ancho / 1) + 1;
@@ -113,6 +133,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const pTornillo = currentPrices.tornillos || 15000;
   const pPintura = currentPrices.pintura || 50000;
   const pAguarras = currentPrices.aguarras || 30000;
+  const pVarilla12 = currentPrices.varilla12 || 12000;
+  const pVarilla8 = currentPrices.varilla8 || 5500;
 
   const subtotalMateriales = 
     (barras120 * p120) +
@@ -124,7 +146,9 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     (arandelaKg * pAran) +
     (tornillosCajas * pTornillo) +
     (pinturaBaldes * pPintura) +
-    (aguarrasBaldes * pAguarras);
+    (aguarrasBaldes * pAguarras) +
+    (barrasVarilla12 * pVarilla12) +
+    (barrasVarilla8 * pVarilla8);
 
   const superficie = ancho * largo;
   const subtotalManoObra = Math.round(superficie * 11000);
@@ -140,7 +164,9 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
   ];
 
-  const nuevoDetalle = `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
+  const nuevoDetalle = isVarillas 
+    ? `Estructura de reticulado liviano en Varilla Conformada Ø12 (cordones) y Ø8 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
+    : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
   return { nuevoTitulo, nuevosItems, nuevoDetalle }
 }
@@ -315,6 +341,8 @@ export function Cotizador({
          else if (textMatch.includes('aguarrás') || textMatch.includes('aguarras')) newPrices.aguarras = p
          else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
          else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
+         else if (textMatch.includes('varilla') && textMatch.includes('12')) newPrices.varilla12 = p
+         else if (textMatch.includes('varilla') && textMatch.includes('8')) newPrices.varilla8 = p
       })
       
       console.log("DETALLE MATERIALES CSV MAREADOS:", newPrices)
