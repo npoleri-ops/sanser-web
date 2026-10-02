@@ -154,42 +154,58 @@ function varillaColumn(
   return segs
 }
 
-// Parallel-chord inclined truss beam for varillas.
-// Both chords follow the roof slope at a constant vertical offset (`depth`).
-// Dense zigzag web (Warren pattern) that fills the whole beam visibly.
-function varillasParallelChordTruss(
-  xL: number, xR: number,
-  slopeFn: (x: number) => number,   // top chord height at x
-  depth: number,                     // constant vertical distance between chords (~0.38m)
+// ════════════════════════════════════════════════════════════════════════════
+// createParallelTruss — genera una viga reticulada de cordón paralelo.
+//
+// Recibe punto de inicio (startX) y punto final (endX), la función de
+// pendiente del techo (roofFn), y la separación constante entre cordones
+// (depth, ~0.35m).  Genera:
+//   • Cordón superior (tubo a lo largo de roofFn)
+//   • Cordón inferior paralelo (roofFn − depth)
+//   • Zigzag denso de diagonales uniendo ambos cordones de punta a punta
+//   • Montantes verticales de cierre en ambos extremos
+// ════════════════════════════════════════════════════════════════════════════
+function createParallelTruss(
+  startX: number,
+  endX: number,
+  roofFn: (x: number) => number,
+  depth: number,
   z: number,
-  panels: number,
   chordT: number,
-  webT: number
+  webT: number,
 ): Seg[] {
   const segs: Seg[] = []
-  const topAt = (x: number) => slopeFn(x)
-  const botAt = (x: number) => slopeFn(x) - depth
 
-  // Top chord (full length)
-  segs.push([v(xL, topAt(xL), z), v(xR, topAt(xR), z), chordT])
-  // Bottom chord (full length)
-  segs.push([v(xL, botAt(xL), z), v(xR, botAt(xR), z), chordT])
+  // Funciones de altura de cada cordón
+  const topY = (x: number) => roofFn(x)
+  const botY = (x: number) => roofFn(x) - depth
 
-  // End verticals (closing the beam at both ends)
-  segs.push([v(xL, botAt(xL), z), v(xL, topAt(xL), z), webT])
-  segs.push([v(xR, botAt(xR), z), v(xR, topAt(xR), z), webT])
+  // ── Cordón superior (tubo completo de punta a punta) ──
+  segs.push([v(startX, topY(startX), z), v(endX, topY(endX), z), chordT])
 
-  // Dense zigzag web — use more panels for a tighter, visible celosía
-  const webPanels = Math.max(panels, 6)
-  for (let i = 0; i < webPanels; i++) {
-    const xa = THREE.MathUtils.lerp(xL, xR, i / webPanels)
-    const xb = THREE.MathUtils.lerp(xL, xR, (i + 1) / webPanels)
+  // ── Cordón inferior (tubo completo de punta a punta) ──
+  segs.push([v(startX, botY(startX), z), v(endX, botY(endX), z), chordT])
+
+  // ── Montantes verticales de cierre en los extremos ──
+  segs.push([v(startX, botY(startX), z), v(startX, topY(startX), z), chordT])
+  segs.push([v(endX, botY(endX), z), v(endX, topY(endX), z), chordT])
+
+  // ── Celosía en zigzag continuo y tupido ──
+  // ~60 cm por panel para que se vea bien la celosía
+  const span = Math.abs(endX - startX)
+  const nPanels = Math.max(6, Math.round(span / 0.6))
+  for (let i = 0; i < nPanels; i++) {
+    const xA = THREE.MathUtils.lerp(startX, endX, i / nPanels)
+    const xB = THREE.MathUtils.lerp(startX, endX, (i + 1) / nPanels)
     if (i % 2 === 0) {
-      segs.push([v(xa, botAt(xa), z), v(xb, topAt(xb), z), webT])
+      // diagonal: inferior-izq → superior-der
+      segs.push([v(xA, botY(xA), z), v(xB, topY(xB), z), webT])
     } else {
-      segs.push([v(xa, topAt(xa), z), v(xb, botAt(xb), z), webT])
+      // diagonal: superior-izq → inferior-der
+      segs.push([v(xA, topY(xA), z), v(xB, botY(xB), z), webT])
     }
   }
+
   return segs
 }
 
@@ -220,11 +236,13 @@ function useBuilt(config: ShedConfig): Built {
 
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
 
-    // ── Varillas: thinner bars that look like real Ø12 / Ø8 rebar ──
-    const varChordT = 0.035   // Ø12 visual
-    const varWebT   = 0.022   // Ø8 visual
-    const colSection = 0.25   // 25 cm square column section
-    const varTrussH  = 0.38   // constant canto of parallel-chord truss
+    // ── Varillas: espesores visibles que representan Ø12 y Ø8 ──
+    // Los valores anteriores (0.035 / 0.022) eran invisibles en pantalla.
+    // Usamos un espesor mayor para que las barras sean claramente visibles en el render.
+    const varChordT = 0.06    // cordón Ø12 — visible como tubo
+    const varWebT   = 0.04    // diagonal Ø8 — visible como varilla
+    const colSection = 0.28   // sección cuadrada de columna (28 cm)
+    const varTrussH  = 0.35   // separación constante entre cordones (35 cm)
 
     const colDepth = isVarillas ? colSection : 0.5
     const chordT = isVarillas ? varChordT : 0.13
@@ -237,21 +255,19 @@ function useBuilt(config: ShedConfig): Built {
     const slope = Math.tan(pitch)
     const shedSlope = Math.tan((8 * Math.PI) / 180)
 
-    // topFn = roof line (top chord of the truss / top of roof sheeting)
+    // topFn = línea de techo (cordón superior de la viga reticulada)
     const topFn = (x: number) => {
       if (type === "gable" || type === "gable_portico" || type === "gable_varillas") return H + slope * (outX - Math.abs(x))
       return H + shedSlope * (x + outX)
     }
-    // bottomFn = bottom chord of the truss
+    // bottomFn = cordón inferior de la viga reticulada
     const bottomFn = (x: number) => {
       if (type === "gable_portico") return topFn(x) - (trussDepth / Math.cos(pitch))
       if (type === "gable_varillas" || type === "shed_varillas") return topFn(x) - varTrussH
       return H
     }
 
-    // Column top height: for varillas types, columns reach the BOTTOM chord
-    // of the truss at the eave (the truss sits on top of the column).
-    // For profile C types, columns reach the eave line (bottomFn at the column position).
+    // Altura tope de las columnas (cordón inferior del reticulado en cada alero)
     const eaveL = bottomFn(-halfW)
     const eaveR = bottomFn(halfW)
     const outL = halfL + chordT / 2
@@ -296,100 +312,74 @@ function useBuilt(config: ShedConfig): Built {
       }
     }
 
-    // Trusses (cabreadas)
+    // ═══════════════════════════════════════════════════════════════════════
+    // TRUSSES (cabreadas) — un pórtico transversal completo por cada frame
+    // ═══════════════════════════════════════════════════════════════════════
     for (const z of framesZ) {
       if (type === "gable_varillas") {
-        // ══ 2 AGUAS RETICULADO LIVIANO ══
-        // Two parallel-chord inclined trusses meeting at the ridge,
-        // each spanning from the column (at outX) to the ridge (x=0).
-        // Dense zigzag fills the full beam depth visibly.
-        const halfPanels = Math.max(6, Math.ceil(trussPanels / 2))
+        // ══ 2 AGUAS – RETICULADO LIVIANO ══
+        // Dos vigas reticuladas inclinadas, de columna izq a cumbrera
+        // y de cumbrera a columna der. Cada una con cordón paralelo y
+        // zigzag denso.
 
-        // Left half: left eave → ridge (top chord follows topFn)
-        trusses.push(...varillasParallelChordTruss(
-          -outX, 0, topFn, varTrussH, z, halfPanels, varChordT, varWebT
-        ))
-        // Right half: ridge → right eave
-        trusses.push(...varillasParallelChordTruss(
-          0, outX, topFn, varTrussH, z, halfPanels, varChordT, varWebT
-        ))
+        // Ala izquierda: columna izq (−outX) → cumbrera (0)
+        trusses.push(...createParallelTruss(-outX, 0, topFn, varTrussH, z, varChordT, varWebT))
+        // Ala derecha: cumbrera (0) → columna der (outX)
+        trusses.push(...createParallelTruss(0, outX, topFn, varTrussH, z, varChordT, varWebT))
 
-        // Ridge vertical montante (closing member at the apex)
+        // Montante vertical de cierre en la cumbrera
         trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), varChordT])
 
-        // ── Horizontal collar tie / tensor at ~1.3 m below the ridge ──
-        // This is the rigid bridge/collarín that ties both slopes together,
-        // like in the real lightweight trusses from Misiones.
+        // Tensor/puente horizontal rígido que ata ambas caídas (~1.3 m debajo de cumbrera)
         const ridgeY = topFn(0)
         const tieY = ridgeY - 1.3
-        // Solve for X where the bottom chord is at tieY:
-        // bottomFn(x) = topFn(x) - varTrussH = H + slope*(outX-|x|) - varTrussH
-        // tieY = H + slope*(outX - tieX) - varTrussH
-        // tieX = outX - (tieY - H + varTrussH) / slope
-        if (slope > 0.01) {
+        if (slope > 0.01 && tieY > H) {
+          // Calcular X donde el cordón inferior está a la altura tieY
           const tieX = clamp(outX - (tieY - H + varTrussH) / slope, 0.5, outX - 0.5)
-          if (tieY > H) {
-            // Horizontal tie bar
-            trusses.push([v(-tieX, tieY, z), v(tieX, tieY, z), varChordT])
-            // Short verticals from bottom chord up to the tie
-            trusses.push([v(-tieX, bottomFn(-tieX), z), v(-tieX, tieY, z), varWebT])
-            trusses.push([v( tieX, bottomFn( tieX), z), v( tieX, tieY, z), varWebT])
-          }
+          trusses.push([v(-tieX, tieY, z), v(tieX, tieY, z), varChordT])
+          // Montantes cortos del cordón inferior al tensor
+          trusses.push([v(-tieX, bottomFn(-tieX), z), v(-tieX, tieY, z), varWebT])
+          trusses.push([v( tieX, bottomFn( tieX), z), v( tieX, tieY, z), varWebT])
         }
 
-        // ── Jabalcón / ménsula (45° knee brace: column → truss bottom chord) ──
+        // Jabalcones (ménsulas a ~45° de columna a viga)
         const braceLen = Math.min(1.2, H * 0.2)
         for (const side of [-1, 1]) {
           const colX = side * halfW
-          const colTopY = bottomFn(colX)  // column top = truss bottom chord
-          const braceStartY = colTopY - braceLen
-          // Diagonal goes inward along the bottom chord
-          const braceEndX = colX - side * braceLen
-          const braceEndY = bottomFn(braceEndX)
-          trusses.push([v(colX, braceStartY, z), v(braceEndX, braceEndY, z), varChordT])
+          const startY = bottomFn(colX) - braceLen
+          const endX = colX - side * braceLen
+          trusses.push([v(colX, startY, z), v(endX, bottomFn(endX), z), varChordT])
+        }
+
+      } else if (type === "shed_varillas") {
+        // ══ 1 AGUA – RETICULADO LIVIANO ══
+        // Viga reticulada continua de cordón paralelo con pendiente,
+        // desde columna baja (−outX) hasta columna alta (outX).
+        trusses.push(...createParallelTruss(-outX, outX, topFn, varTrussH, z, varChordT, varWebT))
+
+        // Jabalcones en ambas columnas
+        const braceLen = Math.min(1.2, H * 0.2)
+        for (const colX of [-halfW, halfW]) {
+          const startY = bottomFn(colX) - braceLen
+          const dir = colX < 0 ? 1 : -1
+          const endX = colX + dir * braceLen
+          trusses.push([v(colX, startY, z), v(endX, bottomFn(endX), z), varChordT])
         }
 
       } else if (type === "gable_portico") {
-        // bottom chord
         trusses.push([v(-outX, bottomFn(-outX), z), v(0, bottomFn(0), z), chordT])
         trusses.push([v(0, bottomFn(0), z), v(outX, bottomFn(outX), z), chordT])
-        // top chord
         trusses.push([v(-outX, topFn(-outX), z), v(0, topFn(0), z), chordT])
         trusses.push([v(0, topFn(0), z), v(outX, topFn(outX), z), chordT])
-        
-        // Vertical closing member (montante vertical en cumbrera)
         trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), chordT])
-        
-        // Flange plate (chapa de unión/brida en el centro)
         const fH = (topFn(0) - bottomFn(0)) + 0.05
         const fY = (topFn(0) + bottomFn(0)) / 2
         flanges.push({ pos: [0, fY, z], w: 0.04, h: fH, d: chordT + 0.08 })
-
-        // truss web in symmetric halves
         const halfPanels = Math.max(3, Math.floor(trussPanels / 2))
         trusses.push(...trussWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
         trusses.push(...trussWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
-      } else if (type === "shed_varillas") {
-        // ══ 1 AGUA RETICULADO LIVIANO ══
-        // Single continuous parallel-chord truss from left column to right column
-        // with constant depth (varTrussH) and dense zigzag web.
-        const shedPanels = Math.max(8, trussPanels)
-        trusses.push(...varillasParallelChordTruss(
-          -outX, outX, topFn, varTrussH, z, shedPanels, varChordT, varWebT
-        ))
-
-        // Jabalcón on both columns
-        const braceLen = Math.min(1.2, H * 0.2)
-        for (const colX of [-halfW, halfW]) {
-          const colTopY = bottomFn(colX)
-          const braceStartY = colTopY - braceLen
-          const dir = colX < 0 ? 1 : -1
-          const braceEndX = colX + dir * braceLen
-          const braceEndY = bottomFn(braceEndX)
-          trusses.push([v(colX, braceStartY, z), v(braceEndX, braceEndY, z), varChordT])
-        }
       } else {
-        // gable or shed (original profile C types)
+        // gable o shed clásico (perfil C)
         trusses.push([v(-outX, H, z), v(outX, H, z), chordT])
         if (type === "gable") {
           trusses.push([v(-outX, H, z), v(0, topFn(0), z), chordT])
@@ -397,7 +387,6 @@ function useBuilt(config: ShedConfig): Built {
         } else {
           trusses.push([v(-outX, topFn(-outX), z), v(outX, topFn(outX), z), chordT])
         }
-        // truss web
         trusses.push(...trussWeb(bottomFn, topFn, -outX, outX, z, trussPanels, webT))
       }
     }
