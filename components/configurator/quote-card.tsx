@@ -31,10 +31,10 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
 
   const handleSubmit = async () => {
     const isPhoneValid = phone.replace(/\D/g, "").length >= 8
-    const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const isEmailValid = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     
     if (!name.trim() || !isPhoneValid || !isEmailValid) {
-      alert("Por favor completá tu nombre, un teléfono válido y un email correcto.")
+      alert("Por favor completá tu nombre, un teléfono válido y, si lo ingresás, un email correcto.")
       return
     }
 
@@ -132,7 +132,7 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase text-foreground/80">Correo electrónico</label>
+                <label className="text-xs font-bold uppercase text-foreground/80">Correo electrónico (Opcional)</label>
                 <input 
                   type="email" 
                   value={email} 

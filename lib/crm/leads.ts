@@ -56,7 +56,7 @@ export function faltaContacto(lead: NewLead) {
   
   if (lead.kind === "presupuesto") {
     const email = (lead.quoteConfig as any)?.email
-    const hasEmail = Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    const hasEmail = Boolean(!email || email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return !hasName || !hasPhone || !hasEmail
   }
 

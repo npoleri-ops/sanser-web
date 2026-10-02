@@ -790,7 +790,7 @@ export function Cotizador({
 
   // Validación de contacto para evitar leads fantasma
   const isPhoneValid = phone.replace(/\D/g, "").length >= 8
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const isEmailValid = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   const faltanDatosCliente = !clientName.trim() || !isPhoneValid || !isEmailValid
 
   const datosDelPresupuesto = () => ({
@@ -814,7 +814,7 @@ export function Cotizador({
   /** Lo que hace el visitante: pedir el presupuesto, sin llevarse ningún papel. */
   const pedirPresupuesto = async () => {
     if (faltanDatosCliente) {
-      alert("Por favor completá tu nombre, un teléfono válido y un email correcto.")
+      alert("Por favor completá tu nombre, un teléfono válido y, si lo ingresás, un email correcto.")
       return
     }
 
@@ -1092,8 +1092,7 @@ export function Cotizador({
 
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase text-foreground/80">
-                {interno ? "Email Cliente" : "Tu correo electrónico"}{" "}
-                <span className="text-primary">*</span>
+                {interno ? "Email Cliente (Opcional)" : "Tu correo electrónico (Opcional)"}
               </label>
               <input 
                 type="email" 

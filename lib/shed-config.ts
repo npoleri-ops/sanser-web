@@ -161,7 +161,7 @@ export function buildWhatsAppMessage(
     msg += `\n*MIS DATOS DE CONTACTO:*\n`
     msg += `- Nombre: ${client.name}\n`
     msg += `- Teléfono: ${client.phone}\n`
-    msg += `- Email: ${client.email}\n`
+    msg += `- Email: ${client.email?.trim() ? client.email.trim() : "No especificado"}\n`
   }
 
   return msg
