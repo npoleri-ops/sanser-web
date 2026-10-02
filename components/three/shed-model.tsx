@@ -7,6 +7,11 @@ import { COLOR_HEX, PITCH_DEG, type ShedConfig, computeMateriales } from "@/lib/
 
 // Shared unit geometry -> every beam reuses it (scaled), keeping draw setup cheap.
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1)
+
+// Unit cylinder for varillas (radius 0.5 = diameter 1, height 1)
+const UNIT_CYLINDER = new THREE.CylinderGeometry(0.5, 0.5, 1, 8)
+// Beams logic assumes length is along the Y axis, which matches CylinderGeometry default.
+// BoxGeometry(1, 1, 1) length is along Y axis too if scale is [t, len, t].
 const UP = new THREE.Vector3(0, 1, 0)
 
 type Seg = [THREE.Vector3, THREE.Vector3, number] // start, end, thickness
@@ -237,10 +242,9 @@ function useBuilt(config: ShedConfig): Built {
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
 
     // ── Varillas: espesores visibles que representan Ø12 y Ø8 ──
-    // Los valores anteriores (0.035 / 0.022) eran invisibles en pantalla.
-    // Usamos un espesor mayor para que las barras sean claramente visibles en el render.
-    const varChordT = 0.06    // cordón Ø12 — visible como tubo
-    const varWebT   = 0.04    // diagonal Ø8 — visible como varilla
+    // Se solicitan varillas redondas de radio 0.012 (diámetro 0.024) y 0.008 (diámetro 0.016).
+    const varChordT = 0.024   // cordón Ø12 (24mm diámetro)
+    const varWebT   = 0.016   // diagonal Ø8 (16mm diámetro)
     const colSection = 0.28   // sección cuadrada de columna (28 cm)
     const varTrussH  = 0.35   // separación constante entre cordones (35 cm)
 
@@ -554,18 +558,20 @@ function useBuilt(config: ShedConfig): Built {
   }, [config])
 }
 
-function Beams({ segs, material }: { segs: Seg[]; material: THREE.Material }) {
+function Beams({ segs, material, isRound = false }: { segs: Seg[]; material: THREE.Material; isRound?: boolean }) {
+  const geo = isRound ? UNIT_CYLINDER : UNIT_BOX
   return (
     <>
       {segs.map(([a, b, t], i) => {
         const dir = b.clone().sub(a)
         const len = dir.length()
+        if (len === 0) return null
         const mid = a.clone().add(b).multiplyScalar(0.5)
         const quat = new THREE.Quaternion().setFromUnitVectors(UP, dir.clone().normalize())
         return (
           <mesh
             key={i}
-            geometry={UNIT_BOX}
+            geometry={geo}
             material={material}
             position={mid}
             quaternion={quat}
@@ -796,7 +802,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
       </group>
 
       <group ref={gTrusses}>
-        <Beams segs={built.trusses} material={mats.trusses} />
+        <Beams segs={built.trusses} material={mats.trusses} isRound={config.type.includes("varillas")} />
         {built.flanges.map((f, i) => (
           <mesh key={`f${i}`} position={f.pos} material={mats.trusses} castShadow>
             <boxGeometry args={[f.w, f.h, f.d]} />
