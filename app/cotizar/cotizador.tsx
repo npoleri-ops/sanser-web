@@ -41,6 +41,7 @@ const INITIAL_PRICES = {
   arandelas: 0,
   tornillos: 0,
   pintura: 0,
+  aguarras: 0,
   manoDeObra: 0,
   flete: 0,
   varilla12: 0,

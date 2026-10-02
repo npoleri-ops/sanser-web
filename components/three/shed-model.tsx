@@ -79,7 +79,7 @@ function trussWeb(
   return segs
 }
 
-// Warren truss web (zigzag)
+// Warren truss web (zigzag only – no verticals)
 function warrenWeb(
   bottomFn: (x: number) => number,
   topFn: (x: number) => number,
@@ -93,68 +93,102 @@ function warrenWeb(
   for (let i = 0; i < panels; i++) {
     const x0 = THREE.MathUtils.lerp(xL, xR, i / panels)
     const x1 = THREE.MathUtils.lerp(xL, xR, (i + 1) / panels)
-    const xMid = (x0 + x1) / 2
-    
-    segs.push([v(x0, bottomFn(x0), z), v(xMid, topFn(xMid), z), webT])
-    segs.push([v(xMid, topFn(xMid), z), v(x1, bottomFn(x1), z), webT])
+    // zigzag: alternating bottom→top and top→bottom
+    if (i % 2 === 0) {
+      segs.push([v(x0, bottomFn(x0), z), v(x1, topFn(x1), z), webT])
+    } else {
+      segs.push([v(x0, topFn(x0), z), v(x1, bottomFn(x1), z), webT])
+    }
   }
   return segs
 }
 
-// 4-varilla 3D column with zigzag perimeter
-function lattice3D(
+// Slender 4-varilla column (25–30 cm section) with SIMPLE zigzag on each face.
+// One diagonal per panel per face, alternating direction – NOT the massive
+// crossed-diagonals pattern used in high-tension towers.
+function varillaColumn(
   baseX: number, baseZ: number,
   bottomY: number, topY: number,
-  depth: number, width: number,
+  size: number,          // side length of the square section (0.25 – 0.30)
   panels: number,
-  chordT: number, webT: number
+  chordT: number,        // Ø12 visual thickness
+  webT: number           // Ø8 visual thickness
 ): Seg[] {
   const segs: Seg[] = []
-  const dx = width / 2
-  const dz = depth / 2
-  
-  segs.push(
-    [v(baseX - dx, bottomY, baseZ - dz), v(baseX - dx, topY, baseZ - dz), chordT],
-    [v(baseX + dx, bottomY, baseZ - dz), v(baseX + dx, topY, baseZ - dz), chordT],
-    [v(baseX + dx, bottomY, baseZ + dz), v(baseX + dx, topY, baseZ + dz), chordT],
-    [v(baseX - dx, bottomY, baseZ + dz), v(baseX - dx, topY, baseZ + dz), chordT]
-  )
-  
-  for(let i=0; i<panels; i++) {
-     const t0 = i/panels
-     const t1 = (i+1)/panels
-     const y0 = THREE.MathUtils.lerp(bottomY, topY, t0)
-     const y1 = THREE.MathUtils.lerp(bottomY, topY, t1)
-     
-     segs.push(
-        [v(baseX - dx, y0, baseZ - dz), v(baseX + dx, y0, baseZ - dz), webT],
-        [v(baseX + dx, y0, baseZ - dz), v(baseX + dx, y0, baseZ + dz), webT],
-        [v(baseX + dx, y0, baseZ + dz), v(baseX - dx, y0, baseZ + dz), webT],
-        [v(baseX - dx, y0, baseZ + dz), v(baseX - dx, y0, baseZ - dz), webT]
-     )
-     
-     if(i % 2 === 0) {
-        segs.push(
-           [v(baseX - dx, y0, baseZ - dz), v(baseX + dx, y1, baseZ - dz), webT],
-           [v(baseX + dx, y0, baseZ - dz), v(baseX + dx, y1, baseZ + dz), webT],
-           [v(baseX + dx, y0, baseZ + dz), v(baseX - dx, y1, baseZ + dz), webT],
-           [v(baseX - dx, y0, baseZ + dz), v(baseX - dx, y1, baseZ - dz), webT]
-        )
-     } else {
-        segs.push(
-           [v(baseX + dx, y0, baseZ - dz), v(baseX - dx, y1, baseZ - dz), webT],
-           [v(baseX + dx, y0, baseZ + dz), v(baseX + dx, y1, baseZ - dz), webT],
-           [v(baseX - dx, y0, baseZ + dz), v(baseX + dx, y1, baseZ + dz), webT],
-           [v(baseX - dx, y0, baseZ - dz), v(baseX - dx, y1, baseZ + dz), webT]
-        )
-     }
+  const h = size / 2
+
+  // 4 corner chords (longitudinal varillas)
+  const corners: [number, number][] = [
+    [baseX - h, baseZ - h],
+    [baseX + h, baseZ - h],
+    [baseX + h, baseZ + h],
+    [baseX - h, baseZ + h],
+  ]
+  for (const [cx, cz] of corners) {
+    segs.push([v(cx, bottomY, cz), v(cx, topY, cz), chordT])
   }
-  segs.push(
-     [v(baseX - dx, topY, baseZ - dz), v(baseX + dx, topY, baseZ - dz), webT],
-     [v(baseX + dx, topY, baseZ - dz), v(baseX + dx, topY, baseZ + dz), webT],
-     [v(baseX + dx, topY, baseZ + dz), v(baseX - dx, topY, baseZ + dz), webT],
-     [v(baseX - dx, topY, baseZ + dz), v(baseX - dx, topY, baseZ - dz), webT]
-  )
+
+  // Top and bottom rings
+  for (const y of [bottomY, topY]) {
+    for (let f = 0; f < 4; f++) {
+      const [ax, az] = corners[f]
+      const [bx, bz] = corners[(f + 1) % 4]
+      segs.push([v(ax, y, az), v(bx, y, bz), webT])
+    }
+  }
+
+  // Simple zigzag on each of the 4 faces
+  for (let f = 0; f < 4; f++) {
+    const [ax, az] = corners[f]
+    const [bx, bz] = corners[(f + 1) % 4]
+    for (let i = 0; i < panels; i++) {
+      const y0 = THREE.MathUtils.lerp(bottomY, topY, i / panels)
+      const y1 = THREE.MathUtils.lerp(bottomY, topY, (i + 1) / panels)
+      if (i % 2 === 0) {
+        segs.push([v(ax, y0, az), v(bx, y1, bz), webT])
+      } else {
+        segs.push([v(bx, y0, bz), v(ax, y1, az), webT])
+      }
+    }
+  }
+  return segs
+}
+
+// Parallel-chord inclined truss beam for varillas.
+// Both chords follow the roof slope at a constant vertical offset (`depth`).
+// Internal web is a simple zigzag (Warren pattern).
+function varillasParallelChordTruss(
+  xL: number, xR: number,
+  slopeFn: (x: number) => number,   // top chord height at x
+  depth: number,                     // constant vertical distance between chords (~0.38m)
+  z: number,
+  panels: number,
+  chordT: number,
+  webT: number
+): Seg[] {
+  const segs: Seg[] = []
+  const topAt = (x: number) => slopeFn(x)
+  const botAt = (x: number) => slopeFn(x) - depth
+
+  // Top chord
+  segs.push([v(xL, topAt(xL), z), v(xR, topAt(xR), z), chordT])
+  // Bottom chord
+  segs.push([v(xL, botAt(xL), z), v(xR, botAt(xR), z), chordT])
+
+  // End verticals
+  segs.push([v(xL, botAt(xL), z), v(xL, topAt(xL), z), webT])
+  segs.push([v(xR, botAt(xR), z), v(xR, topAt(xR), z), webT])
+
+  // Warren zigzag web
+  for (let i = 0; i < panels; i++) {
+    const xa = THREE.MathUtils.lerp(xL, xR, i / panels)
+    const xb = THREE.MathUtils.lerp(xL, xR, (i + 1) / panels)
+    if (i % 2 === 0) {
+      segs.push([v(xa, botAt(xa), z), v(xb, topAt(xb), z), webT])
+    } else {
+      segs.push([v(xa, topAt(xa), z), v(xb, botAt(xb), z), webT])
+    }
+  }
   return segs
 }
 
@@ -184,11 +218,17 @@ function useBuilt(config: ShedConfig): Built {
     for (let i = 0; i < frames; i++) framesZ.push(THREE.MathUtils.lerp(-halfL, halfL, i / (frames - 1)))
 
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
-    const colDepth = isVarillas ? 0.35 : 0.5
-    const colWidth = isVarillas ? 0.35 : 0.5
-    const chordT = isVarillas ? 0.05 : 0.13
-    const webT = isVarillas ? 0.025 : 0.07
-    const colPanels = clamp(Math.round(H / 1.0), 3, 9)
+
+    // ── Varillas: thinner bars that look like real Ø12 / Ø8 rebar ──
+    const varChordT = 0.035   // Ø12 visual
+    const varWebT   = 0.022   // Ø8 visual
+    const colSection = 0.25   // 25 cm square column section
+    const varTrussH  = 0.38   // constant canto of parallel-chord truss
+
+    const colDepth = isVarillas ? colSection : 0.5
+    const chordT = isVarillas ? varChordT : 0.13
+    const webT = isVarillas ? varWebT : 0.07
+    const colPanels = clamp(Math.round(H / 0.8), 4, 12)
     const trussPanels = clamp(Math.round(W / 1.6), 5, 40)
 
     const outX = halfW + colDepth / 2
@@ -200,10 +240,10 @@ function useBuilt(config: ShedConfig): Built {
       if (type === "gable" || type === "gable_portico" || type === "gable_varillas") return H + slope * (outX - Math.abs(x))
       return H + shedSlope * (x + outX)
     }
-    const verticalDepth = trussDepth / Math.cos(pitch)
+    const verticalDepth = isVarillas ? varTrussH : trussDepth / Math.cos(pitch)
     const bottomFn = (x: number) => {
-      if (type === "gable_portico" || type === "gable_varillas") return topFn(x) - verticalDepth
-      if (type === "shed_varillas") return topFn(x) - verticalDepth
+      if (type === "gable_portico") return topFn(x) - (trussDepth / Math.cos(pitch))
+      if (type === "gable_varillas" || type === "shed_varillas") return topFn(x) - varTrussH
       return H
     }
 
@@ -234,22 +274,65 @@ function useBuilt(config: ShedConfig): Built {
         }
         
         if (isVarillas) {
-          // 4-varilla 3D column
-          columns.push(...lattice3D(x, z, 0.3, top, colDepth, colWidth, colPanels, chordT, webT))
+          // Slender 25 cm column with simple zigzag
+          columns.push(...varillaColumn(x, z, 0.3, top, colSection, colPanels, varChordT, varWebT))
         } else {
           // perp = X axis -> lattice face (celosía) sits in the X-Y plane so the wide,
           // diagonal-braced face points toward a front-facing camera (columns rotated 90° on their vertical axis).
           columns.push(...lattice(v(x, 0.3, z), v(x, top, z), v(1, 0, 0), colDepth, colPanels, chordT, webT, slantFn))
         }
         // base plate as 4 short stubs forming a box footprint
-        bases.push([v(x - 0.35, 0.14, z - 0.35), v(x + 0.35, 0.14, z - 0.35), 0.28])
-        bases.push([v(x - 0.35, 0.14, z + 0.35), v(x + 0.35, 0.14, z + 0.35), 0.28])
+        const bpSize = isVarillas ? 0.22 : 0.35
+        const bpT = isVarillas ? 0.18 : 0.28
+        bases.push([v(x - bpSize, 0.14, z - bpSize), v(x + bpSize, 0.14, z - bpSize), bpT])
+        bases.push([v(x - bpSize, 0.14, z + bpSize), v(x + bpSize, 0.14, z + bpSize), bpT])
       }
     }
 
     // Trusses (cabreadas)
     for (const z of framesZ) {
-      if (type === "gable_portico" || type === "gable_varillas") {
+      if (type === "gable_varillas") {
+        // ── Parallel-chord inclined trusses (varilla reticulado liviano) ──
+        const halfPanels = Math.max(4, Math.floor(trussPanels / 2))
+
+        // Left half: eave → ridge
+        trusses.push(...varillasParallelChordTruss(-outX, 0, topFn, varTrussH, z, halfPanels, varChordT, varWebT))
+        // Right half: ridge → eave
+        trusses.push(...varillasParallelChordTruss(0, outX, topFn, varTrussH, z, halfPanels, varChordT, varWebT))
+
+        // Ridge vertical montante (closing member at the apex)
+        trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), varChordT])
+
+        // ── Horizontal collar tie / tensor at ~1.3 m below the ridge ──
+        const ridgeY = topFn(0)
+        const tieDropY = ridgeY - 1.3
+        // Find the X where the bottom chord reaches tieDropY
+        // bottomFn(x) = topFn(x) - varTrussH, and topFn(x) = H + slope*(outX-|x|)
+        // We want tieDropY on the bottom chord: tieDropY = H + slope*(outX-tieX) - varTrussH
+        // → tieX = outX - (tieDropY - H + varTrussH) / slope
+        const tieX = Math.max(0.5, outX - (tieDropY - H + varTrussH) / slope)
+        if (tieX > 0.3 && tieDropY > H) {
+          trusses.push([v(-tieX, tieDropY, z), v(tieX, tieDropY, z), varChordT])
+          // Short verticals connecting tie to bottom chord at the tie points
+          trusses.push([v(-tieX, bottomFn(-tieX), z), v(-tieX, tieDropY, z), varWebT])
+          trusses.push([v( tieX, bottomFn( tieX), z), v( tieX, tieDropY, z), varWebT])
+        }
+
+        // ── Jabalcón / ménsula (45° knee brace from column to truss) ──
+        const braceLen = 1.0  // ~1m of diagonal
+        for (const side of [-1, 1]) {
+          const colX = side * halfW
+          const eaveY = bottomFn(colX)
+          // Brace goes from (colX, eaveY - braceLen) on the column
+          //            to   (colX + side*braceLen*0.7, eaveY + 0.1) on the bottom chord
+          // roughly 45° inward
+          const braceBottomY = eaveY - braceLen
+          const braceTopX = colX + side * (-1) * braceLen * 0.7   // toward centre
+          const braceTopY = bottomFn(braceTopX)
+          trusses.push([v(colX, braceBottomY, z), v(braceTopX, braceTopY, z), varChordT])
+        }
+
+      } else if (type === "gable_portico") {
         // bottom chord
         trusses.push([v(-outX, bottomFn(-outX), z), v(0, bottomFn(0), z), chordT])
         trusses.push([v(0, bottomFn(0), z), v(outX, bottomFn(outX), z), chordT])
@@ -259,36 +342,31 @@ function useBuilt(config: ShedConfig): Built {
         
         // Vertical closing member (montante vertical en cumbrera)
         trusses.push([v(0, bottomFn(0), z), v(0, topFn(0), z), chordT])
-
-        // Refuerzo/tensor horizontal en cumbrera para varillas (puente/collarín)
-        if (type === "gable_varillas" && W > 4) {
-          const tieX = Math.min(2, W / 4);
-          trusses.push([v(-tieX, bottomFn(-tieX), z), v(tieX, bottomFn(tieX), z), chordT])
-        }
         
-        // Flange plate (chapa de unión/brida en el centro) solo para pórtico perfil C
-        if (type === "gable_portico") {
-          const fH = (topFn(0) - bottomFn(0)) + 0.05
-          const fY = (topFn(0) + bottomFn(0)) / 2
-          flanges.push({ pos: [0, fY, z], w: 0.04, h: fH, d: chordT + 0.08 })
-        }
+        // Flange plate (chapa de unión/brida en el centro)
+        const fH = (topFn(0) - bottomFn(0)) + 0.05
+        const fY = (topFn(0) + bottomFn(0)) / 2
+        flanges.push({ pos: [0, fY, z], w: 0.04, h: fH, d: chordT + 0.08 })
 
         // truss web in symmetric halves
         const halfPanels = Math.max(3, Math.floor(trussPanels / 2))
-        if (isVarillas) {
-          trusses.push(...warrenWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
-          trusses.push(...warrenWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
-        } else {
-          trusses.push(...trussWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
-          trusses.push(...trussWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
-        }
+        trusses.push(...trussWeb(bottomFn, topFn, 0, -outX, z, halfPanels, webT))
+        trusses.push(...trussWeb(bottomFn, topFn, 0, outX, z, halfPanels, webT))
       } else {
         // shed, shed_varillas or gable
-        // bottom chord
         if (type === "shed_varillas") {
-          trusses.push([v(-outX, bottomFn(-outX), z), v(outX, bottomFn(outX), z), chordT])
-          trusses.push([v(-outX, topFn(-outX), z), v(outX, topFn(outX), z), chordT])
-          trusses.push(...warrenWeb(bottomFn, topFn, -outX, outX, z, trussPanels, webT))
+          // Parallel-chord inclined truss for 1 Agua varillas
+          trusses.push(...varillasParallelChordTruss(-outX, outX, topFn, varTrussH, z, trussPanels, varChordT, varWebT))
+          // Jabalcones on both columns
+          const braceLen = 1.0
+          for (const colX of [-halfW, halfW]) {
+            const eaveY = bottomFn(colX)
+            const braceBottomY = eaveY - braceLen
+            const dir = colX < 0 ? 1 : -1
+            const braceTopX = colX + dir * braceLen * 0.7
+            const braceTopY = bottomFn(braceTopX)
+            trusses.push([v(colX, braceBottomY, z), v(braceTopX, braceTopY, z), varChordT])
+          }
         } else {
           trusses.push([v(-outX, H, z), v(outX, H, z), chordT])
           if (type === "gable") {
