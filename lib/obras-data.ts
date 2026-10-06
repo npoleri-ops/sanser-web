@@ -33,4 +33,9 @@ export const OBRAS_DATA: Obra[] = [
   { id: 'ua-6', title: 'Estructura Un Agua 6', category: 'Un Agua', src: '/obras/Un Agua/6a.jpg' },
   { id: 'ua-9', title: 'Estructura Un Agua 9', category: 'Un Agua', src: '/obras/Un Agua/9a.jpeg' },
   { id: 'ua-10', title: 'Estructura Un Agua 10', category: 'Un Agua', src: '/obras/Un Agua/10a.jpeg' },
+
+  // Reticulado
+  { id: 'r-1', title: 'Estructura Reticulado 1', category: 'Reticulado', src: '/obras/Reticulado/g1.png' },
+  { id: 'r-2', title: 'Estructura Reticulado 2', category: 'Reticulado', src: '/obras/Reticulado/g2.png' },
+  { id: 'r-3', title: 'Estructura Reticulado 3', category: 'Reticulado', src: '/obras/Reticulado/g3.png' },
 ];
