@@ -44,19 +44,7 @@ const SERVICIOS = [
   },
 ]
 
-const OBRAS = [
-  // Obras originales de la plantilla
-  { src: "/obras/galpon-gable-terminado.webp", title: "2 Aguas · Terminado", desc: "Galpón a dos aguas terminado con techo metálico" },
-  { src: "/obras/galpon-gable-galvanizado.webp", title: "Galvanizado", desc: "Estructura de galpón galvanizado con pórticos" },
-  { src: "/obras/estructura-una-agua.webp", title: "1 Agua · Estructura", desc: "Estructura reticulada a una agua sobre platea" },
-  { src: "/obras/tinglado-una-agua-techo.webp", title: "1 Agua · Cubierta", desc: "Tinglado a una agua con cubierta instalada" },
-  { src: "/obras/interior-galpon.webp", title: "Interior", desc: "Vista interior de galpón con cabreadas reticuladas" },
-  { src: "/obras/cabreada-reticulada.webp", title: "Fabricación", desc: "Cabreadas reticuladas en perfil C en taller" },
-  // 3 nuevas obras solicitadas
-  { src: "/obras/obra 1.webp", title: "Estructura A Dos Aguas Reticulada", desc: "Tinglado tradicional a dos aguas con cabreadas y columnas de perfil C reticulado." },
-  { src: "/obras/obra 2.webp", title: "GALPÓN CERRADO CON VENTANA", desc: "Espacio multipropósito con cerramiento completo en chapa y carpintería metálica." },
-  { src: "/obras/obra 3.webp", title: "DEPÓSITO / TALLER CERRADO", desc: "Galpón totalmente revestido en chapa con portón corredizo principal y puerta de servicio." },
-]
+import { ObrasSection } from "@/components/landing/obras-section"
 
 export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
   const [canRender3D, setCanRender3D] = useState(false);
@@ -170,72 +158,7 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
       </section>
 
       {/* OBRAS */}
-      <section id="obras" className="relative border-y border-border bg-card/30 py-20 lg:py-28 overflow-hidden">
-        {/* Triangular Truss Technical Blueprint Background */}
-        <div className="absolute inset-0 z-0 opacity-10 pointer-events-none">
-          <RoofTrussBlueprint />
-        </div>
-
-        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#F97316]">
-                Galería & Fabricación
-              </span>
-              <h2 className="mt-3 text-balance font-display text-4xl font-700 uppercase text-foreground sm:text-5xl">
-                Nuestros Trabajos y Proceso de Fabricación
-              </h2>
-            </div>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Algunos de los tinglados y galpones que fabricamos e instalamos para
-              nuestros clientes.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {OBRAS.map((o) => (
-              <div
-                key={o.src}
-                className="group cursor-default relative flex h-80 flex-col justify-end overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#F97316]/50"
-              >
-                <div className="absolute inset-0 z-0">
-                  <Image
-                    src={o.src || "/placeholder.svg"}
-                    alt={o.title}
-                    width={1200}
-                    height={800}
-                    quality={80}
-                    className="pointer-events-none h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent transition-opacity group-hover:opacity-90" />
-                </div>
-                <div className="relative z-10 p-5 transform transition-transform duration-500 group-hover:translate-y-[-4px]">
-                  <h3 className="font-display text-lg font-600 uppercase tracking-wide text-foreground">
-                    {o.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-                    {o.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button onClick={onGoEditor} size="lg" className="gap-2 font-mono text-xs uppercase tracking-wider bg-[#F97316] hover:bg-[#EA580C] text-white">
-              Diseñá el tuyo ahora
-              <ArrowRight className="size-4" />
-            </Button>
-            <a
-              href="/cotizar"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background/40 px-5 py-3 font-mono text-xs uppercase tracking-wider text-foreground transition-all hover:bg-muted"
-            >
-              Cotizá tu tinglado
-              <ArrowRight className="size-4" />
-            </a>
-          </div>
-        </div>
-      </section>
+      <ObrasSection onGoEditor={onGoEditor} />
 
       <ContactForm />
       <Footer />
