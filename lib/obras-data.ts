@@ -12,15 +12,17 @@ export const OBRAS_DATA: Obra[] = [
   { id: 'da-1', title: 'Estructura Dos Aguas 1', category: 'Dos Aguas', src: '/obras/Dos Aguas/1d.png' },
   { id: 'da-2', title: 'Estructura Dos Aguas 2', category: 'Dos Aguas', src: '/obras/Dos Aguas/2d.png' },
   { id: 'da-3', title: 'Estructura Dos Aguas 3', category: 'Dos Aguas', src: '/obras/Dos Aguas/3d.png' },
-  { id: 'da-4', title: 'Estructura Dos Aguas 4', category: 'Dos Aguas', src: '/obras/Dos Aguas/4d.jpg' },
-  { id: 'da-5', title: 'Estructura Dos Aguas 5', category: 'Dos Aguas', src: '/obras/Dos Aguas/5d.jpg' },
-  { id: 'da-6', title: 'Estructura Dos Aguas 6', category: 'Dos Aguas', src: '/obras/Dos Aguas/6d.png' },
   { id: 'da-7', title: 'Estructura Dos Aguas 7', category: 'Dos Aguas', src: '/obras/Dos Aguas/7d.png' },
 
   // Galpones
   { id: 'g-1', title: 'Galpón 1', category: 'Galpones', src: '/obras/Galpones/1g.png' },
   { id: 'g-2', title: 'Galpón 2', category: 'Galpones', src: '/obras/Galpones/2g.png' },
   { id: 'g-3', title: 'Galpón 3', category: 'Galpones', src: '/obras/Galpones/3g.png' },
+
+  // Taller
+  { id: 't-1', title: 'Trabajo en Taller 1', category: 'Taller', src: '/obras/Taller/4d.jpg' },
+  { id: 't-2', title: 'Trabajo en Taller 2', category: 'Taller', src: '/obras/Taller/5d.jpg' },
+  { id: 't-3', title: 'Trabajo en Taller 3', category: 'Taller', src: '/obras/Taller/6d.png' },
 
   // Un Agua
   { id: 'ua-1', title: 'Estructura Un Agua 1', category: 'Un Agua', src: '/obras/Un Agua/1a.png' },
