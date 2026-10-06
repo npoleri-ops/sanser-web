@@ -127,7 +127,7 @@ export function ObrasSection({ onGoEditor }: { onGoEditor: () => void }) {
                 {filteredObras.map((obra, idx) => (
                   <div key={obra.id} className="min-w-0 shrink-0 grow-0 pl-4 basis-full sm:basis-1/2 lg:basis-1/3">
                     <div 
-                      className="group cursor-pointer relative flex h-80 flex-col justify-end overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#F97316]/50"
+                      className="group cursor-pointer relative flex h-80 flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#F97316]/50"
                       onClick={() => openLightbox(idx)}
                     >
                       <div className="absolute inset-0 z-0">
@@ -139,15 +139,11 @@ export function ObrasSection({ onGoEditor }: { onGoEditor: () => void }) {
                           quality={80}
                           className="pointer-events-none object-cover transition-transform duration-700 group-hover:scale-110"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent opacity-80 transition-opacity group-hover:opacity-90" />
                       </div>
-                      <div className="relative z-10 p-5 transform transition-transform duration-500 group-hover:translate-y-[-4px]">
-                        <span className="font-mono text-[10px] uppercase tracking-widest text-[#F97316] bg-[#1E293B]/80 px-2 py-0.5 rounded-sm inline-block mb-2">
+                      <div className="relative z-10 p-4">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-white bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md inline-block shadow-sm">
                           {obra.category}
                         </span>
-                        <h3 className="font-display text-lg font-600 uppercase tracking-wide text-foreground">
-                          {obra.title}
-                        </h3>
                       </div>
                     </div>
                   </div>
