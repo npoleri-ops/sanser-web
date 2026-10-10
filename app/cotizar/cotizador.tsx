@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2 } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Video } from "lucide-react"
 import jsPDF from "jspdf"
 import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
@@ -218,6 +218,78 @@ export function Cotizador({
   )
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+
+  const record360Video = async () => {
+    const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
+    if (!canvas3d) return
+    const fiber = (canvas3d as R3FCanvas).__r3f
+    if (!fiber) return
+    
+    setIsRecording(true)
+    const { gl, camera, scene } = fiber.root.getState()
+
+    try {
+      const stream = canvas3d.captureStream(60)
+      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+        ? 'video/webm;codecs=vp9' 
+        : 'video/webm'
+      const mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 })
+      const chunks: BlobPart[] = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const safeTitle = (title || 'Tinglado').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
+        a.download = `SANSER_360_${safeTitle}.webm`
+        a.click()
+        URL.revokeObjectURL(url)
+        setIsRecording(false)
+      }
+
+      mediaRecorder.start()
+
+      const duration = 4500 // 4.5 seconds
+      const start = performance.now()
+      
+      const origPos = camera.position.clone()
+      const origQuat = camera.quaternion.clone()
+      const radius = Math.sqrt(origPos.x * origPos.x + origPos.z * origPos.z)
+      const initialAngle = Math.atan2(origPos.z, origPos.x)
+      const targetY = config.height / 2
+
+      const animate = (time: number) => {
+        const elapsed = time - start
+        const progress = elapsed / duration
+        
+        if (progress < 1) {
+          const angle = initialAngle + progress * Math.PI * 2
+          camera.position.x = Math.cos(angle) * radius
+          camera.position.z = Math.sin(angle) * radius
+          camera.lookAt(0, targetY, 0)
+          gl.render(scene, camera)
+          requestAnimationFrame(animate)
+        } else {
+          camera.position.copy(origPos)
+          camera.quaternion.copy(origQuat)
+          gl.render(scene, camera)
+          mediaRecorder.stop()
+        }
+      }
+      
+      requestAnimationFrame(animate)
+    } catch (e) {
+      console.error(e)
+      alert("No se pudo grabar el video. Tu navegador podría no ser compatible.")
+      setIsRecording(false)
+    }
+  }
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -417,15 +489,31 @@ export function Cotizador({
 
     // ── Capturas 3D ───────────────────────────────────────
     let cap1: string | null = null
+    let cap2: string | null = null
     const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
     if (canvas3d) {
       try {
         const fiber = (canvas3d as R3FCanvas).__r3f
         if (fiber) {
           const { gl, camera, scene } = fiber.root.getState()
+          
+          const origPos = camera.position.clone()
+          const origQuat = camera.quaternion.clone()
+          
+          // Render view 1 (Isometric Front)
           gl.render(scene, camera)
           cap1 = gl.domElement.toDataURL('image/png')
-          console.log("Ancho DataURL 3D:", cap1?.length ?? 0)
+          
+          // Render view 2 (Back/Side view - rotated 180 deg)
+          camera.position.set(-origPos.x, origPos.y, -origPos.z)
+          camera.lookAt(0, config.height / 2, 0)
+          gl.render(scene, camera)
+          cap2 = gl.domElement.toDataURL('image/png')
+          
+          // Restore
+          camera.position.copy(origPos)
+          camera.quaternion.copy(origQuat)
+          gl.render(scene, camera)
         } else {
           cap1 = canvas3d.toDataURL('image/png')
         }
@@ -435,7 +523,7 @@ export function Cotizador({
     }
     const fotosManual = images.filter(Boolean)
     const img1 = cap1
-    const img2 = fotosManual.length > 0 ? fotosManual[0] : null
+    const img2 = cap2 || (fotosManual.length > 0 ? fotosManual[0] : null)
 
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -587,7 +675,7 @@ export function Cotizador({
         doc.text(lblImg, 16, y + 3)
         y += 8
 
-        if (fotosManual.length > 0) {
+        if (img1 && img2) {
           const iW = 88   // imagen ancho
           const iH = 48   // imagen alto
           const gap = 6   // espacio entre imágenes
@@ -632,8 +720,8 @@ export function Cotizador({
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(6.5)
           doc.setTextColor(...C.grisTexto)
-          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
-          doc.text('Foto del Proyecto', x2 + iW / 2, y + iH + 8, { align: 'center' })
+          doc.text('Vista Frontal Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
+          doc.text('Vista Posterior / Lateral', x2 + iW / 2, y + iH + 8, { align: 'center' })
           y += iH + 12
         } else {
           // Una sola foto 3D centrada y más grande
@@ -1332,6 +1420,16 @@ export function Cotizador({
             >
               <Download className="size-4" />
               {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
+            </Button>
+            
+            <Button
+              onClick={record360Video}
+              variant="outline"
+              disabled={isGenerating || isRecording || faltanDatosCliente}
+              className="gap-2"
+            >
+              <Video className="size-4" />
+              {isRecording ? "Grabando..." : "Descargar Video 360°"}
             </Button>
 
             <Button
