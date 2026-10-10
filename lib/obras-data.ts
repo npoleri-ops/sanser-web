@@ -23,6 +23,11 @@ export const OBRAS_DATA: Obra[] = [
   { id: 't-1', title: 'Trabajo en Taller 1', category: 'Taller', src: '/obras/Taller/4d.jpg' },
   { id: 't-2', title: 'Trabajo en Taller 2', category: 'Taller', src: '/obras/Taller/5d.jpg' },
   { id: 't-3', title: 'Trabajo en Taller 3', category: 'Taller', src: '/obras/Taller/6d.png' },
+  { id: 't-4', title: 'Trabajo en Taller 4', category: 'Taller', src: '/obras/Taller/1t.jpg' },
+  { id: 't-5', title: 'Trabajo en Taller 5', category: 'Taller', src: '/obras/Taller/2t.jpg' },
+  { id: 't-6', title: 'Trabajo en Taller 6', category: 'Taller', src: '/obras/Taller/3t.jpg' },
+  { id: 't-7', title: 'Trabajo en Taller 7', category: 'Taller', src: '/obras/Taller/4t.jpg' },
+  { id: 't-8', title: 'Trabajo en Taller 8', category: 'Taller', src: '/obras/Taller/5t.jpg' },
 
   // Un Agua
   { id: 'ua-1', title: 'Estructura Un Agua 1', category: 'Un Agua', src: '/obras/Un Agua/1a.png' },
