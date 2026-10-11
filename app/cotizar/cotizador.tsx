@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2 } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Film } from "lucide-react"
 import jsPDF from "jspdf"
 import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
@@ -228,6 +228,117 @@ export function Cotizador({
   )
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isGenerating360, setIsGenerating360] = useState(false)
+
+  /**
+   * Genera una animación 360° ligera en GIF rotando la cámara en 16 pasos angulares
+   * para compartir directamente por WhatsApp.
+   */
+  const generarAnimacion360 = async () => {
+    if (isGenerating360) return
+
+    const canvas3d = document.querySelector("canvas") as HTMLCanvasElement | null
+    if (!canvas3d) {
+      alert("No se encontró el visor 3D para generar la animación.")
+      return
+    }
+
+    const fiber = (canvas3d as R3FCanvas)?.__r3f
+    if (!fiber) {
+      alert("El visor 3D todavía se está inicializando. Por favor intenta de nuevo en unos segundos.")
+      return
+    }
+
+    setIsGenerating360(true)
+
+    // Breve pausa para permitir que la interfaz muestre "Generando 360°..."
+    await new Promise((r) => setTimeout(r, 60))
+
+    try {
+      const { GIFEncoder, quantize, applyPalette } = await import("gifenc")
+      const { gl, camera, scene } = fiber.root.getState()
+
+      const origPos = camera.position.clone()
+      const origQuat = camera.quaternion.clone()
+
+      const targetY = config.height / 2
+      const radius = Math.sqrt(origPos.x * origPos.x + origPos.z * origPos.z)
+      const baseAngle = Math.atan2(origPos.z, origPos.x)
+      const eyeY = origPos.y
+
+      // Dimensiones optimizadas para compartir en WhatsApp (resolución nítida y peso ultra liviano)
+      const targetWidth = 480
+      const aspect = canvas3d.height > 0 ? canvas3d.height / canvas3d.width : 0.625
+      const targetHeight = Math.round(targetWidth * aspect)
+
+      const auxCanvas = document.createElement("canvas")
+      auxCanvas.width = targetWidth
+      auxCanvas.height = targetHeight
+      const ctx = auxCanvas.getContext("2d", { willReadFrequently: true })
+
+      if (!ctx) {
+        throw new Error("No se pudo inicializar el lienzo auxiliar.")
+      }
+
+      const gif = GIFEncoder()
+      const totalSteps = 16
+
+      // Captura de los 16 fotogramas en rotación de 360°
+      for (let i = 0; i < totalSteps; i++) {
+        const angle = baseAngle + (i / totalSteps) * Math.PI * 2
+        camera.position.set(Math.cos(angle) * radius, eyeY, Math.sin(angle) * radius)
+        camera.lookAt(0, targetY, 0)
+        gl.render(scene, camera)
+
+        // Dibujar en el canvas auxiliar escalado
+        ctx.drawImage(gl.domElement, 0, 0, targetWidth, targetHeight)
+        const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight)
+
+        // Cuantizar con 128 colores (procesamiento veloz, menor a 20ms por frame)
+        const palette = quantize(imgData.data, 128)
+        const index = applyPalette(imgData.data, palette)
+
+        // 110ms por cuadro genera una rotación completa fluida de 1.76 segundos en bucle
+        gif.writeFrame(index, targetWidth, targetHeight, {
+          palette,
+          delay: 110,
+          repeat: 0,
+        })
+
+        // Pequeño yield para mantener la respuesta del navegador
+        if (i % 4 === 0) {
+          await new Promise((r) => setTimeout(r, 10))
+        }
+      }
+
+      // Restaurar la vista original de la cámara
+      camera.position.copy(origPos)
+      camera.quaternion.copy(origQuat)
+      gl.render(scene, camera)
+
+      // Compilar y generar Blob del GIF
+      gif.finish()
+      const blob = new Blob([gif.bytesView()], { type: "image/gif" })
+
+      // Descarga directa
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      const safeTitle = (title || "Tinglado")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zA-Z0-9_\-]/g, "")
+      a.download = `${numeroPresupuesto ? numeroPresupuesto + "_" : ""}SANSER_360_${safeTitle}.gif`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 2000)
+    } catch (err) {
+      console.error("Error al generar animación 360:", err)
+      alert(`No se pudo generar la animación 360°: ${err instanceof Error ? err.message : "Error desconocido"}`)
+    } finally {
+      setIsGenerating360(false)
+    }
+  }
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -982,6 +1093,25 @@ export function Cotizador({
           <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
             {interno ? "Vista Previa 3D (Se incluirá en el PDF)" : "Tu estructura en 3D — giralo con el mouse"}
           </div>
+          {interno && (
+            <div className="absolute top-4 right-4 z-20">
+              <Button
+                id="btn-descargar-360-header"
+                size="sm"
+                onClick={generarAnimacion360}
+                variant="outline"
+                disabled={isGenerating || isGenerating360}
+                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
+              >
+                {isGenerating360 ? (
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Film className="size-3.5" />
+                )}
+                {isGenerating360 ? "Generando 360°..." : "Descargar Video/GIF 360°"}
+              </Button>
+            </div>
+          )}
           <ConfigScene config={config} />
         </div>
 
@@ -1353,11 +1483,26 @@ export function Cotizador({
             <Button
               onClick={descargarBorrador}
               variant="outline"
-              disabled={isGenerating || faltanDatosCliente}
+              disabled={isGenerating || isGenerating360 || faltanDatosCliente}
               className="gap-2"
             >
               <Download className="size-4" />
               {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
+            </Button>
+
+            <Button
+              id="btn-descargar-360-interno"
+              onClick={generarAnimacion360}
+              variant="outline"
+              disabled={isGenerating || isGenerating360}
+              className="gap-2"
+            >
+              {isGenerating360 ? (
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Film className="size-4" />
+              )}
+              {isGenerating360 ? "Generando 360°..." : "Descargar Video/GIF 360°"}
             </Button>
 
             <Button
