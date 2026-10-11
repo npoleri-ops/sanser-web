@@ -1,12 +1,42 @@
 "use client"
 
-import { Suspense } from "react"
-import { Canvas } from "@react-three/fiber"
+import { Suspense, useEffect } from "react"
+import { Canvas, useThree } from "@react-three/fiber"
 import { Grid, Html, OrbitControls } from "@react-three/drei"
+import type * as THREE from "three"
 import { ErrorBoundary } from "../error-boundary"
 import { Loader2 } from "lucide-react"
 import { ShedModel } from "./shed-model"
 import type { ShedConfig } from "@/lib/shed-config"
+
+export interface ThreeSceneRef {
+  gl: THREE.WebGLRenderer
+  camera: THREE.Camera
+  scene: THREE.Scene
+  invalidate: () => void
+}
+
+/** Puente interno: guarda la ref del renderer en window.__SANSER_3D__ en cuanto
+ *  useThree() esté disponible (después del primer render del Canvas). */
+function SceneBridge({
+  onReady,
+}: {
+  onReady?: (ref: ThreeSceneRef) => void
+}) {
+  const { gl, camera, scene, invalidate } = useThree()
+
+  useEffect(() => {
+    const ref: ThreeSceneRef = { gl, camera, scene, invalidate }
+    if (typeof window !== "undefined") {
+      ;(window as any).__SANSER_3D__ = ref
+    }
+    onReady?.(ref)
+    invalidate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // ← solo al montar (gl/camera/scene son estables en el ciclo de vida)
+
+  return null
+}
 
 function CotaLabel({
   position,
@@ -35,79 +65,94 @@ function Dimensions({ config }: { config: ShedConfig }) {
   )
 }
 
-export function ConfigScene({ config }: { config: ShedConfig }) {
+export function ConfigScene({
+  config,
+  onReady,
+}: {
+  config: ShedConfig
+  onReady?: (ref: ThreeSceneRef) => void
+}) {
   const camDist = (Math.max(config.width, config.length) * 1.15 + 12) * 0.82
 
   return (
     <ErrorBoundary>
-      <Suspense fallback={<div className="flex h-full w-full items-center justify-center bg-background/50"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+      <Suspense
+        fallback={
+          <div className="flex h-full w-full items-center justify-center bg-background/50">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        }
+      >
         <Canvas
           shadows
-      frameloop="demand"
-      dpr={[1, 1.5]}
-      camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
-      style={{ touchAction: "pan-y" }}
-      gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance", antialias: false }}
-    >
-      <color attach="background" args={["#1c2027"]} />
-      <fog attach="fog" args={["#1c2027", camDist * 1.6, camDist * 3.4]} />
+          frameloop="always"
+          dpr={[1, 1.5]}
+          camera={{ position: [camDist * 0.7, camDist * 0.5, camDist], fov: 40 }}
+          style={{ touchAction: "pan-y", width: "100%", height: "100%" }}
+          gl={{ preserveDrawingBuffer: true, powerPreference: "high-performance", antialias: false }}
+        >
+          {/* SceneBridge registra gl/camera/scene en window.__SANSER_3D__ al montar */}
+          <SceneBridge onReady={onReady} />
 
-      <ambientLight intensity={1.5} color="#ffffff" />
-      
-      {/* Front/Top fill light */}
-      <directionalLight position={[0, 40, 40]} intensity={3.0} color="#ffffff" />
-      
-      {/* Main key light (with shadows) */}
-      <directionalLight
-        position={[15, 30, 15]}
-        intensity={2.8}
-        color="#ffffff"
-        castShadow
-        shadow-mapSize={[512, 512]}
-        shadow-bias={-0.0001}
-        shadow-normalBias={0.04}
-        shadow-camera-left={-35}
-        shadow-camera-right={35}
-        shadow-camera-top={35}
-        shadow-camera-bottom={-35}
-      />
-      
-      {/* Fill light from the left */}
-      <directionalLight position={[-22, 16, 20]} intensity={2.0} color="#ffffff" />
+          <color attach="background" args={["#1c2027"]} />
+          <fog attach="fog" args={["#1c2027", camDist * 1.6, camDist * 3.4]} />
 
-      {/* Rim Lights for specular highlights on black steel from the back/sides */}
-      <directionalLight position={[-20, 30, -25]} intensity={4.0} color="#ffffff" />
-      <directionalLight position={[20, 30, -25]} intensity={4.0} color="#ffffff" />
+          <ambientLight intensity={1.5} color="#ffffff" />
 
-      <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
-        <ShedModel config={config} showSlab />
-        <Dimensions config={config} />
+          {/* Front/Top fill light */}
+          <directionalLight position={[0, 40, 40]} intensity={3.0} color="#ffffff" />
+
+          {/* Main key light (with shadows) */}
+          <directionalLight
+            position={[15, 30, 15]}
+            intensity={2.8}
+            color="#ffffff"
+            castShadow
+            shadow-mapSize={[512, 512]}
+            shadow-bias={-0.0001}
+            shadow-normalBias={0.04}
+            shadow-camera-left={-35}
+            shadow-camera-right={35}
+            shadow-camera-top={35}
+            shadow-camera-bottom={-35}
+          />
+
+          {/* Fill light from the left */}
+          <directionalLight position={[-22, 16, 20]} intensity={2.0} color="#ffffff" />
+
+          {/* Rim Lights for specular highlights on black steel from the back/sides */}
+          <directionalLight position={[-20, 30, -25]} intensity={4.0} color="#ffffff" />
+          <directionalLight position={[20, 30, -25]} intensity={4.0} color="#ffffff" />
+
+          <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
+            <ShedModel config={config} showSlab />
+            <Dimensions config={config} />
+          </Suspense>
+
+          <Grid
+            position={[0, 0, 0]}
+            args={[120, 120]}
+            cellSize={2}
+            cellThickness={0.6}
+            cellColor="#3a3d45"
+            sectionSize={10}
+            sectionThickness={1}
+            sectionColor="#5a5040"
+            fadeDistance={100}
+            fadeStrength={1.5}
+            infiniteGrid
+          />
+
+          <OrbitControls
+            makeDefault
+            enablePan
+            minDistance={10}
+            maxDistance={140}
+            maxPolarAngle={Math.PI / 2.05}
+            target={[0, config.height / 2, 0]}
+          />
+        </Canvas>
       </Suspense>
-
-      <Grid
-        position={[0, 0, 0]}
-        args={[120, 120]}
-        cellSize={2}
-        cellThickness={0.6}
-        cellColor="#3a3d45"
-        sectionSize={10}
-        sectionThickness={1}
-        sectionColor="#5a5040"
-        fadeDistance={100}
-        fadeStrength={1.5}
-        infiniteGrid
-      />
-
-      <OrbitControls
-        makeDefault
-        enablePan
-        minDistance={10}
-        maxDistance={140}
-        maxPolarAngle={Math.PI / 2.05}
-        target={[0, config.height / 2, 0]}
-      />
-      </Canvas>
-    </Suspense>
-  </ErrorBoundary>
+    </ErrorBoundary>
   )
 }

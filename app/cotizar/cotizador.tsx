@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Film } from "lucide-react"
 import jsPDF from "jspdf"
-import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import type { Lead } from "@/lib/crm/types"
+import type { ThreeSceneRef } from "@/components/three/config-scene"
 
 export interface QuoteItem {
   id: string;
@@ -26,19 +26,10 @@ const ConfigScene = dynamic(
 // jspdf-autotable cuelga lastAutoTable del doc, pero no lo declara en los tipos de jsPDF.
 type DocWithAutoTable = jsPDF & { lastAutoTable: { finalY: number } }
 
-// El canvas de react-three-fiber expone su root en __r3f para poder re-renderizar a mano.
-type R3FCanvas = HTMLCanvasElement & {
-  __r3f?: {
-    root: {
-      getState: () => {
-        gl: THREE.WebGLRenderer
-        camera: THREE.Camera
-        scene: THREE.Scene
-        controls?: any
-        invalidate?: () => void
-      }
-    }
-  }
+/** Accede al renderer Three.js registrado por SceneBridge al montar el canvas. */
+function getSceneRef(): ThreeSceneRef | null {
+  if (typeof window === "undefined") return null
+  return (window as any).__SANSER_3D__ ?? null
 }
 
 const INITIAL_PRICES = {
@@ -229,6 +220,11 @@ export function Cotizador({
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGenerating360, setIsGenerating360] = useState(false)
+  const [sceneReady, setSceneReady] = useState(false)
+
+  const onSceneReady = useCallback((_ref: ThreeSceneRef) => {
+    setSceneReady(true)
+  }, [])
 
   /**
    * Genera una animación 360° ligera en GIF rotando la cámara en 16 pasos angulares
@@ -237,15 +233,9 @@ export function Cotizador({
   const generarAnimacion360 = async () => {
     if (isGenerating360) return
 
-    const canvas3d = document.querySelector("canvas") as HTMLCanvasElement | null
-    if (!canvas3d) {
-      alert("No se encontró el visor 3D para generar la animación.")
-      return
-    }
-
-    const fiber = (canvas3d as R3FCanvas)?.__r3f
-    if (!fiber) {
-      alert("El visor 3D todavía se está inicializando. Por favor intenta de nuevo en unos segundos.")
+    const ref = getSceneRef()
+    if (!ref) {
+      alert("El visor 3D todavía no está listo. Por favor esperá unos segundos e intentá de nuevo.")
       return
     }
 
@@ -256,7 +246,7 @@ export function Cotizador({
 
     try {
       const { GIFEncoder, quantize, applyPalette } = await import("gifenc")
-      const { gl, camera, scene } = fiber.root.getState()
+      const { gl, camera, scene } = ref
 
       const origPos = camera.position.clone()
       const origQuat = camera.quaternion.clone()
@@ -539,35 +529,34 @@ export function Cotizador({
     // ── Capturas 3D ───────────────────────────────────────
     let cap1: string | null = null
     let cap2: string | null = null
-    const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
-    if (canvas3d) {
+    const sceneRef = getSceneRef()
+    if (sceneRef) {
       try {
-        const fiber = (canvas3d as R3FCanvas).__r3f
-        if (fiber) {
-          const { gl, camera, scene } = fiber.root.getState()
-          
-          const origPos = camera.position.clone()
-          const origQuat = camera.quaternion.clone()
-          
-          // Render view 1 (Isometric Front)
-          gl.render(scene, camera)
-          cap1 = gl.domElement.toDataURL('image/png')
-          
-          // Render view 2 (Back/Side view - rotated 180 deg)
-          camera.position.set(-origPos.x, origPos.y, -origPos.z)
-          camera.lookAt(0, config.height / 2, 0)
-          gl.render(scene, camera)
-          cap2 = gl.domElement.toDataURL('image/png')
-          
-          // Restore
-          camera.position.copy(origPos)
-          camera.quaternion.copy(origQuat)
-          gl.render(scene, camera)
-        } else {
-          cap1 = canvas3d.toDataURL('image/png')
-        }
+        const { gl, camera, scene } = sceneRef
+
+        const origPos = camera.position.clone()
+        const origQuat = camera.quaternion.clone()
+
+        // Render view 1 (Isometric Front) — sincrónico
+        gl.render(scene, camera)
+        cap1 = gl.domElement.toDataURL('image/png')
+
+        // Render view 2 (Back/Side view - rotated 180°)
+        camera.position.set(-origPos.x, origPos.y, -origPos.z)
+        camera.lookAt(0, config.height / 2, 0)
+        gl.render(scene, camera)
+        cap2 = gl.domElement.toDataURL('image/png')
+
+        // Restore
+        camera.position.copy(origPos)
+        camera.quaternion.copy(origQuat)
+        gl.render(scene, camera)
       } catch {
-        try { cap1 = canvas3d.toDataURL('image/png') } catch {}
+        // Si falla, intentamos leer el canvas crudo
+        try {
+          const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
+          if (canvas3d) cap1 = canvas3d.toDataURL('image/png')
+        } catch {}
       }
     }
     const fotosManual = images.filter(Boolean)
@@ -1100,19 +1089,22 @@ export function Cotizador({
                 size="sm"
                 onClick={generarAnimacion360}
                 variant="outline"
-                disabled={isGenerating || isGenerating360}
-                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
+                disabled={isGenerating || isGenerating360 || !sceneReady}
+                title={!sceneReady ? "Esperando que cargue el visor 3D..." : "Descargar animación 360°"}
+                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating360 ? (
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : !sceneReady ? (
                   <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : (
                   <Film className="size-3.5" />
                 )}
-                {isGenerating360 ? "Generando 360°..." : "Descargar Video/GIF 360°"}
+                {isGenerating360 ? "Generando 360°..." : !sceneReady ? "Cargando visor..." : "Descargar Video/GIF 360°"}
               </Button>
             </div>
           )}
-          <ConfigScene config={config} />
+          <ConfigScene config={config} onReady={onSceneReady} />
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
