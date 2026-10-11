@@ -258,7 +258,8 @@ export function Cotizador({
 
       // Dimensiones optimizadas para compartir en WhatsApp (resolución nítida y peso ultra liviano)
       const targetWidth = 480
-      const aspect = canvas3d.height > 0 ? canvas3d.height / canvas3d.width : 0.625
+      const glCanvas = gl.domElement
+      const aspect = glCanvas.height > 0 ? glCanvas.height / glCanvas.width : 0.625
       const targetHeight = Math.round(targetWidth * aspect)
 
       const auxCanvas = document.createElement("canvas")
