@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2 } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
@@ -221,6 +221,8 @@ export function Cotizador({
   const [isGenerating, setIsGenerating] = useState(false)
   const [sceneReady, setSceneReady] = useState(false)
   const [link3DCopied, setLink3DCopied] = useState(false)
+  // Capturas manuales de vistas 3D para incluir en el PDF (máx. 3)
+  const [capturas3D, setCapturas3D] = useState<string[]>([])
 
   const onSceneReady = useCallback((_ref: ThreeSceneRef) => {
     setSceneReady(true)
@@ -254,6 +256,37 @@ export function Cotizador({
     }
   }
 
+  /**
+   * Toma un snapshot del canvas Three.js actual y lo agrega al array de
+   * capturas manuales (máximo 3 vistas).
+   */
+  const capturarVista = () => {
+    if (capturas3D.length >= 3) {
+      alert("Ya tenés 3 vistas guardadas. Eliminá alguna para agregar otra.")
+      return
+    }
+    const ref = getSceneRef()
+    if (!ref) {
+      alert("El visor 3D aún no está listo.")
+      return
+    }
+    try {
+      const { gl, scene, camera } = ref
+      gl.render(scene, camera)
+      const dataUrl = gl.domElement.toDataURL('image/png')
+      setCapturas3D(prev => [...prev, dataUrl])
+    } catch {
+      // fallback: leer el canvas del DOM directamente
+      try {
+        const canvas = document.querySelector('canvas') as HTMLCanvasElement | null
+        if (canvas) setCapturas3D(prev => [...prev, canvas.toDataURL('image/png')])
+      } catch {}
+    }
+  }
+
+  const eliminarCaptura = (idx: number) => {
+    setCapturas3D(prev => prev.filter((_, i) => i !== idx))
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -453,41 +486,51 @@ export function Cotizador({
     }
 
     // ── Capturas 3D ───────────────────────────────────────
-    let cap1: string | null = null
-    let cap2: string | null = null
-    const sceneRef = getSceneRef()
-    if (sceneRef) {
-      try {
-        const { gl, camera, scene } = sceneRef
+    // Prioridad: capturas manuales del usuario → captura automática de respaldo
+    let imgSlots: (string | null)[] = []
 
-        const origPos = camera.position.clone()
-        const origQuat = camera.quaternion.clone()
-
-        // Render view 1 (Isometric Front) — sincrónico
-        gl.render(scene, camera)
-        cap1 = gl.domElement.toDataURL('image/png')
-
-        // Render view 2 (Back/Side view - rotated 180°)
-        camera.position.set(-origPos.x, origPos.y, -origPos.z)
-        camera.lookAt(0, config.height / 2, 0)
-        gl.render(scene, camera)
-        cap2 = gl.domElement.toDataURL('image/png')
-
-        // Restore
-        camera.position.copy(origPos)
-        camera.quaternion.copy(origQuat)
-        gl.render(scene, camera)
-      } catch {
-        // Si falla, intentamos leer el canvas crudo
+    if (capturas3D.length > 0) {
+      // El usuario capturó vistas manualmente: usarlas directamente
+      imgSlots = capturas3D.slice(0, 3)
+    } else {
+      // Sin capturas manuales: tomar automáticamente 2 ángulos
+      const sceneRef = getSceneRef()
+      if (sceneRef) {
         try {
-          const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
-          if (canvas3d) cap1 = canvas3d.toDataURL('image/png')
-        } catch {}
+          const { gl, camera, scene } = sceneRef
+          const origPos = camera.position.clone()
+          const origQuat = camera.quaternion.clone()
+
+          // Vista 1: ángulo actual
+          gl.render(scene, camera)
+          imgSlots.push(gl.domElement.toDataURL('image/png'))
+
+          // Vista 2: ángulo posterior (180°)
+          camera.position.set(-origPos.x, origPos.y, -origPos.z)
+          camera.lookAt(0, config.height / 2, 0)
+          gl.render(scene, camera)
+          imgSlots.push(gl.domElement.toDataURL('image/png'))
+
+          // Restaurar
+          camera.position.copy(origPos)
+          camera.quaternion.copy(origQuat)
+          gl.render(scene, camera)
+        } catch {
+          try {
+            const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
+            if (canvas3d) imgSlots.push(canvas3d.toDataURL('image/png'))
+          } catch {}
+        }
       }
     }
+
+    // Fotos manuales subidas (legado): completar slots si hay espacio
     const fotosManual = images.filter(Boolean)
-    const img1 = cap1
-    const img2 = cap2 || (fotosManual.length > 0 ? fotosManual[0] : null)
+    for (const foto of fotosManual) {
+      if (imgSlots.length < 3) imgSlots.push(foto)
+    }
+
+    const tieneCapturasManual = capturas3D.length > 0
 
     try {
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -622,9 +665,10 @@ export function Cotizador({
       y += matLineas.length * 4.5 + 6
 
       // ═════════════════════════════════════════════════════════
-      // 3. RENDERS / FOTOS (dos imágenes lado a lado)
+      // 3. RENDERS / FOTOS (1–3 imágenes, layout adaptativo)
       // ═════════════════════════════════════════════════════════
-      if (img1 || img2) {
+      const imgCount = imgSlots.filter(Boolean).length
+      if (imgCount > 0) {
         if (y > 180) { doc.addPage(); y = 15 }
 
         // Título sección renders
@@ -633,92 +677,91 @@ export function Cotizador({
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
         doc.setTextColor(...C.naranja)
-        const lblImg = fotosManual.length > 0 
-          ? 'RENDERS 3D Y FOTOGRAFÍAS DEL TRABAJO'
+        const lblImg = tieneCapturasManual
+          ? 'RENDERS 3D DEL TRABAJO (Vistas seleccionadas)'
           : 'RENDERS 3D DEL TRABAJO'
         doc.text(lblImg, 16, y + 3)
         y += 8
 
-        if (img1 && img2) {
-          const iW = 88   // imagen ancho
-          const iH = 48   // imagen alto
-          const gap = 6   // espacio entre imágenes
+        const addImg = (src: string, x: number, imgY: number, iW: number, iH: number) => {
+          doc.setDrawColor(...C.grisBorde)
+          doc.setFillColor(...C.grisClaro)
+          doc.rect(x, imgY, iW, iH, 'FD')
+          if (src.length > 50) {
+            try {
+              const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+              doc.addImage(src, fmt, x, imgY, iW, iH)
+            } catch { /* imagen no disponible */ }
+          }
+          doc.setDrawColor(...C.oscuro)
+          doc.setLineWidth(0.4)
+          doc.rect(x, imgY, iW, iH)
+          doc.setLineWidth(0.2)
+        }
+
+        const dimLabel = `${config.width}m × ${config.length}m × ${config.height}m`
+        const vistas = tieneCapturasManual
+          ? imgSlots.map((_, i) => `Vista ${i + 1}`)
+          : ['Vista Frontal Isométrica', 'Vista Posterior / Lateral', 'Vista Lateral']
+
+        if (imgCount === 1) {
+          // Una sola imagen centrada y grande
+          const iW = 140
+          const iH = 72
+          const x1 = (W - iW) / 2
+          addImg(imgSlots[0]!, x1, y, iW, iH)
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(7)
+          doc.setTextColor(...C.oscuro)
+          doc.text(`DIMENSIONES: ${dimLabel}`, x1 + iW / 2, y + iH + 4, { align: 'center' })
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(6.5)
+          doc.setTextColor(...C.grisTexto)
+          doc.text(vistas[0], x1 + iW / 2, y + iH + 8, { align: 'center' })
+          y += iH + 12
+
+        } else if (imgCount === 2) {
+          // Dos imágenes lado a lado
+          const iW = 88
+          const iH = 50
+          const gap = 6
           const x1 = 10
           const x2 = x1 + iW + gap
-
-          // Marco imagen 1
-          doc.setDrawColor(...C.grisBorde)
-          doc.setFillColor(...C.grisClaro)
-          doc.rect(x1, y, iW, iH, 'FD')
-          if (img1 && img1.length > 50) {
-            try {
-              const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-              doc.addImage(img1, fmt1, x1, y, iW, iH)
-            } catch { /* imagen no disponible */ }
-          }
-          doc.setDrawColor(...C.oscuro)
-          doc.setLineWidth(0.4)
-          doc.rect(x1, y, iW, iH)
-
-          // Marco imagen 2 (foto manual)
-          doc.setDrawColor(...C.grisBorde)
-          doc.setFillColor(...C.grisClaro)
-          doc.rect(x2, y, iW, iH, 'FD')
-          if (img2 && img2.length > 50) {
-            try {
-              const fmt2 = img2.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-              doc.addImage(img2, fmt2, x2, y, iW, iH)
-            } catch { /* imagen no disponible */ }
-          }
-          doc.setDrawColor(...C.oscuro)
-          doc.setLineWidth(0.4)
-          doc.rect(x2, y, iW, iH)
-          doc.setLineWidth(0.2)
-
-          // Etiquetas bajo las fotos
+          addImg(imgSlots[0]!, x1, y, iW, iH)
+          addImg(imgSlots[1]!, x2, y, iW, iH)
           doc.setFont('helvetica', 'bold')
           doc.setFontSize(7)
           doc.setTextColor(...C.oscuro)
-          doc.text(`DIMENSIONES: ${config.width}m (Ancho) × ${config.length}m (Largo) × ${config.height}m (Alto)`, x1 + iW / 2, y + iH + 4, { align: 'center' })
-          
+          doc.text(`DIMENSIONES: ${dimLabel}`, x1 + iW / 2, y + iH + 4, { align: 'center' })
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(6.5)
           doc.setTextColor(...C.grisTexto)
-          doc.text('Vista Frontal Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
-          doc.text('Vista Posterior / Lateral', x2 + iW / 2, y + iH + 8, { align: 'center' })
+          doc.text(vistas[0], x1 + iW / 2, y + iH + 8, { align: 'center' })
+          doc.text(vistas[1], x2 + iW / 2, y + iH + 8, { align: 'center' })
           y += iH + 12
+
         } else {
-          // Una sola foto 3D centrada y más grande
-          const iW = 140   // imagen ancho
-          const iH = 70    // imagen alto
-          const x1 = (W - iW) / 2
-
-          // Marco imagen
-          doc.setDrawColor(...C.grisBorde)
-          doc.setFillColor(...C.grisClaro)
-          doc.rect(x1, y, iW, iH, 'FD')
-          if (img1 && img1.length > 50) {
-            try {
-              const fmt1 = img1.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-              doc.addImage(img1, fmt1, x1, y, iW, iH)
-            } catch { /* imagen no disponible */ }
+          // Tres imágenes: dos arriba, una abajo centrada (o las 3 en fila si caben)
+          const iW = 57
+          const iH = 38
+          const gap = 5
+          const totalW = iW * 3 + gap * 2
+          const startX = (W - totalW) / 2
+          for (let i = 0; i < 3; i++) {
+            const img = imgSlots[i]
+            if (!img) continue
+            const xPos = startX + i * (iW + gap)
+            addImg(img, xPos, y, iW, iH)
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(6)
+            doc.setTextColor(...C.grisTexto)
+            doc.text(vistas[i] ?? `Vista ${i + 1}`, xPos + iW / 2, y + iH + 4, { align: 'center' })
           }
-          doc.setDrawColor(...C.oscuro)
-          doc.setLineWidth(0.4)
-          doc.rect(x1, y, iW, iH)
-          doc.setLineWidth(0.2)
-
-          // Etiquetas bajo la foto
           doc.setFont('helvetica', 'bold')
           doc.setFontSize(7)
           doc.setTextColor(...C.oscuro)
-          doc.text(`DIMENSIONES DEL MODELO: ${config.width}m (Ancho) × ${config.length}m (Largo) × ${config.height}m (Alto)`, x1 + iW / 2, y + iH + 4, { align: 'center' })
-          
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(6.5)
-          doc.setTextColor(...C.grisTexto)
-          doc.text('Vista 3D Isométrica', x1 + iW / 2, y + iH + 8, { align: 'center' })
-          y += iH + 12
+          doc.text(`DIMENSIONES: ${dimLabel}`, W / 2, y + iH + 9, { align: 'center' })
+          y += iH + 14
         }
       }
 
@@ -1004,26 +1047,97 @@ export function Cotizador({
         </div>
 
         {/* 3D Visualizer */}
-        <div className="h-[400px] w-full bg-[#12141a] rounded-xl overflow-hidden border border-border shadow-sm relative">
-          <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-            {interno ? "Vista Previa 3D (Se incluirá en el PDF)" : "Tu estructura en 3D — giralo con el mouse"}
+        <div className="space-y-3">
+          <div className="h-[400px] w-full bg-[#12141a] rounded-xl overflow-hidden border border-border shadow-sm relative">
+            <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+              {interno ? "Vista Previa 3D" : "Tu estructura en 3D — giralo con el mouse"}
+            </div>
+            {/* Botones overlay: Capturar + Compartir */}
+            {interno && (
+              <div className="absolute top-4 right-4 z-20 flex gap-2">
+                <Button
+                  id="btn-capturar-vista-3d"
+                  size="sm"
+                  onClick={capturarVista}
+                  disabled={capturas3D.length >= 3}
+                  variant="outline"
+                  title={capturas3D.length >= 3 ? "Máximo 3 vistas guardadas" : "Capturar la vista actual para el PDF"}
+                  className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Camera className="size-3.5" />
+                  Capturar vista{capturas3D.length > 0 ? ` (${capturas3D.length}/3)` : ""}
+                </Button>
+                <Button
+                  id="btn-copiar-link-3d-header"
+                  size="sm"
+                  onClick={copiarLink3D}
+                  variant="outline"
+                  title="Copiar link del visor 3D interactivo para compartir por WhatsApp"
+                  className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
+                >
+                  <Share2 className="size-3.5" />
+                  {link3DCopied ? "¡Link copiado!" : "Copiar Link 3D"}
+                </Button>
+              </div>
+            )}
+            <ConfigScene config={config} onReady={onSceneReady} />
           </div>
-          {interno && (
-            <div className="absolute top-4 right-4 z-20">
-              <Button
-                id="btn-copiar-link-3d-header"
-                size="sm"
-                onClick={copiarLink3D}
-                variant="outline"
-                title="Copiar link del visor 3D interactivo para compartir por WhatsApp"
-                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
-              >
-                <Share2 className="size-3.5" />
-                {link3DCopied ? "¡Link copiado!" : "Copiar Link 3D"}
-              </Button>
+
+          {/* Thumbnails de vistas capturadas (solo modo interno) */}
+          {interno && capturas3D.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                  Vistas para el PDF
+                  <span className="ml-2 font-normal text-muted-foreground">({capturas3D.length}/3) — estas imágenes se incluirán en el presupuesto</span>
+                </p>
+                <button
+                  onClick={() => setCapturas3D([])}
+                  className="text-xs text-red-500 hover:underline"
+                >
+                  Borrar todas
+                </button>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {capturas3D.map((src, idx) => (
+                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-border shadow-sm" style={{ width: 120, height: 72 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`Vista ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        onClick={() => eliminarCaptura(idx)}
+                        className="bg-red-600 hover:bg-red-500 rounded-full p-1 text-white transition-colors"
+                        title="Eliminar esta vista"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] text-center py-0.5">
+                      Vista {idx + 1}
+                    </div>
+                  </div>
+                ))}
+                {capturas3D.length < 3 && (
+                  <button
+                    onClick={capturarVista}
+                    className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border hover:border-primary/60 bg-background/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors text-xs gap-1"
+                    style={{ width: 120, height: 72 }}
+                    title="Agregar otra vista"
+                  >
+                    <Camera className="size-5" />
+                    Agregar vista
+                  </button>
+                )}
+              </div>
             </div>
           )}
-          <ConfigScene config={config} onReady={onSceneReady} />
+
+          {/* Aviso cuando no hay capturas manuales (solo modo interno) */}
+          {interno && capturas3D.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              💡 Orientá el modelo y presioná <strong className="text-foreground/70">Capturar vista</strong> para elegir qué ángulos aparecen en el PDF. Sin capturas, se usará la vista actual automáticamente.
+            </p>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
