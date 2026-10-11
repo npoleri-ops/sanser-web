@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Film } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2 } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
@@ -219,117 +219,42 @@ export function Cotizador({
   )
 
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isGenerating360, setIsGenerating360] = useState(false)
   const [sceneReady, setSceneReady] = useState(false)
+  const [link3DCopied, setLink3DCopied] = useState(false)
 
   const onSceneReady = useCallback((_ref: ThreeSceneRef) => {
     setSceneReady(true)
   }, [])
 
   /**
-   * Genera una animación 360° ligera en GIF rotando la cámara en 16 pasos angulares
-   * para compartir directamente por WhatsApp.
+   * Genera un link al visor 3D interactivo con la configuración actual encodada
+   * en los parámetros de búsqueda y lo copia al portapapeles.
    */
-  const generarAnimacion360 = async () => {
-    if (isGenerating360) return
-
-    const ref = getSceneRef()
-    if (!ref) {
-      alert("El visor 3D todavía no está listo. Por favor esperá unos segundos e intentá de nuevo.")
-      return
-    }
-
-    setIsGenerating360(true)
-
-    // Breve pausa para permitir que la interfaz muestre "Generando 360°..."
-    await new Promise((r) => setTimeout(r, 60))
+  const copiarLink3D = async () => {
+    const params = new URLSearchParams({
+      tipo: config.type,
+      ancho: String(config.width),
+      largo: String(config.length),
+      alto: String(config.height),
+      chapa: config.sheet,
+      color: config.color,
+      paredes: config.walls ? "1" : "0",
+      porton: config.gate ? "1" : "0",
+      portonTrasero: config.gateBack ? "1" : "0",
+    })
+    const url = `${window.location.origin}/3d?${params.toString()}`
 
     try {
-      const { GIFEncoder, quantize, applyPalette } = await import("gifenc")
-      const { gl, camera, scene } = ref
-
-      const origPos = camera.position.clone()
-      const origQuat = camera.quaternion.clone()
-
-      const targetY = config.height / 2
-      const radius = Math.sqrt(origPos.x * origPos.x + origPos.z * origPos.z)
-      const baseAngle = Math.atan2(origPos.z, origPos.x)
-      const eyeY = origPos.y
-
-      // Dimensiones optimizadas para compartir en WhatsApp (resolución nítida y peso ultra liviano)
-      const targetWidth = 480
-      const glCanvas = gl.domElement
-      const aspect = glCanvas.height > 0 ? glCanvas.height / glCanvas.width : 0.625
-      const targetHeight = Math.round(targetWidth * aspect)
-
-      const auxCanvas = document.createElement("canvas")
-      auxCanvas.width = targetWidth
-      auxCanvas.height = targetHeight
-      const ctx = auxCanvas.getContext("2d", { willReadFrequently: true })
-
-      if (!ctx) {
-        throw new Error("No se pudo inicializar el lienzo auxiliar.")
-      }
-
-      const gif = GIFEncoder()
-      const totalSteps = 16
-
-      // Captura de los 16 fotogramas en rotación de 360°
-      for (let i = 0; i < totalSteps; i++) {
-        const angle = baseAngle + (i / totalSteps) * Math.PI * 2
-        camera.position.set(Math.cos(angle) * radius, eyeY, Math.sin(angle) * radius)
-        camera.lookAt(0, targetY, 0)
-        gl.render(scene, camera)
-
-        // Dibujar en el canvas auxiliar escalado
-        ctx.drawImage(gl.domElement, 0, 0, targetWidth, targetHeight)
-        const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight)
-
-        // Cuantizar con 128 colores (procesamiento veloz, menor a 20ms por frame)
-        const palette = quantize(imgData.data, 128)
-        const index = applyPalette(imgData.data, palette)
-
-        // 110ms por cuadro genera una rotación completa fluida de 1.76 segundos en bucle
-        gif.writeFrame(index, targetWidth, targetHeight, {
-          palette,
-          delay: 110,
-          repeat: 0,
-        })
-
-        // Pequeño yield para mantener la respuesta del navegador
-        if (i % 4 === 0) {
-          await new Promise((r) => setTimeout(r, 10))
-        }
-      }
-
-      // Restaurar la vista original de la cámara
-      camera.position.copy(origPos)
-      camera.quaternion.copy(origQuat)
-      gl.render(scene, camera)
-
-      // Compilar y generar Blob del GIF
-      gif.finish()
-      const blob = new Blob([gif.bytesView()], { type: "image/gif" })
-
-      // Descarga directa
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      const safeTitle = (title || "Tinglado")
-        .replace(/\s+/g, "_")
-        .replace(/[^a-zA-Z0-9_\-]/g, "")
-      a.download = `${numeroPresupuesto ? numeroPresupuesto + "_" : ""}SANSER_360_${safeTitle}.gif`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 2000)
-    } catch (err) {
-      console.error("Error al generar animación 360:", err)
-      alert(`No se pudo generar la animación 360°: ${err instanceof Error ? err.message : "Error desconocido"}`)
-    } finally {
-      setIsGenerating360(false)
+      await navigator.clipboard.writeText(url)
+      setLink3DCopied(true)
+      setTimeout(() => setLink3DCopied(false), 3000)
+    } catch {
+      // Fallback: abrir en nueva pestaña si el clipboard no está disponible
+      window.open(url, "_blank")
     }
   }
+
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -1086,22 +1011,15 @@ export function Cotizador({
           {interno && (
             <div className="absolute top-4 right-4 z-20">
               <Button
-                id="btn-descargar-360-header"
+                id="btn-copiar-link-3d-header"
                 size="sm"
-                onClick={generarAnimacion360}
+                onClick={copiarLink3D}
                 variant="outline"
-                disabled={isGenerating || isGenerating360 || !sceneReady}
-                title={!sceneReady ? "Esperando que cargue el visor 3D..." : "Descargar animación 360°"}
-                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Copiar link del visor 3D interactivo para compartir por WhatsApp"
+                className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
               >
-                {isGenerating360 ? (
-                  <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : !sceneReady ? (
-                  <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : (
-                  <Film className="size-3.5" />
-                )}
-                {isGenerating360 ? "Generando 360°..." : !sceneReady ? "Cargando visor..." : "Descargar Video/GIF 360°"}
+                <Share2 className="size-3.5" />
+                {link3DCopied ? "¡Link copiado!" : "Copiar Link 3D"}
               </Button>
             </div>
           )}
@@ -1476,7 +1394,7 @@ export function Cotizador({
             <Button
               onClick={descargarBorrador}
               variant="outline"
-              disabled={isGenerating || isGenerating360 || faltanDatosCliente}
+              disabled={isGenerating || faltanDatosCliente}
               className="gap-2"
             >
               <Download className="size-4" />
@@ -1484,18 +1402,18 @@ export function Cotizador({
             </Button>
 
             <Button
-              id="btn-descargar-360-interno"
-              onClick={generarAnimacion360}
+              id="btn-compartir-3d-whatsapp"
+              onClick={copiarLink3D}
               variant="outline"
-              disabled={isGenerating || isGenerating360}
-              className="gap-2"
+              className="gap-2 border-emerald-600 text-emerald-400 hover:bg-emerald-600/10 hover:text-emerald-300"
+              title="Copia el link del visor 3D interactivo para compartir por WhatsApp"
             >
-              {isGenerating360 ? (
-                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              {link3DCopied ? (
+                <CheckCircle2 className="size-4" />
               ) : (
-                <Film className="size-4" />
+                <Share2 className="size-4" />
               )}
-              {isGenerating360 ? "Generando 360°..." : "Descargar Video/GIF 360°"}
+              {link3DCopied ? "¡Link copiado!" : "Compartir 3D por WhatsApp"}
             </Button>
 
             <Button
