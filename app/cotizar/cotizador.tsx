@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Video } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2 } from "lucide-react"
 import jsPDF from "jspdf"
 import type * as THREE from "three"
 import autoTable from "jspdf-autotable"
@@ -28,7 +28,17 @@ type DocWithAutoTable = jsPDF & { lastAutoTable: { finalY: number } }
 
 // El canvas de react-three-fiber expone su root en __r3f para poder re-renderizar a mano.
 type R3FCanvas = HTMLCanvasElement & {
-  __r3f?: { root: { getState: () => { gl: THREE.WebGLRenderer; camera: THREE.Camera; scene: THREE.Scene } } }
+  __r3f?: {
+    root: {
+      getState: () => {
+        gl: THREE.WebGLRenderer
+        camera: THREE.Camera
+        scene: THREE.Scene
+        controls?: any
+        invalidate?: () => void
+      }
+    }
+  }
 }
 
 const INITIAL_PRICES = {
@@ -218,78 +228,6 @@ export function Cotizador({
   )
 
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-
-  const record360Video = async () => {
-    const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
-    if (!canvas3d) return
-    const fiber = (canvas3d as R3FCanvas).__r3f
-    if (!fiber) return
-    
-    setIsRecording(true)
-    const { gl, camera, scene } = fiber.root.getState()
-
-    try {
-      const stream = canvas3d.captureStream(60)
-      const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-        ? 'video/webm;codecs=vp9' 
-        : 'video/webm'
-      const mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 })
-      const chunks: BlobPart[] = []
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const safeTitle = (title || 'Tinglado').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
-        a.download = `SANSER_360_${safeTitle}.webm`
-        a.click()
-        URL.revokeObjectURL(url)
-        setIsRecording(false)
-      }
-
-      mediaRecorder.start()
-
-      const duration = 4500 // 4.5 seconds
-      const start = performance.now()
-      
-      const origPos = camera.position.clone()
-      const origQuat = camera.quaternion.clone()
-      const radius = Math.sqrt(origPos.x * origPos.x + origPos.z * origPos.z)
-      const initialAngle = Math.atan2(origPos.z, origPos.x)
-      const targetY = config.height / 2
-
-      const animate = (time: number) => {
-        const elapsed = time - start
-        const progress = elapsed / duration
-        
-        if (progress < 1) {
-          const angle = initialAngle + progress * Math.PI * 2
-          camera.position.x = Math.cos(angle) * radius
-          camera.position.z = Math.sin(angle) * radius
-          camera.lookAt(0, targetY, 0)
-          gl.render(scene, camera)
-          requestAnimationFrame(animate)
-        } else {
-          camera.position.copy(origPos)
-          camera.quaternion.copy(origQuat)
-          gl.render(scene, camera)
-          mediaRecorder.stop()
-        }
-      }
-      
-      requestAnimationFrame(animate)
-    } catch (e) {
-      console.error(e)
-      alert("No se pudo grabar el video. Tu navegador podría no ser compatible.")
-      setIsRecording(false)
-    }
-  }
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -1420,16 +1358,6 @@ export function Cotizador({
             >
               <Download className="size-4" />
               {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
-            </Button>
-            
-            <Button
-              onClick={record360Video}
-              variant="outline"
-              disabled={isGenerating || isRecording || faltanDatosCliente}
-              className="gap-2"
-            >
-              <Video className="size-4" />
-              {isRecording ? "Grabando..." : "Descargar Video 360°"}
             </Button>
 
             <Button
