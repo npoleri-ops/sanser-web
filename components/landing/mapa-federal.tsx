@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { motion, useInView } from "framer-motion"
 import {
   Truck,
   Factory,
@@ -54,6 +55,10 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
   const [hoveredDestino, setHoveredDestino] = useState<DestinoObra | null>(null)
   const [showOrigenInfo, setShowOrigenInfo] = useState(false)
 
+  // Referencia para la animación secuencial de entrada con Framer Motion al scrollear
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const isInView = useInView(sectionRef, { once: true, amount: 0.25 })
+
   useEffect(() => {
     setMeses(getMesesActividad())
   }, [])
@@ -69,9 +74,14 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
     "neuquen",
   ])
 
+  // Orden de trazado secuencial por prioridad/volumen (comenzando por San Juan con mayor volumen)
+  const destinosOrdenados = [...DESTINOS_OBRAS].sort((a, b) => b.obras - a.obras)
+  const getOrderIndex = (id: string) => destinosOrdenados.findIndex((d) => d.id === id)
+
   return (
     <section
       id="envios"
+      ref={sectionRef}
       className="relative border-b border-border bg-[#0d0f15] py-20 lg:py-28 overflow-hidden"
     >
       {/* Background radial glow effects */}
@@ -161,8 +171,19 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 }}
               >
                 <defs>
-                  {/* Glow filter for high-volume San Juan route */}
-                  <filter id="glow-heavy" x="-20%" y="-20%" width="140%" height="140%">
+                  {/* Resplandor (glow) dorado aumentado para rutas principales / alta densidad */}
+                  <filter id="glow-gold-mega" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="4.5" result="coloredBlur" />
+                    <feGaussianBlur stdDeviation="2" result="sharpBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="sharpBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+
+                  {/* Resplandor para el contorno del badge del pin de alta densidad */}
+                  <filter id="glow-pin-badge" x="-30%" y="-30%" width="160%" height="160%">
                     <feGaussianBlur stdDeviation="3" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
@@ -230,52 +251,163 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   <line x1="300" y1="50" x2="300" y2="850" strokeWidth="0.5" />
                 </g>
 
-                {/* RUTAS: TRAZO CONTINUO LIMPIO Y PARTÍCULAS SUAVES */}
+                {/* RUTAS: TRAZADO SECUENCIAL ANIMADO CON FRAMER MOTION Y ESCALA DE ALTA DENSIDAD */}
                 <g id="rutas-layer">
                   {DESTINOS_OBRAS.map((destino) => {
-                    const isHighVolume = destino.obras >= 2
+                    // Escala de densidad: alta densidad (2+ obras) y mega densidad (5+ o 10+ obras)
+                    const isMegaVolume = destino.obras >= 5
+                    const isHighDensity = destino.obras >= 2 || isMegaVolume
                     const isTargeted = activeDestino?.id === destino.id
+
+                    // Orden escalonado: San Juan (índice 0) comienza primero, luego las demás localidades
+                    const orderIndex = getOrderIndex(destino.id)
+                    const drawDelay = 0.2 + orderIndex * 0.35
 
                     return (
                       <g key={`route-${destino.id}`} className="transition-all duration-300">
-                        {/* Trazo continuo */}
-                        <path
+                        {/* 1. Underlying glow stroke para alta densidad */}
+                        {isHighDensity && (
+                          <motion.path
+                            d={destino.pathD}
+                            fill="none"
+                            stroke="#ffb700"
+                            strokeWidth={isMegaVolume ? "6.5" : "5"}
+                            strokeOpacity={isTargeted ? 0.75 : 0.45}
+                            strokeLinecap="round"
+                            filter="url(#glow-gold-mega)"
+                            initial={{ pathLength: 0, opacity: 0 }}
+                            animate={
+                              isInView
+                                ? { pathLength: 1, opacity: isTargeted ? 0.75 : 0.45 }
+                                : { pathLength: 0, opacity: 0 }
+                            }
+                            transition={{
+                              duration: isHighDensity ? 1.4 : 1.1,
+                              delay: drawDelay,
+                              ease: [0.16, 1, 0.3, 1],
+                            }}
+                          />
+                        )}
+
+                        {/* 2. Trazo continuo dibujado progresivamente desde Misiones */}
+                        <motion.path
                           d={destino.pathD}
                           fill="none"
-                          stroke={isHighVolume ? "#ff8c00" : "#f97316"}
-                          strokeWidth={isHighVolume ? (isTargeted ? "4" : "3.2") : isTargeted ? "2.6" : "1.8"}
-                          strokeOpacity={isHighVolume ? (isTargeted ? 1 : 0.85) : isTargeted ? 0.9 : 0.65}
+                          stroke={isHighDensity ? "#ffaa00" : "#f97316"}
+                          strokeWidth={
+                            isMegaVolume
+                              ? isTargeted
+                                ? "5"
+                                : "4.2"
+                              : isHighDensity
+                              ? isTargeted
+                                ? "4.2"
+                                : "3.5"
+                              : isTargeted
+                              ? "2.6"
+                              : "1.8"
+                          }
+                          strokeOpacity={isHighDensity ? (isTargeted ? 1 : 0.95) : isTargeted ? 0.9 : 0.65}
                           strokeLinecap="round"
-                          filter={isHighVolume ? "url(#glow-heavy)" : "url(#glow-standard)"}
+                          filter={isHighDensity ? "url(#glow-gold-mega)" : "url(#glow-standard)"}
+                          initial={{ pathLength: 0, opacity: 0 }}
+                          animate={
+                            isInView
+                              ? { pathLength: 1, opacity: isHighDensity ? 0.95 : 0.65 }
+                              : { pathLength: 0, opacity: 0 }
+                          }
+                          transition={{
+                            duration: isHighDensity ? 1.4 : 1.1,
+                            delay: drawDelay,
+                            ease: [0.16, 1, 0.3, 1],
+                          }}
                         />
 
-                        {/* Partícula suave viajando por la curva */}
-                        <circle
-                          r={isHighVolume ? "3.5" : "2.5"}
-                          fill={isHighVolume ? "#fff275" : "#fed7aa"}
-                          filter={isHighVolume ? "url(#glow-heavy)" : "none"}
-                        >
-                          <animateMotion
-                            path={destino.pathD}
-                            dur={isHighVolume ? "2.6s" : "3.6s"}
-                            repeatCount="indefinite"
-                          />
-                        </circle>
+                        {/* 3. Partículas de luz con cantidad y velocidad según volumen */}
+                        {isInView && (
+                          isHighDensity ? (
+                            // Múltiples partículas rápidas desfasadas para alto flujo de despachos
+                            <g>
+                              {/* Partícula principal blanca brillante */}
+                              <circle
+                                r={isMegaVolume ? "4" : "3.2"}
+                                fill="#ffffff"
+                                filter="url(#glow-gold-mega)"
+                              >
+                                <animateMotion
+                                  path={destino.pathD}
+                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+
+                              {/* Segunda partícula dorada intermedia */}
+                              <circle
+                                r={isMegaVolume ? "3.5" : "2.8"}
+                                fill="#ffea00"
+                                filter="url(#glow-gold-mega)"
+                              >
+                                <animateMotion
+                                  path={destino.pathD}
+                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
+                                  begin={isMegaVolume ? "0.45s" : "0.55s"}
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+
+                              {/* Tercera partícula ámbar */}
+                              <circle
+                                r={isMegaVolume ? "3" : "2.5"}
+                                fill="#ffb703"
+                                filter="url(#glow-gold-mega)"
+                              >
+                                <animateMotion
+                                  path={destino.pathD}
+                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
+                                  begin={isMegaVolume ? "0.9s" : "1.1s"}
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                            </g>
+                          ) : (
+                            // Partícula suave estándar para rutas de menor densidad
+                            <circle r="2.5" fill="#fed7aa">
+                              <animateMotion
+                                path={destino.pathD}
+                                dur="3.8s"
+                                repeatCount="indefinite"
+                              />
+                            </circle>
+                          )
+                        )}
                       </g>
                     )
                   })}
                 </g>
 
-                {/* NODOS DE DESTINOS (INTERACCIÓN FLUIDA EN DESKTOP Y MOBILE) */}
+                {/* NODOS DE DESTINOS CON ENTRADA ESCALONADA Y CONTORNO RESPLANDECIENTE */}
                 <g id="destinos-layer">
                   {DESTINOS_OBRAS.map((destino) => {
-                    const isHighVolume = destino.obras >= 2
+                    const isMegaVolume = destino.obras >= 5
+                    const isHighDensity = destino.obras >= 2 || isMegaVolume
                     const isTargeted = activeDestino?.id === destino.id
                     const { x, y } = destino.svgCoords
 
+                    const orderIndex = getOrderIndex(destino.id)
+                    const pinDelay = 0.2 + orderIndex * 0.35 + 0.7
+
                     return (
-                      <g
+                      <motion.g
                         key={`pin-${destino.id}`}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={isInView ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                        transition={{
+                          delay: pinDelay,
+                          duration: 0.4,
+                          type: "spring",
+                          stiffness: 280,
+                          damping: 22,
+                        }}
                         className="cursor-pointer group"
                         onMouseEnter={() => {
                           setHoveredDestino(destino)
@@ -300,10 +432,10 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         <circle
                           cx={x}
                           cy={y}
-                          r={isHighVolume ? (isTargeted ? "12" : "9") : isTargeted ? "10" : "7"}
-                          fill={isHighVolume ? "rgba(255,140,0,0.22)" : "rgba(249,115,22,0.18)"}
-                          stroke={isHighVolume ? "#ff8c00" : "#f97316"}
-                          strokeWidth={isHighVolume ? "1.6" : "1"}
+                          r={isHighDensity ? (isTargeted ? "14" : "10") : isTargeted ? "10" : "7"}
+                          fill={isHighDensity ? "rgba(255,183,3,0.3)" : "rgba(249,115,22,0.18)"}
+                          stroke={isHighDensity ? "#ffb703" : "#f97316"}
+                          strokeWidth={isHighDensity ? "1.8" : "1"}
                           className="transition-all duration-200"
                         />
 
@@ -311,44 +443,64 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         <circle
                           cx={x}
                           cy={y}
-                          r={isHighVolume ? "5" : "3.8"}
-                          fill={isHighVolume ? "#ffb703" : "#f97316"}
+                          r={isHighDensity ? "5.5" : "3.8"}
+                          fill={isHighDensity ? "#ffb703" : "#f97316"}
                           stroke="#ffffff"
                           strokeWidth="1.2"
+                          filter={isHighDensity ? "url(#glow-gold-mega)" : "none"}
                         />
 
-                        {/* Etiqueta compacta en el mapa */}
+                        {/* Etiqueta compacta en el mapa con contorno resplandeciente para alta densidad */}
                         <g transform={`translate(${x}, ${y - 12})`}>
+                          {/* Contorno exterior resplandeciente para rutas principales */}
+                          {isHighDensity && (
+                            <rect
+                              x="-44"
+                              y="-16"
+                              width="88"
+                              height="20"
+                              rx="10"
+                              fill="none"
+                              stroke="#ffc107"
+                              strokeWidth="1.8"
+                              filter="url(#glow-pin-badge)"
+                              opacity="0.9"
+                            />
+                          )}
+
                           <rect
-                            x={isHighVolume ? "-40" : "-34"}
+                            x={isHighDensity ? "-42" : "-34"}
                             y="-14"
-                            width={isHighVolume ? "80" : "68"}
+                            width={isHighDensity ? "84" : "68"}
                             height="16"
                             rx="8"
-                            fill={isHighVolume ? "#1c150a" : "#12151e"}
-                            stroke={isHighVolume ? "#ff8c00" : isTargeted ? "#f97316" : "#2a3346"}
-                            strokeWidth={isHighVolume ? "1.2" : "0.8"}
+                            fill={isHighDensity ? "#211608" : "#12151e"}
+                            stroke={isHighDensity ? "#ffb703" : isTargeted ? "#f97316" : "#2a3346"}
+                            strokeWidth={isHighDensity ? "1.8" : "0.8"}
                           />
                           <text
                             x="0"
                             y="-3"
                             textAnchor="middle"
-                            fill={isHighVolume ? "#ffc107" : "#e2e8f0"}
-                            fontSize={isHighVolume ? "8.5" : "7.5"}
-                            fontWeight={isHighVolume ? "bold" : "600"}
+                            fill={isHighDensity ? "#ffea00" : "#e2e8f0"}
+                            fontSize={isHighDensity ? "8.8" : "7.5"}
+                            fontWeight="bold"
                             fontFamily="monospace"
                           >
                             {destino.ciudad} ({destino.obras})
                           </text>
                         </g>
-                      </g>
+                      </motion.g>
                     )
                   })}
                 </g>
 
                 {/* ORIGEN MISIONES (FÁBRICA CENTRAL) */}
-                <g
+                <motion.g
                   id="origen-misiones"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={isInView ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.5, type: "spring", stiffness: 300, damping: 20 }}
                   className="cursor-pointer"
                   onMouseEnter={() => {
                     setShowOrigenInfo(true)
@@ -419,7 +571,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                       FÁBRICA CENTRAL
                     </text>
                   </g>
-                </g>
+                </motion.g>
               </svg>
 
               {/* TOOLTIP FLOTANTE PEGADO A MISIONES (POINTER-EVENTS: NONE PARA NO PARPADEAR) */}
