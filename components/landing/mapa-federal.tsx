@@ -33,7 +33,7 @@ function getTooltipStyle(x: number, y: number) {
   if (x > 380) {
     translateX = "-90%"
   } else if (x < 220) {
-    // Si está a la izquierda (ej. San Juan x=162 o Neuquén x=175), desplegar hacia la derecha
+    // Si está a la izquierda (ej. San Juan x=162 o Villa Regina x=202), desplegar hacia la derecha
     translateX = "-10%"
   }
 
@@ -82,7 +82,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
     "san-juan",
     "cordoba",
     "buenos-aires",
-    "neuquen",
+    "rio-negro",
   ])
 
   // Orden de trazado secuencial por prioridad/volumen (comenzando por San Juan)
@@ -203,7 +203,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         (activeDestino.provincia === "Buenos Aires" && prov.id === "buenos-aires") ||
                         (activeDestino.provincia === "Córdoba" && prov.id === "cordoba") ||
                         (activeDestino.provincia === "San Juan" && prov.id === "san-juan") ||
-                        (activeDestino.provincia === "Neuquén" && prov.id === "neuquen"))
+                        (activeDestino.provincia === "Río Negro" && prov.id === "rio-negro"))
 
                     return (
                       <path

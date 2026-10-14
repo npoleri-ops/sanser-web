@@ -93,7 +93,7 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     distanciaKm: 1580,
     estructuras: [
       "Tinglado 10x15m a 2 Aguas",
-      "Tinglado 10x20m a 1 Agua",
+      "Tinglado 10x20m a 2 Aguas",
     ],
     tipoEstructura: "Tinglados Reticulados (2 Obras)",
   },
@@ -107,9 +107,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 385.3 127.9 281.2 222.1",
     distanciaKm: 1120,
     estructuras: [
-      "Nave Industrial 15x35m en Perfil C",
+      "Tinglado 10x20m a 1 Agua",
     ],
-    tipoEstructura: "Nave Industrial 15x35m en Perfil C",
+    tipoEstructura: "Tinglado 10x20m a 1 Agua",
   },
   {
     id: "mar-del-plata",
@@ -121,9 +121,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 446.9 240.7 462.1 382.5",
     distanciaKm: 1480,
     estructuras: [
-      "Galpón 12x25m a 2 Aguas",
+      "Tinglado 10x30m a 2 Aguas",
     ],
-    tipoEstructura: "Galpón 12x25m a 2 Aguas",
+    tipoEstructura: "Tinglado 10x30m a 2 Aguas",
   },
   {
     id: "trenque-lauquen",
@@ -135,23 +135,24 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 385.5 189.8 320.9 331.6",
     distanciaKm: 1340,
     estructuras: [
-      "Tinglado Agropecuario 18x30m a 2 Aguas",
+      "Tinglado 20x30m a 2 Aguas",
     ],
-    tipoEstructura: "Tinglado Agropecuario 18x30m a 2 Aguas",
+    tipoEstructura: "Tinglado 20x30m a 2 Aguas",
   },
   {
-    id: "neuquen",
-    ciudad: "Neuquén",
-    provincia: "Neuquén",
-    obras: 1,
-    coordenadas: { lat: -38.9516, lng: -68.0591 },
-    svgCoords: { x: 175.7, y: 406.7 },
-    pathD: "M 525.6 121.7 Q 299.3 201.2 175.7 406.7",
-    distanciaKm: 1950,
+    id: "villa-regina",
+    ciudad: "Villa Regina",
+    provincia: "Río Negro",
+    obras: 2,
+    coordenadas: { lat: -39.1000, lng: -67.0644 },
+    svgCoords: { x: 202.8, y: 410.2 },
+    pathD: "M 525.6 121.7 Q 312.5 204.0 202.8 410.2",
+    distanciaKm: 1860,
     estructuras: [
-      "Tinglado Comercial 15x30m a 2 Aguas",
+      "Tinglado 10x20m a 1 Agua",
+      "Tinglado 10x20m a 1 Agua",
     ],
-    tipoEstructura: "Tinglado Comercial 15x30m a 2 Aguas",
+    tipoEstructura: "Tinglados Reticulados (2 Obras)",
   },
 ]
 
