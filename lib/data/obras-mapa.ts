@@ -42,7 +42,6 @@ export interface DestinoObra {
   pathD: string // Arco Bézier desde el origen
   distanciaKm: number
   tipoEstructura: string
-  etiquetaClimatica?: string
 }
 
 /**
@@ -58,11 +57,11 @@ export function getMesesActividad(fechaInicio: Date = FECHA_INICIO, fechaActual:
 }
 
 /**
- * Origen: Misiones (Fábrica Sanser - Jardín América)
+ * Origen: Misiones (Fábrica Central - Jardín América)
  */
 export const ORIGEN_SANSER: UbicacionOrigen = {
   id: "misiones-jardin-america",
-  nombre: "Fábrica Sanser Metalúrgica",
+  nombre: "Fábrica Central Sanser",
   ciudad: "Jardín América",
   provincia: "Misiones",
   pais: "Argentina",
@@ -74,8 +73,8 @@ export const ORIGEN_SANSER: UbicacionOrigen = {
     x: 525.6,
     y: 121.7,
   },
-  descripcion: "Planta industrial central - Perfiles C conformados y reticulados.",
-  badge: "Fábrica Matriz",
+  descripcion: "Fábrica Central | Jardín América, Misiones",
+  badge: "Fábrica Central",
 }
 
 /**
@@ -92,7 +91,6 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 325.5 108 162.6 224.9",
     distanciaKm: 1580,
     tipoEstructura: "Galpones Reticulados 20x45m a 2 Aguas",
-    etiquetaClimatica: "Zona sísmica y vientos cordilleranos",
   },
   {
     id: "cordoba",
@@ -104,7 +102,6 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 385.3 127.9 281.2 222.1",
     distanciaKm: 1120,
     tipoEstructura: "Nave Industrial 15x35m en Perfil C",
-    etiquetaClimatica: "Zona llanura pampeana",
   },
   {
     id: "mar-del-plata",
@@ -116,7 +113,6 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 446.9 240.7 462.1 382.5",
     distanciaKm: 1480,
     tipoEstructura: "Galpón 12x25m a 2 Aguas",
-    etiquetaClimatica: "Apto zona de vientos y ambiente costero",
   },
   {
     id: "trenque-lauquen",
@@ -128,7 +124,6 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 385.5 189.8 320.9 331.6",
     distanciaKm: 1340,
     tipoEstructura: "Tinglado Agropecuario 18x30m a 2 Aguas",
-    etiquetaClimatica: "Apto zona de vientos pampeanos",
   },
   {
     id: "neuquen",
@@ -140,7 +135,6 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     pathD: "M 525.6 121.7 Q 299.3 201.2 175.7 406.7",
     distanciaKm: 1950,
     tipoEstructura: "Tinglado Comercial 15x30m a 2 Aguas",
-    etiquetaClimatica: "Apto sobrecarga de viento patagónico",
   },
 ]
 
