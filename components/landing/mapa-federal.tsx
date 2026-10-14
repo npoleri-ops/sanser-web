@@ -107,35 +107,34 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
             diseñamos y producimos tinglados reticulados con despacho directo a cualquier provincia argentina.
           </p>
 
-          {/* BADGE CENTRAL DE TRAYECTORIA CON SIMETRÍA VISUAL EN NÚMEROS Y MAYOR PADDING */}
+          {/* BADGE CENTRAL DE TRAYECTORIA CON TIPOGRAFÍA UNIFICADA */}
           <div className="mt-7 flex flex-wrap items-center justify-center">
-            <div className="inline-flex items-center gap-3 sm:gap-4 rounded-full border border-[#F97316]/40 bg-gradient-to-r from-[#171b26]/95 via-[#1a1f2c]/95 to-[#171b26]/95 px-6 sm:px-8 py-3 sm:py-3.5 font-mono text-xs sm:text-sm text-gray-200 shadow-xl shadow-black/50 backdrop-blur-md ring-1 ring-[#F97316]/20">
-              <span className="flex size-2.5 rounded-full bg-[#F97316] shadow-sm shadow-[#F97316]" />
+            <div className="inline-flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 rounded-full border border-[#F97316]/40 bg-gradient-to-r from-[#171b26]/95 via-[#1a1f2c]/95 to-[#171b26]/95 px-5 sm:px-7 py-2.5 sm:py-3 font-mono shadow-xl shadow-black/50 backdrop-blur-md ring-1 ring-[#F97316]/20">
+              <span className="flex size-2 rounded-full bg-[#F97316] shadow-sm shadow-[#F97316] shrink-0" />
 
-              {/* Métrica 1: Meses */}
-              <span className="flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold font-mono text-[#F97316] leading-none">
+              {/* Primer bloque: Meses fabricando */}
+              <span className="inline-flex items-baseline gap-1.5 text-xs sm:text-sm text-gray-200">
+                <span className="text-base sm:text-lg font-bold font-mono text-[#F97316] leading-none">
                   {meses}
                 </span>
-                <span className="font-semibold text-white">Meses</span>
-                <span className="text-muted-foreground hidden sm:inline">de Actividad Ininterrumpida</span>
+                <span>Meses fabricando</span>
               </span>
 
               <span className="text-gray-600 font-bold">•</span>
 
-              {/* Métrica 2: Obras con la misma simetría y tono naranja/dorado */}
-              <span className="flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold font-mono text-[#F97316] leading-none">
+              {/* Segundo bloque: Obras entregadas */}
+              <span className="inline-flex items-baseline gap-1.5 text-xs sm:text-sm text-gray-200">
+                <span className="text-base sm:text-lg font-bold font-mono text-[#F97316] leading-none">
                   {TOTAL_OBRAS}
                 </span>
-                <span className="font-semibold text-white">Obras</span>
-                <span className="text-muted-foreground hidden sm:inline">Entregadas</span>
+                <span>Obras entregadas</span>
               </span>
 
-              <span className="text-gray-600 font-bold hidden sm:inline">•</span>
+              <span className="text-gray-600 font-bold">•</span>
 
-              <span className="text-gray-400 text-xs hidden sm:inline">
-                Desde el 9 de marzo
+              {/* Tercer bloque: Desde el 9 de marzo de 2026 */}
+              <span className="text-xs sm:text-sm text-gray-200">
+                Desde el 9 de marzo de 2026
               </span>
             </div>
           </div>
