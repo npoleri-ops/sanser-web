@@ -22,23 +22,23 @@ interface MapaFederalProps {
 }
 
 /**
- * Calcula el offset y transform para que el popover flote pegado al nodo sin cortarse por los bordes
+ * Calcula el offset y transform para que el popover flote pegado al nodo sin tapar el pin ni cortarse por los bordes
  */
 function getTooltipStyle(x: number, y: number) {
   let translateX = "-50%"
-  let translateY = "calc(-100% - 14px)"
+  let translateY = "calc(-100% - 24px)"
 
-  // Si está muy a la derecha (ej. Misiones o Mar del Plata), orientar el popover hacia la izquierda
-  if (x > 390) {
-    translateX = "-88%"
-  } else if (x < 210) {
-    // Si está muy a la izquierda (ej. San Juan o Neuquén), orientar hacia la derecha
-    translateX = "-12%"
+  // Si está a la derecha (ej. Mar del Plata x=462 o Misiones x=525), desplegar hacia la izquierda
+  if (x > 380) {
+    translateX = "-90%"
+  } else if (x < 220) {
+    // Si está a la izquierda (ej. San Juan x=162 o Neuquén x=175), desplegar hacia la derecha
+    translateX = "-10%"
   }
 
-  // Si está cerca del borde superior (ej. Misiones), ubicar el popover debajo del nodo
+  // Si está cerca del borde superior (ej. Misiones y=121), desplegar hacia abajo
   if (y < 160) {
-    translateY = "16px"
+    translateY = "26px"
   }
 
   return {
@@ -90,7 +90,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
       />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
-        {/* ENCABEZADO CENTRADO CON MÉTRICA CON JERARQUÍA */}
+        {/* ENCABEZADO CENTRADO CON MÉTRICA SIMÉTRICA */}
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/30 bg-[#1e2330] px-3.5 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F97316]">
             <Truck className="size-3.5" />
@@ -107,11 +107,12 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
             diseñamos y producimos tinglados reticulados con despacho directo a cualquier provincia argentina.
           </p>
 
-          {/* BADGE CENTRAL DE TRAYECTORIA CON MAYOR JERARQUÍA Y PADDING */}
+          {/* BADGE CENTRAL DE TRAYECTORIA CON SIMETRÍA VISUAL EN NÚMEROS Y MAYOR PADDING */}
           <div className="mt-7 flex flex-wrap items-center justify-center">
-            <div className="inline-flex items-center gap-3 sm:gap-4 rounded-full border border-[#F97316]/40 bg-gradient-to-r from-[#171b26]/95 via-[#1a1f2c]/95 to-[#171b26]/95 px-5 sm:px-7 py-2.5 sm:py-3 font-mono text-xs sm:text-sm text-gray-200 shadow-xl shadow-black/50 backdrop-blur-md ring-1 ring-[#F97316]/20">
+            <div className="inline-flex items-center gap-3 sm:gap-4 rounded-full border border-[#F97316]/40 bg-gradient-to-r from-[#171b26]/95 via-[#1a1f2c]/95 to-[#171b26]/95 px-6 sm:px-8 py-3 sm:py-3.5 font-mono text-xs sm:text-sm text-gray-200 shadow-xl shadow-black/50 backdrop-blur-md ring-1 ring-[#F97316]/20">
               <span className="flex size-2.5 rounded-full bg-[#F97316] shadow-sm shadow-[#F97316]" />
 
+              {/* Métrica 1: Meses */}
               <span className="flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-bold font-mono text-[#F97316] leading-none">
                   {meses}
@@ -122,8 +123,12 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
 
               <span className="text-gray-600 font-bold">•</span>
 
-              <span>
-                <strong className="text-white font-semibold">{TOTAL_OBRAS} Obras</strong>{" "}
+              {/* Métrica 2: Obras con la misma simetría y tono naranja/dorado */}
+              <span className="flex items-baseline gap-1.5">
+                <span className="text-xl sm:text-2xl font-bold font-mono text-[#F97316] leading-none">
+                  {TOTAL_OBRAS}
+                </span>
+                <span className="font-semibold text-white">Obras</span>
                 <span className="text-muted-foreground hidden sm:inline">Entregadas</span>
               </span>
 
@@ -149,8 +154,12 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
             <div className="relative mx-auto mt-8 sm:mt-10 w-full max-w-[540px] aspect-[2/3]">
               <svg
                 viewBox="0 0 600 900"
-                className="w-full h-full select-none"
+                className="w-full h-full select-none cursor-default"
                 style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))" }}
+                onClick={() => {
+                  setSelectedDestino(null)
+                  setShowOrigenInfo(false)
+                }}
               >
                 <defs>
                   {/* Glow filter for high-volume San Juan route */}
@@ -258,7 +267,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   })}
                 </g>
 
-                {/* NODOS DE DESTINOS (SIN RADAR CONSTANTE) */}
+                {/* NODOS DE DESTINOS (INTERACCIÓN FLUIDA EN DESKTOP Y MOBILE) */}
                 <g id="destinos-layer">
                   {DESTINOS_OBRAS.map((destino) => {
                     const isHighVolume = destino.obras >= 2
@@ -274,9 +283,15 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                           setShowOrigenInfo(false)
                         }}
                         onMouseLeave={() => setHoveredDestino(null)}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setShowOrigenInfo(false)
                           setSelectedDestino((curr) => (curr?.id === destino.id ? null : destino))
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          setShowOrigenInfo(false)
+                          setSelectedDestino(destino)
                         }}
                         tabIndex={0}
                         role="button"
@@ -341,9 +356,15 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                     setHoveredDestino(null)
                   }}
                   onMouseLeave={() => setShowOrigenInfo(false)}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setSelectedDestino(null)
                     setShowOrigenInfo((prev) => !prev)
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation()
+                    setSelectedDestino(null)
+                    setShowOrigenInfo(true)
                   }}
                   role="button"
                   tabIndex={0}
@@ -402,26 +423,17 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 </g>
               </svg>
 
-              {/* TOOLTIP EMERGENTE RELATIVO AL NODO DE MISIONES */}
+              {/* TOOLTIP FLOTANTE PEGADO A MISIONES (POINTER-EVENTS: NONE PARA NO PARPADEAR) */}
               {showOrigenInfo && !activeDestino && (
                 <div
-                  className="absolute z-30 pointer-events-auto w-[230px] sm:w-[250px] rounded-xl border border-[#F97316]/60 bg-[#14120f]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
+                  className="pointer-events-none absolute z-30 w-[230px] sm:w-[250px] rounded-xl border border-[#F97316]/60 bg-[#14120f]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
                   style={getTooltipStyle(ORIGEN_SANSER.svgCoords.x, ORIGEN_SANSER.svgCoords.y)}
                 >
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <Factory className="size-3.5 text-[#F97316] shrink-0" />
-                      <span className="font-display text-sm font-700 uppercase tracking-wide text-white">
-                        Fábrica Central
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setShowOrigenInfo(false)}
-                      className="text-[10px] text-gray-400 hover:text-white cursor-pointer"
-                      aria-label="Cerrar"
-                    >
-                      ✕
-                    </button>
+                  <div className="flex items-center gap-1.5 border-b border-border/40 pb-2">
+                    <Factory className="size-3.5 text-[#F97316] shrink-0" />
+                    <span className="font-display text-sm font-700 uppercase tracking-wide text-white">
+                      Fábrica Central
+                    </span>
                   </div>
                   <p className="mt-1.5 font-mono text-xs font-semibold text-[#F97316]">
                     Jardín América, Misiones
@@ -432,10 +444,10 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 </div>
               )}
 
-              {/* TOOLTIP EMERGENTE RELATIVO AL NODO DESTINO CON DESGLOSE DE OBRAS */}
+              {/* TOOLTIP FLOTANTE PEGADO AL NODO DESTINO CON DESGLOSE DE OBRAS (POINTER-EVENTS: NONE) */}
               {activeDestino && (
                 <div
-                  className="absolute z-30 pointer-events-auto w-[230px] sm:w-[260px] rounded-xl border border-[#F97316]/50 bg-[#121520]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
+                  className="pointer-events-none absolute z-30 w-[230px] sm:w-[260px] rounded-xl border border-[#F97316]/50 bg-[#121520]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
                   style={getTooltipStyle(activeDestino.svgCoords.x, activeDestino.svgCoords.y)}
                 >
                   {/* Encabezado del Popover */}
@@ -447,30 +459,19 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase",
-                          activeDestino.obras >= 2
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                            : "bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30",
-                        )}
-                      >
-                        {activeDestino.obras === 1 ? "1 Obra" : `${activeDestino.obras} Obras`}
-                      </span>
-                      {selectedDestino && (
-                        <button
-                          onClick={() => setSelectedDestino(null)}
-                          className="text-[10px] text-gray-400 hover:text-white cursor-pointer"
-                          aria-label="Cerrar"
-                        >
-                          ✕
-                        </button>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase",
+                        activeDestino.obras >= 2
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30",
                       )}
-                    </div>
+                    >
+                      {activeDestino.obras === 1 ? "1 Obra" : `${activeDestino.obras} Obras`}
+                    </span>
                   </div>
 
-                  {/* Desglose de obras */}
+                  {/* Desglose de obras con viñetas limpias */}
                   <div className="mt-2 space-y-1 text-xs font-mono">
                     {activeDestino.estructuras.map((est, i) => (
                       <div key={i} className="flex items-start gap-1.5 text-gray-200">
