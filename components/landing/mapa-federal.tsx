@@ -55,13 +55,24 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
   const [hoveredDestino, setHoveredDestino] = useState<DestinoObra | null>(null)
   const [showOrigenInfo, setShowOrigenInfo] = useState(false)
 
-  // Referencia para la animación secuencial de entrada con Framer Motion al scrollear
+  // Referencia para reiniciar la animación secuencial al entrar y salir del viewport (once: false)
   const sectionRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(sectionRef, { once: true, amount: 0.25 })
+  const isInView = useInView(sectionRef, { once: false, amount: 0.25 })
+
+  // Contador de reinicio para resetear SVG animateMotion en cada re-entrada al viewport
+  const [animationKey, setAnimationKey] = useState(0)
+  const prevInView = useRef(false)
 
   useEffect(() => {
     setMeses(getMesesActividad())
   }, [])
+
+  useEffect(() => {
+    if (isInView && !prevInView.current) {
+      setAnimationKey((k) => k + 1)
+    }
+    prevInView.current = isInView
+  }, [isInView])
 
   const activeDestino = hoveredDestino || selectedDestino
 
@@ -74,7 +85,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
     "neuquen",
   ])
 
-  // Orden de trazado secuencial por prioridad/volumen (comenzando por San Juan con mayor volumen)
+  // Orden de trazado secuencial por prioridad/volumen (comenzando por San Juan)
   const destinosOrdenados = [...DESTINOS_OBRAS].sort((a, b) => b.obras - a.obras)
   const getOrderIndex = (id: string) => destinosOrdenados.findIndex((d) => d.id === id)
 
@@ -171,29 +182,9 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 }}
               >
                 <defs>
-                  {/* Resplandor (glow) dorado aumentado para rutas principales / alta densidad */}
-                  <filter id="glow-gold-mega" x="-40%" y="-40%" width="180%" height="180%">
-                    <feGaussianBlur stdDeviation="4.5" result="coloredBlur" />
-                    <feGaussianBlur stdDeviation="2" result="sharpBlur" />
-                    <feMerge>
-                      <feMergeNode in="coloredBlur" />
-                      <feMergeNode in="sharpBlur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-
-                  {/* Resplandor para el contorno del badge del pin de alta densidad */}
-                  <filter id="glow-pin-badge" x="-30%" y="-30%" width="160%" height="160%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-
-                  {/* Subtle glow filter for standard routes */}
+                  {/* Sutil resplandor estándar unificado en naranja */}
                   <filter id="glow-standard" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="1.5" result="blur" />
+                    <feGaussianBlur stdDeviation="2" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
@@ -222,7 +213,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                           isOrigen
                             ? "rgba(249, 115, 22, 0.22)"
                             : isDestinoActivo
-                            ? "rgba(255, 140, 0, 0.2)"
+                            ? "rgba(249, 115, 22, 0.18)"
                             : isActiva
                             ? "#1b212e"
                             : "#141720"
@@ -231,7 +222,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                           isOrigen
                             ? "#f97316"
                             : isDestinoActivo
-                            ? "#ff8c00"
+                            ? "#f97316"
                             : isActiva
                             ? "#2b3447"
                             : "#1f2636"
@@ -251,12 +242,10 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   <line x1="300" y1="50" x2="300" y2="850" strokeWidth="0.5" />
                 </g>
 
-                {/* RUTAS: TRAZADO SECUENCIAL ANIMADO CON FRAMER MOTION Y ESCALA DE ALTA DENSIDAD */}
-                <g id="rutas-layer">
+                {/* RUTAS: TRAZADO SECUENCIAL REINICIABLE Y COLOR NARANJA UNIFICADO */}
+                <g id="rutas-layer" key={`routes-${animationKey}`}>
                   {DESTINOS_OBRAS.map((destino) => {
-                    // Escala de densidad: alta densidad (2+ obras) y mega densidad (5+ o 10+ obras)
-                    const isMegaVolume = destino.obras >= 5
-                    const isHighDensity = destino.obras >= 2 || isMegaVolume
+                    const isHighVolume = destino.obras >= 2
                     const isTargeted = activeDestino?.id === destino.id
 
                     // Orden escalonado: San Juan (índice 0) comienza primero, luego las demás localidades
@@ -265,112 +254,52 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
 
                     return (
                       <g key={`route-${destino.id}`} className="transition-all duration-300">
-                        {/* 1. Underlying glow stroke para alta densidad */}
-                        {isHighDensity && (
-                          <motion.path
-                            d={destino.pathD}
-                            fill="none"
-                            stroke="#ffb700"
-                            strokeWidth={isMegaVolume ? "6.5" : "5"}
-                            strokeOpacity={isTargeted ? 0.75 : 0.45}
-                            strokeLinecap="round"
-                            filter="url(#glow-gold-mega)"
-                            initial={{ pathLength: 0, opacity: 0 }}
-                            animate={
-                              isInView
-                                ? { pathLength: 1, opacity: isTargeted ? 0.75 : 0.45 }
-                                : { pathLength: 0, opacity: 0 }
-                            }
-                            transition={{
-                              duration: isHighDensity ? 1.4 : 1.1,
-                              delay: drawDelay,
-                              ease: [0.16, 1, 0.3, 1],
-                            }}
-                          />
-                        )}
-
-                        {/* 2. Trazo continuo dibujado progresivamente desde Misiones */}
+                        {/* Trazo continuo dibujado progresivamente desde Misiones (Naranja unificado para todas) */}
                         <motion.path
                           d={destino.pathD}
                           fill="none"
-                          stroke={isHighDensity ? "#ffaa00" : "#f97316"}
-                          strokeWidth={
-                            isMegaVolume
-                              ? isTargeted
-                                ? "5"
-                                : "4.2"
-                              : isHighDensity
-                              ? isTargeted
-                                ? "4.2"
-                                : "3.5"
-                              : isTargeted
-                              ? "2.6"
-                              : "1.8"
-                          }
-                          strokeOpacity={isHighDensity ? (isTargeted ? 1 : 0.95) : isTargeted ? 0.9 : 0.65}
+                          stroke="#f97316"
+                          strokeWidth={isTargeted ? "2.6" : "1.8"}
+                          strokeOpacity={isTargeted ? 0.95 : 0.75}
                           strokeLinecap="round"
-                          filter={isHighDensity ? "url(#glow-gold-mega)" : "url(#glow-standard)"}
+                          filter="url(#glow-standard)"
                           initial={{ pathLength: 0, opacity: 0 }}
                           animate={
                             isInView
-                              ? { pathLength: 1, opacity: isHighDensity ? 0.95 : 0.65 }
+                              ? { pathLength: 1, opacity: isTargeted ? 0.95 : 0.75 }
                               : { pathLength: 0, opacity: 0 }
                           }
                           transition={{
-                            duration: isHighDensity ? 1.4 : 1.1,
+                            duration: 1.2,
                             delay: drawDelay,
                             ease: [0.16, 1, 0.3, 1],
                           }}
                         />
 
-                        {/* 3. Partículas de luz con cantidad y velocidad según volumen */}
+                        {/* Flujo de partículas: San Juan se diferencia sutilmente con dos pelotitas juntas en tándem */}
                         {isInView && (
-                          isHighDensity ? (
-                            // Múltiples partículas rápidas desfasadas para alto flujo de despachos
+                          isHighVolume ? (
+                            // San Juan: Dos pelotitas juntas que viajan en tándem por la ruta
                             <g>
-                              {/* Partícula principal blanca brillante */}
-                              <circle
-                                r={isMegaVolume ? "4" : "3.2"}
-                                fill="#ffffff"
-                                filter="url(#glow-gold-mega)"
-                              >
+                              <circle r="2.8" fill="#fed7aa">
                                 <animateMotion
                                   path={destino.pathD}
-                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
+                                  dur="3.4s"
+                                  begin="0s"
                                   repeatCount="indefinite"
                                 />
                               </circle>
-
-                              {/* Segunda partícula dorada intermedia */}
-                              <circle
-                                r={isMegaVolume ? "3.5" : "2.8"}
-                                fill="#ffea00"
-                                filter="url(#glow-gold-mega)"
-                              >
+                              <circle r="2.8" fill="#fed7aa">
                                 <animateMotion
                                   path={destino.pathD}
-                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
-                                  begin={isMegaVolume ? "0.45s" : "0.55s"}
-                                  repeatCount="indefinite"
-                                />
-                              </circle>
-
-                              {/* Tercera partícula ámbar */}
-                              <circle
-                                r={isMegaVolume ? "3" : "2.5"}
-                                fill="#ffb703"
-                                filter="url(#glow-gold-mega)"
-                              >
-                                <animateMotion
-                                  path={destino.pathD}
-                                  dur={isMegaVolume ? "1.4s" : "1.7s"}
-                                  begin={isMegaVolume ? "0.9s" : "1.1s"}
+                                  dur="3.4s"
+                                  begin="0.28s"
                                   repeatCount="indefinite"
                                 />
                               </circle>
                             </g>
                           ) : (
-                            // Partícula suave estándar para rutas de menor densidad
+                            // Rutas estándar: 1 sola pelotita suave
                             <circle r="2.5" fill="#fed7aa">
                               <animateMotion
                                 path={destino.pathD}
@@ -385,16 +314,14 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   })}
                 </g>
 
-                {/* NODOS DE DESTINOS CON ENTRADA ESCALONADA Y CONTORNO RESPLANDECIENTE */}
-                <g id="destinos-layer">
+                {/* NODOS DE DESTINOS: ESTILO Y COLOR NARANJA UNIFICADOS CON ENTRADA ESCALONADA */}
+                <g id="destinos-layer" key={`pins-${animationKey}`}>
                   {DESTINOS_OBRAS.map((destino) => {
-                    const isMegaVolume = destino.obras >= 5
-                    const isHighDensity = destino.obras >= 2 || isMegaVolume
                     const isTargeted = activeDestino?.id === destino.id
                     const { x, y } = destino.svgCoords
 
                     const orderIndex = getOrderIndex(destino.id)
-                    const pinDelay = 0.2 + orderIndex * 0.35 + 0.7
+                    const pinDelay = 0.2 + orderIndex * 0.35 + 0.65
 
                     return (
                       <motion.g
@@ -403,7 +330,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         animate={isInView ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
                         transition={{
                           delay: pinDelay,
-                          duration: 0.4,
+                          duration: 0.35,
                           type: "spring",
                           stiffness: 280,
                           damping: 22,
@@ -428,14 +355,14 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         role="button"
                         aria-label={`Ver información de ${destino.ciudad}, ${destino.provincia}`}
                       >
-                        {/* Halo estático suave en hover o selección */}
+                        {/* Halo estático suave unificado */}
                         <circle
                           cx={x}
                           cy={y}
-                          r={isHighDensity ? (isTargeted ? "14" : "10") : isTargeted ? "10" : "7"}
-                          fill={isHighDensity ? "rgba(255,183,3,0.3)" : "rgba(249,115,22,0.18)"}
-                          stroke={isHighDensity ? "#ffb703" : "#f97316"}
-                          strokeWidth={isHighDensity ? "1.8" : "1"}
+                          r={isTargeted ? "11" : "8"}
+                          fill="rgba(249,115,22,0.2)"
+                          stroke="#f97316"
+                          strokeWidth={isTargeted ? "1.6" : "1"}
                           className="transition-all duration-200"
                         />
 
@@ -443,48 +370,31 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         <circle
                           cx={x}
                           cy={y}
-                          r={isHighDensity ? "5.5" : "3.8"}
-                          fill={isHighDensity ? "#ffb703" : "#f97316"}
+                          r="4"
+                          fill="#f97316"
                           stroke="#ffffff"
                           strokeWidth="1.2"
-                          filter={isHighDensity ? "url(#glow-gold-mega)" : "none"}
                         />
 
-                        {/* Etiqueta compacta en el mapa con contorno resplandeciente para alta densidad */}
+                        {/* Etiqueta compacta en el mapa (Diseño y tipografía armonizados) */}
                         <g transform={`translate(${x}, ${y - 12})`}>
-                          {/* Contorno exterior resplandeciente para rutas principales */}
-                          {isHighDensity && (
-                            <rect
-                              x="-44"
-                              y="-16"
-                              width="88"
-                              height="20"
-                              rx="10"
-                              fill="none"
-                              stroke="#ffc107"
-                              strokeWidth="1.8"
-                              filter="url(#glow-pin-badge)"
-                              opacity="0.9"
-                            />
-                          )}
-
                           <rect
-                            x={isHighDensity ? "-42" : "-34"}
+                            x="-36"
                             y="-14"
-                            width={isHighDensity ? "84" : "68"}
+                            width="72"
                             height="16"
                             rx="8"
-                            fill={isHighDensity ? "#211608" : "#12151e"}
-                            stroke={isHighDensity ? "#ffb703" : isTargeted ? "#f97316" : "#2a3346"}
-                            strokeWidth={isHighDensity ? "1.8" : "0.8"}
+                            fill="#12151e"
+                            stroke={isTargeted ? "#f97316" : "#2a3346"}
+                            strokeWidth={isTargeted ? "1.2" : "0.8"}
                           />
                           <text
                             x="0"
                             y="-3"
                             textAnchor="middle"
-                            fill={isHighDensity ? "#ffea00" : "#e2e8f0"}
-                            fontSize={isHighDensity ? "8.8" : "7.5"}
-                            fontWeight="bold"
+                            fill={isTargeted ? "#f97316" : "#e2e8f0"}
+                            fontSize="7.8"
+                            fontWeight="600"
                             fontFamily="monospace"
                           >
                             {destino.ciudad} ({destino.obras})
@@ -498,9 +408,10 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 {/* ORIGEN MISIONES (FÁBRICA CENTRAL) */}
                 <motion.g
                   id="origen-misiones"
+                  key={`origen-${animationKey}`}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={isInView ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.5, type: "spring", stiffness: 300, damping: 20 }}
+                  transition={{ duration: 0.4, type: "spring", stiffness: 300, damping: 20 }}
                   className="cursor-pointer"
                   onMouseEnter={() => {
                     setShowOrigenInfo(true)
@@ -610,14 +521,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                       </span>
                     </div>
 
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase",
-                        activeDestino.obras >= 2
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                          : "bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30",
-                      )}
-                    >
+                    <span className="shrink-0 rounded-full bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30 px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
                       {activeDestino.obras === 1 ? "1 Obra" : `${activeDestino.obras} Obras`}
                     </span>
                   </div>
