@@ -41,9 +41,8 @@ export interface DestinoObra {
   }
   pathD: string // Arco Bézier desde el origen
   distanciaKm: number
-  tipoObra: string
-  descripcion: string
-  año: number
+  tipoEstructura: string
+  etiquetaClimatica?: string
 }
 
 /**
@@ -75,7 +74,7 @@ export const ORIGEN_SANSER: UbicacionOrigen = {
     x: 525.6,
     y: 121.7,
   },
-  descripcion: "Planta industrial de corte, perfilado, reticulado y armado con despacho a todo el país.",
+  descripcion: "Planta industrial central - Perfiles C conformados y reticulados.",
   badge: "Fábrica Matriz",
 }
 
@@ -85,16 +84,15 @@ export const ORIGEN_SANSER: UbicacionOrigen = {
 export const DESTINOS_OBRAS: DestinoObra[] = [
   {
     id: "san-juan",
-    ciudad: "San Juan Capital",
+    ciudad: "San Juan",
     provincia: "San Juan",
     obras: 2,
     coordenadas: { lat: -31.5375, lng: -68.5364 },
     svgCoords: { x: 162.6, y: 224.9 },
     pathD: "M 525.6 121.7 Q 325.5 108 162.6 224.9",
     distanciaKm: 1580,
-    tipoObra: "Galpones Reticulados a Dos Aguas",
-    descripcion: "2 estructuras metálicas completas fabricadas a medida con traslado y montaje especializado.",
-    año: 2026,
+    tipoEstructura: "Galpones Reticulados 20x45m a 2 Aguas",
+    etiquetaClimatica: "Zona sísmica y vientos cordilleranos",
   },
   {
     id: "cordoba",
@@ -105,9 +103,8 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 281.2, y: 222.1 },
     pathD: "M 525.6 121.7 Q 385.3 127.9 281.2 222.1",
     distanciaKm: 1120,
-    tipoObra: "Nave Industrial Comercial",
-    descripcion: "Tinglado en perfil C reticulado para almacenamiento logístico y distribución.",
-    año: 2026,
+    tipoEstructura: "Nave Industrial 15x35m en Perfil C",
+    etiquetaClimatica: "Zona llanura pampeana",
   },
   {
     id: "mar-del-plata",
@@ -118,9 +115,8 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 462.1, y: 382.5 },
     pathD: "M 525.6 121.7 Q 446.9 240.7 462.1 382.5",
     distanciaKm: 1480,
-    tipoObra: "Galpón Industrial Costero",
-    descripcion: "Estructura con tratamiento anticorrosivo especial para zona marítima y vientos costeros.",
-    año: 2026,
+    tipoEstructura: "Galpón 12x25m a 2 Aguas",
+    etiquetaClimatica: "Apto zona de vientos y ambiente costero",
   },
   {
     id: "trenque-lauquen",
@@ -131,9 +127,8 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 320.9, y: 331.6 },
     pathD: "M 525.6 121.7 Q 385.5 189.8 320.9 331.6",
     distanciaKm: 1340,
-    tipoObra: "Tinglado Agropecuario",
-    descripcion: "Nave para resguardo de maquinaria y granos con luces libres sin columnas intermedias.",
-    año: 2026,
+    tipoEstructura: "Tinglado Agropecuario 18x30m a 2 Aguas",
+    etiquetaClimatica: "Apto zona de vientos pampeanos",
   },
   {
     id: "neuquen",
@@ -144,9 +139,8 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 175.7, y: 406.7 },
     pathD: "M 525.6 121.7 Q 299.3 201.2 175.7 406.7",
     distanciaKm: 1950,
-    tipoObra: "Galpón Comercial Patagónico",
-    descripcion: "Estructura reforzada para sobrecargas de viento y clima riguroso en el norte patagónico.",
-    año: 2026,
+    tipoEstructura: "Tinglado Comercial 15x30m a 2 Aguas",
+    etiquetaClimatica: "Apto sobrecarga de viento patagónico",
   },
 ]
 
