@@ -41,7 +41,8 @@ export interface DestinoObra {
   }
   pathD: string // Arco Bézier desde el origen
   distanciaKm: number
-  tipoEstructura: string
+  estructuras: string[]
+  tipoEstructura?: string
 }
 
 /**
@@ -90,7 +91,11 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 162.6, y: 224.9 },
     pathD: "M 525.6 121.7 Q 325.5 108 162.6 224.9",
     distanciaKm: 1580,
-    tipoEstructura: "Galpones Reticulados 20x45m a 2 Aguas",
+    estructuras: [
+      "Tinglado 10x15m a 2 Aguas",
+      "Tinglado 10x20m a 1 Agua",
+    ],
+    tipoEstructura: "Tinglados Reticulados (2 Obras)",
   },
   {
     id: "cordoba",
@@ -101,6 +106,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 281.2, y: 222.1 },
     pathD: "M 525.6 121.7 Q 385.3 127.9 281.2 222.1",
     distanciaKm: 1120,
+    estructuras: [
+      "Nave Industrial 15x35m en Perfil C",
+    ],
     tipoEstructura: "Nave Industrial 15x35m en Perfil C",
   },
   {
@@ -112,6 +120,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 462.1, y: 382.5 },
     pathD: "M 525.6 121.7 Q 446.9 240.7 462.1 382.5",
     distanciaKm: 1480,
+    estructuras: [
+      "Galpón 12x25m a 2 Aguas",
+    ],
     tipoEstructura: "Galpón 12x25m a 2 Aguas",
   },
   {
@@ -123,6 +134,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 320.9, y: 331.6 },
     pathD: "M 525.6 121.7 Q 385.5 189.8 320.9 331.6",
     distanciaKm: 1340,
+    estructuras: [
+      "Tinglado Agropecuario 18x30m a 2 Aguas",
+    ],
     tipoEstructura: "Tinglado Agropecuario 18x30m a 2 Aguas",
   },
   {
@@ -134,6 +148,9 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
     svgCoords: { x: 175.7, y: 406.7 },
     pathD: "M 525.6 121.7 Q 299.3 201.2 175.7 406.7",
     distanciaKm: 1950,
+    estructuras: [
+      "Tinglado Comercial 15x30m a 2 Aguas",
+    ],
     tipoEstructura: "Tinglado Comercial 15x30m a 2 Aguas",
   },
 ]

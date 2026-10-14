@@ -12,7 +12,6 @@ import {
   DESTINOS_OBRAS,
   PROVINCIAS_ARGENTINA,
   TOTAL_OBRAS,
-  TOTAL_DESTINOS,
   getMesesActividad,
   DestinoObra,
 } from "@/lib/data/obras-mapa"
@@ -20,6 +19,33 @@ import { cn } from "@/lib/utils"
 
 interface MapaFederalProps {
   onGoEditor?: () => void
+}
+
+/**
+ * Calcula el offset y transform para que el popover flote pegado al nodo sin cortarse por los bordes
+ */
+function getTooltipStyle(x: number, y: number) {
+  let translateX = "-50%"
+  let translateY = "calc(-100% - 14px)"
+
+  // Si está muy a la derecha (ej. Misiones o Mar del Plata), orientar el popover hacia la izquierda
+  if (x > 390) {
+    translateX = "-88%"
+  } else if (x < 210) {
+    // Si está muy a la izquierda (ej. San Juan o Neuquén), orientar hacia la derecha
+    translateX = "-12%"
+  }
+
+  // Si está cerca del borde superior (ej. Misiones), ubicar el popover debajo del nodo
+  if (y < 160) {
+    translateY = "16px"
+  }
+
+  return {
+    left: `${(x / 600) * 100}%`,
+    top: `${(y / 900) * 100}%`,
+    transform: `translate(${translateX}, ${translateY})`,
+  }
 }
 
 export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
@@ -34,7 +60,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
 
   const activeDestino = hoveredDestino || selectedDestino
 
-  // Provincias con presencia activa para resaltarlas sutilmente
+  // Provincias con presencia activa para resaltarlas con sutil tono
   const provinciasActivas = new Set([
     "misiones",
     "san-juan",
@@ -64,7 +90,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
       />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
-        {/* ENCABEZADO CENTRADO CON MÉTRICA MINIMALISTA */}
+        {/* ENCABEZADO CENTRADO CON MÉTRICA CON JERARQUÍA */}
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#F97316]/30 bg-[#1e2330] px-3.5 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F97316]">
             <Truck className="size-3.5" />
@@ -81,19 +107,29 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
             diseñamos y producimos tinglados reticulados con despacho directo a cualquier provincia argentina.
           </p>
 
-          {/* BADGE MINIMALISTA: 7 Meses de Actividad Ininterrumpida • 6 Obras */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-[#F97316]/30 bg-[#151922]/90 px-4 py-2 font-mono text-xs text-gray-200 shadow-lg shadow-black/40 backdrop-blur-md">
-              <span className="flex size-2 rounded-full bg-[#F97316]" />
-              <span>
-                <strong className="text-[#F97316] font-semibold">{meses} Meses</strong> de Actividad Ininterrumpida
+          {/* BADGE CENTRAL DE TRAYECTORIA CON MAYOR JERARQUÍA Y PADDING */}
+          <div className="mt-7 flex flex-wrap items-center justify-center">
+            <div className="inline-flex items-center gap-3 sm:gap-4 rounded-full border border-[#F97316]/40 bg-gradient-to-r from-[#171b26]/95 via-[#1a1f2c]/95 to-[#171b26]/95 px-5 sm:px-7 py-2.5 sm:py-3 font-mono text-xs sm:text-sm text-gray-200 shadow-xl shadow-black/50 backdrop-blur-md ring-1 ring-[#F97316]/20">
+              <span className="flex size-2.5 rounded-full bg-[#F97316] shadow-sm shadow-[#F97316]" />
+
+              <span className="flex items-baseline gap-1.5">
+                <span className="text-xl sm:text-2xl font-bold font-mono text-[#F97316] leading-none">
+                  {meses}
+                </span>
+                <span className="font-semibold text-white">Meses</span>
+                <span className="text-muted-foreground hidden sm:inline">de Actividad Ininterrumpida</span>
               </span>
-              <span className="text-gray-500">•</span>
+
+              <span className="text-gray-600 font-bold">•</span>
+
               <span>
-                <strong className="text-white font-semibold">{TOTAL_OBRAS} Obras</strong> Entregadas
+                <strong className="text-white font-semibold">{TOTAL_OBRAS} Obras</strong>{" "}
+                <span className="text-muted-foreground hidden sm:inline">Entregadas</span>
               </span>
-              <span className="text-gray-500">•</span>
-              <span className="text-gray-400">
+
+              <span className="text-gray-600 font-bold hidden sm:inline">•</span>
+
+              <span className="text-gray-400 text-xs hidden sm:inline">
                 Desde el 9 de marzo
               </span>
             </div>
@@ -103,26 +139,17 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
         {/* MAPA FEDERAL: CUADRO PRINCIPAL CENTRADO */}
         <div className="mt-12 mx-auto max-w-4xl w-full">
           <div className="relative rounded-2xl border border-border/70 bg-[#0f121a] p-4 sm:p-8 shadow-2xl shadow-black/80 overflow-hidden">
-            {/* Technical HUD tags */}
+            {/* Technical HUD tag */}
             <div className="pointer-events-none absolute top-4 left-4 sm:top-5 sm:left-6 flex items-center gap-2 font-mono text-[11px] text-muted-foreground uppercase tracking-widest">
               <Compass className="size-3.5 text-[#F97316]" />
               <span>Mapa Federal de Entregas</span>
             </div>
 
-            <div className="pointer-events-none absolute top-4 right-4 sm:top-5 sm:right-6 hidden sm:flex items-center gap-4 font-mono text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#f97316]" /> 1 Venta
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full bg-[#ff8c00] ring-1 ring-[#ff8c00]/50" /> 2+ Ventas (Volumen)
-              </span>
-            </div>
-
-            {/* SVG MAP */}
-            <div className="relative mt-8 sm:mt-10 flex justify-center items-center">
+            {/* CONTENEDOR DEL MAPA CON ASPECT RATIO EXACTO PARA POPOVERS RELATIVOS */}
+            <div className="relative mx-auto mt-8 sm:mt-10 w-full max-w-[540px] aspect-[2/3]">
               <svg
                 viewBox="0 0 600 900"
-                className="w-full h-auto max-h-[760px] select-none"
+                className="w-full h-full select-none"
                 style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))" }}
               >
                 <defs>
@@ -203,7 +230,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
 
                     return (
                       <g key={`route-${destino.id}`} className="transition-all duration-300">
-                        {/* Trazo continuo elegante */}
+                        {/* Trazo continuo */}
                         <path
                           d={destino.pathD}
                           fill="none"
@@ -231,7 +258,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   })}
                 </g>
 
-                {/* NODOS DE DESTINOS (SIN AROS RADIALES CONSTANTES) */}
+                {/* NODOS DE DESTINOS (SIN RADAR CONSTANTE) */}
                 <g id="destinos-layer">
                   {DESTINOS_OBRAS.map((destino) => {
                     const isHighVolume = destino.obras >= 2
@@ -305,7 +332,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                   })}
                 </g>
 
-                {/* ORIGEN MISIONES (FÁBRICA CENTRAL - LIMPIO Y SUTIL) */}
+                {/* ORIGEN MISIONES (FÁBRICA CENTRAL) */}
                 <g
                   id="origen-misiones"
                   className="cursor-pointer"
@@ -375,38 +402,52 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                 </g>
               </svg>
 
-              {/* TOOLTIP SUTIL FLOTANTE AL PASAR SOBRE MISIONES */}
+              {/* TOOLTIP EMERGENTE RELATIVO AL NODO DE MISIONES */}
               {showOrigenInfo && !activeDestino && (
                 <div
-                  className="absolute pointer-events-none rounded-md border border-[#F97316]/60 bg-[#16120b]/95 px-3 py-1.5 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95"
-                  style={{
-                    top: "8%",
-                    right: "6%",
-                  }}
+                  className="absolute z-30 pointer-events-auto w-[230px] sm:w-[250px] rounded-xl border border-[#F97316]/60 bg-[#14120f]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
+                  style={getTooltipStyle(ORIGEN_SANSER.svgCoords.x, ORIGEN_SANSER.svgCoords.y)}
                 >
-                  <p className="font-mono text-xs font-semibold text-white whitespace-nowrap">
-                    Fábrica Central <span className="text-[#F97316]">|</span> Jardín América, Misiones
+                  <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Factory className="size-3.5 text-[#F97316] shrink-0" />
+                      <span className="font-display text-sm font-700 uppercase tracking-wide text-white">
+                        Fábrica Central
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowOrigenInfo(false)}
+                      className="text-[10px] text-gray-400 hover:text-white cursor-pointer"
+                      aria-label="Cerrar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="mt-1.5 font-mono text-xs font-semibold text-[#F97316]">
+                    Jardín América, Misiones
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] text-gray-300 leading-relaxed">
+                    Planta matriz de cálculo, fabricación y logística a todo el país.
                   </p>
                 </div>
               )}
 
-              {/* CONTENEDOR DE INFORMACIÓN DE OBRAS: FIJADO LIMPIAMENTE EN ESQUINA INFERIOR IZQUIERDA */}
-              <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-20 pointer-events-auto w-[250px] sm:w-[280px] rounded-xl border border-border/70 bg-[#10131d]/95 p-3.5 shadow-2xl backdrop-blur-md transition-all duration-200">
-                {activeDestino ? (
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="size-3.5 text-[#F97316] shrink-0" />
-                          <h4 className="font-display text-base font-700 uppercase tracking-wide text-white">
-                            {activeDestino.ciudad}
-                          </h4>
-                        </div>
-                        <p className="text-[11px] font-mono text-[#F97316] uppercase tracking-wider mt-0.5">
-                          {activeDestino.provincia}
-                        </p>
-                      </div>
+              {/* TOOLTIP EMERGENTE RELATIVO AL NODO DESTINO CON DESGLOSE DE OBRAS */}
+              {activeDestino && (
+                <div
+                  className="absolute z-30 pointer-events-auto w-[230px] sm:w-[260px] rounded-xl border border-[#F97316]/50 bg-[#121520]/95 p-3.5 shadow-2xl shadow-black/90 backdrop-blur-md transition-all duration-200 animate-in fade-in zoom-in-95"
+                  style={getTooltipStyle(activeDestino.svgCoords.x, activeDestino.svgCoords.y)}
+                >
+                  {/* Encabezado del Popover */}
+                  <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MapPin className="size-3.5 text-[#F97316] shrink-0" />
+                      <span className="font-display text-sm font-700 uppercase tracking-wide text-white truncate">
+                        {activeDestino.ciudad}
+                      </span>
+                    </div>
 
+                    <div className="flex items-center gap-2">
                       <span
                         className={cn(
                           "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase",
@@ -417,58 +458,37 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                       >
                         {activeDestino.obras === 1 ? "1 Obra" : `${activeDestino.obras} Obras`}
                       </span>
-                    </div>
-
-                    <div className="mt-2.5 space-y-1.5 border-t border-border/40 pt-2 font-mono text-xs">
-                      <div>
-                        <span className="text-[10px] text-muted-foreground uppercase block">Estructura</span>
-                        <span className="text-gray-200 font-semibold text-[11px] sm:text-xs">
-                          {activeDestino.tipoEstructura}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/20">
-                        <span>Distancia:</span>
-                        <span className="text-gray-300">
-                          ~{activeDestino.distanciaKm.toLocaleString("es-AR")} km desde fábrica
-                        </span>
-                      </div>
-                    </div>
-
-                    {selectedDestino && (
-                      <div className="mt-2 flex justify-end">
+                      {selectedDestino && (
                         <button
                           onClick={() => setSelectedDestino(null)}
-                          className="text-[10px] font-mono text-gray-400 hover:text-white underline cursor-pointer"
+                          className="text-[10px] text-gray-400 hover:text-white cursor-pointer"
+                          aria-label="Cerrar"
                         >
-                          Cerrar
+                          ✕
                         </button>
-                      </div>
-                    )}
-                  </div>
-                ) : showOrigenInfo ? (
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Factory className="size-4 text-[#F97316] shrink-0" />
-                      <div>
-                        <h4 className="font-display text-sm font-700 uppercase text-white">
-                          Fábrica Central
-                        </h4>
-                        <p className="text-[11px] font-mono text-[#F97316]">
-                          Jardín América, Misiones
-                        </p>
-                      </div>
+                      )}
                     </div>
-                    <p className="mt-2 text-[11px] font-mono text-muted-foreground border-t border-border/40 pt-1.5">
-                      Planta matriz de cálculo, fabricación y logística a todo el país.
-                    </p>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground py-0.5">
-                    <Compass className="size-3.5 text-[#F97316] shrink-0" />
-                    <span className="text-[11px]">Pasá el cursor o tocá un destino para ver el detalle de obra</span>
+
+                  {/* Desglose de obras */}
+                  <div className="mt-2 space-y-1 text-xs font-mono">
+                    {activeDestino.estructuras.map((est, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-gray-200">
+                        <span className="text-[#F97316] text-[11px] leading-snug">•</span>
+                        <span className="leading-snug">{est}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+
+                  {/* Distancia */}
+                  <div className="mt-2.5 pt-1.5 border-t border-border/30 text-[11px] font-mono text-muted-foreground flex items-center justify-between">
+                    <span className="text-gray-400">Distancia:</span>
+                    <span className="text-gray-200">
+                      ~{activeDestino.distanciaKm.toLocaleString("es-AR")} km desde fábrica
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
