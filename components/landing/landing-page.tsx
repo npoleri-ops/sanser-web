@@ -45,6 +45,7 @@ const SERVICIOS = [
 ]
 
 import { ObrasSection } from "@/components/landing/obras-section"
+import { MapaFederal } from "@/components/landing/mapa-federal"
 
 export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
   const [canRender3D, setCanRender3D] = useState(false);
@@ -159,6 +160,9 @@ export function LandingPage({ onGoEditor }: { onGoEditor: () => void }) {
 
       {/* OBRAS */}
       <ObrasSection onGoEditor={onGoEditor} />
+
+      {/* ENVÍOS Y MONTAJES A TODO EL PAÍS - MAPA FEDERAL */}
+      <MapaFederal onGoEditor={onGoEditor} />
 
       <ContactForm />
       <Footer />
