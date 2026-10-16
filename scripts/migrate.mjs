@@ -1,6 +1,14 @@
-// Aplica db/schema.sql contra DATABASE_URL. Idempotente.
-import { readFileSync } from "node:fs"
+import { readFileSync, existsSync } from "node:fs"
 import { Client } from "pg"
+
+for (const envFile of [".env.local", ".env"]) {
+  if (existsSync(envFile)) {
+    try {
+      process.loadEnvFile(envFile)
+      break
+    } catch {}
+  }
+}
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
