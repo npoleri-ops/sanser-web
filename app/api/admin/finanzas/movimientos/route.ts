@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
 import { crearMovimiento, listMovimientos, obrasImputables } from "@/lib/finanzas/movimientos"
 import { DEFAULT_PER_PAGE_FIN, TIPOS, type Tipo } from "@/lib/finanzas/types"
+import { leerFiltro } from "@/lib/finanzas/filtro"
 
 const MAX_PER_PAGE = 500
 const ES_FECHA = /^\d{4}-\d{2}-\d{2}$/
@@ -10,22 +11,11 @@ export async function GET(req: Request) {
   if (!(await isAuthenticated())) return NextResponse.json({ ok: false }, { status: 401 })
 
   const p = new URL(req.url).searchParams
-  const tipo = p.get("tipo")
-  const desde = p.get("desde")
-  const hasta = p.get("hasta")
-
   const page = Math.max(1, Number(p.get("page")) || 1)
   const perPage = Math.min(MAX_PER_PAGE, Math.max(1, Number(p.get("perPage")) || DEFAULT_PER_PAGE_FIN))
 
   const { movimientos, total } = await listMovimientos(
-    {
-      tipo: TIPOS.includes(tipo as Tipo) ? (tipo as Tipo) : undefined,
-      desde: desde && ES_FECHA.test(desde) ? desde : undefined,
-      hasta: hasta && ES_FECHA.test(hasta) ? hasta : undefined,
-      search: p.get("search") || undefined,
-      leadId: /^\d+$/.test(p.get("leadId") ?? "") ? p.get("leadId")! : undefined,
-      sinComprobante: p.get("sinComprobante") === "1",
-    },
+    leerFiltro(p),
     { limit: perPage, offset: (page - 1) * perPage },
   )
 
@@ -51,6 +41,8 @@ export async function POST(req: Request) {
     proveedor: body.proveedor ?? null,
     notas: body.notas ?? null,
     leadId: body.leadId ?? null,
+    pagado: typeof body.pagado === "boolean" ? body.pagado : undefined,
+    cuotas: body.cuotas ? Number(body.cuotas) : null,
   })
 
   return NextResponse.json({ ok: true, movimiento }, { status: 201 })
@@ -66,3 +58,4 @@ function validar(body: Record<string, unknown> | null): string | null {
   if (!Number.isFinite(monto) || monto <= 0) return "El monto tiene que ser mayor que cero"
   return null
 }
+

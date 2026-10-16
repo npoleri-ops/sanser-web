@@ -187,3 +187,23 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone_key TEXT
 
 CREATE INDEX IF NOT EXISTS leads_phone_key_idx ON leads (phone_key)
   WHERE phone_key IS NOT NULL;
+
+-- ─────────────────────────────────────────── pagos: lo comprado y lo pagado
+
+-- Comprar y pagar no siempre son el mismo día. La chapa con tarjeta se compra
+-- hoy y se paga con el resumen; el proveedor con cuenta corriente, a fin de
+-- mes. `fecha` sigue siendo la de la compra —el mes en que se gastó— y esto
+-- dice si ya salió la plata y cuándo.
+--
+-- Por defecto «pagado»: todo lo cargado hasta ahora se anotó al pagarlo, y
+-- marcarlo pendiente de golpe inventaría deudas que no existen.
+ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS pagado    BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS pagado_en DATE;
+-- En cuántas cuotas se pagó con tarjeta. Sólo informativo: el gasto cuenta
+-- entero en el mes de la compra, que es cuando se decidió.
+ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS cuotas    SMALLINT
+  CHECK (cuotas IS NULL OR cuotas BETWEEN 1 AND 48);
+
+-- La consulta de todos los días es «lo que falta pagar»: índice sólo de eso.
+CREATE INDEX IF NOT EXISTS fin_mov_pendientes_idx ON fin_movimientos (fecha)
+  WHERE NOT pagado;

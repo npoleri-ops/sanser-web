@@ -1,11 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Cargar } from "./cargar"
 import {
   ArrowLeft,
+  Check,
+  ChevronDown,
+  Clock,
   Download,
   Filter,
   Paperclip,
@@ -19,9 +22,12 @@ import {
 import {
   CATEGORIAS_SUGERIDAS,
   MEDIOS_PAGO,
+  NACE_PENDIENTE,
   TIPOS,
   TIPO_LABEL,
   type Comprobante,
+  type CostoTinglado,
+  type EstadoPago,
   type GastoFijo,
   type Movimiento,
   type Proyeccion,
@@ -67,6 +73,7 @@ interface Props {
   initialResumen: Resumen
   initialSerie: SerieMes[]
   initialObrasRent: RentabilidadObra[]
+  initialCostoTinglado: CostoTinglado
   initialProyeccion: Proyeccion
   initialFijos: GastoFijo[]
   initialObras: { id: string; etiqueta: string }[]
@@ -83,6 +90,7 @@ export function FinanzasBoard(props: Props) {
   const [proyeccion, setProyeccion] = useState(props.initialProyeccion)
   const [fijos, setFijos] = useState(props.initialFijos)
   const [espacio, setEspacio] = useState(props.initialEspacio)
+  const [costoTinglado, setCostoTinglado] = useState(props.initialCostoTinglado)
   const obras = props.initialObras
 
   const [desde, setDesde] = useState(props.initialResumen.desde)
@@ -90,6 +98,11 @@ export function FinanzasBoard(props: Props) {
   const [tipo, setTipo] = useState<Tipo | "">("")
   const [search, setSearch] = useState("")
   const [sinComprobante, setSinComprobante] = useState(false)
+  // Pagado o pendiente, con qué se pagó y si le falta la obra: lo que hace falta
+  // para «¿qué debo de la tarjeta?» y «¿qué gasto de producción no asigné?».
+  const [pago, setPago] = useState<EstadoPago | "">("")
+  const [medioFiltro, setMedioFiltro] = useState("")
+  const [sinObra, setSinObra] = useState(false)
   const [page, setPage] = useState(1)
 
   // Arranca en «Cargar» a propósito: lo que se hace veinte veces por semana es
@@ -107,6 +120,9 @@ export function FinanzasBoard(props: Props) {
       if (tipo) q.set("tipo", tipo)
       if (search) q.set("search", search)
       if (sinComprobante) q.set("sinComprobante", "1")
+      if (pago) q.set("pago", pago)
+      if (medioFiltro) q.set("medioPago", medioFiltro)
+      if (sinObra) q.set("sinObra", "1")
 
       const res = await fetch(`/api/admin/finanzas/movimientos?${q}`)
       const data = await res.json()
@@ -117,7 +133,16 @@ export function FinanzasBoard(props: Props) {
     } finally {
       setLoading(false)
     }
-  }, [page, props.perPage, desde, hasta, tipo, search, sinComprobante])
+  }, [page, props.perPage, desde, hasta, tipo, search, sinComprobante, pago, medioFiltro, sinObra])
+
+  /** Los filtros nuevos, en el formato de la URL. Los usa también «marcar pagados». */
+  function filtrosExtra(): [string, string][] {
+    const f: [string, string][] = []
+    if (pago) f.push(["pago", pago])
+    if (medioFiltro) f.push(["medioPago", medioFiltro])
+    if (sinObra) f.push(["sinObra", "1"])
+    return f
+  }
 
   // Recibe el período por parámetro en vez de leerlo del estado: se llama justo
   // después de un setState y con el valor de fuera todavía sería el viejo.
@@ -130,6 +155,7 @@ export function FinanzasBoard(props: Props) {
     setObrasRent(data.obras)
     setProyeccion(data.proyeccion)
     setEspacio(data.espacio)
+    setCostoTinglado(data.costoTinglado)
   }, [])
 
   const refrescar = useCallback(async () => {
@@ -155,7 +181,7 @@ export function FinanzasBoard(props: Props) {
 
   function exportarCSV() {
     const filas = [
-      ["Fecha", "Tipo", "Concepto", "Categoría", "Monto", "Medio", "Proveedor", "Obra", "Comprobantes", "Notas"],
+      ["Fecha", "Tipo", "Concepto", "Categoría", "Monto", "Medio", "Cuotas", "Pagado", "Fecha de pago", "Proveedor", "Obra", "Comprobantes", "Notas"],
       ...movimientos.map(m => [
         m.fecha,
         TIPO_LABEL[m.tipo],
@@ -163,6 +189,9 @@ export function FinanzasBoard(props: Props) {
         m.categoria ?? "",
         m.monto,
         m.medio_pago ?? "",
+        m.cuotas ?? "",
+        m.tipo === "ingreso" ? "" : m.pagado ? "Sí" : "No",
+        m.pagado_en ?? "",
         m.proveedor ?? "",
         m.lead_numero ?? m.lead_titulo ?? "",
         String(m.comprobantes?.length ?? 0),
@@ -181,6 +210,10 @@ export function FinanzasBoard(props: Props) {
   }
 
   const paginas = Math.max(1, Math.ceil(total / props.perPage))
+
+  function irAMovimientos() {
+    requestAnimationFrame(() => document.getElementById("movimientos")?.scrollIntoView({ behavior: "smooth" }))
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
@@ -246,21 +279,51 @@ export function FinanzasBoard(props: Props) {
         </Campo>
         <div className="flex gap-1">
           {atajos().map(a => (
-            <Button key={a.label} variant="outline" size="sm"
+            <Button key={a.label} variant={desde === a.desde && hasta === a.hasta ? "default" : "outline"} size="sm"
               onClick={() => cambiarPeriodo(a.desde, a.hasta)}>
               {a.label}
             </Button>
           ))}
         </div>
+        {/* Un mes concreto, de un toque: «¿cuánto gastamos en agosto?» es la
+            pregunta de todos los días, y con desde/hasta eran dos fechas a mano. */}
+        <div className="flex w-full flex-wrap gap-1 border-t border-border/60 pt-3" role="group" aria-label="Elegir un mes">
+          {ultimosMeses(12).map(mes => {
+            const activo = desde === mes.desde && hasta === mes.hasta
+            return (
+              <button
+                key={mes.desde}
+                onClick={() => cambiarPeriodo(mes.desde, mes.hasta)}
+                aria-pressed={activo}
+                className={`rounded-md border px-2.5 py-1 text-xs capitalize transition-colors ${
+                  activo ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {mes.etiqueta}
+              </button>
+            )
+          })}
+        </div>
       </section>
 
       <Indicadores resumen={resumen} />
+      <Pendientes
+        resumen={resumen}
+        onVer={() => { setPago("pendiente"); setPage(1); irAMovimientos() }}
+        onVerTarjeta={() => { setPago("pendiente"); setMedioFiltro("Tarjeta"); setPage(1); irAMovimientos() }}
+      />
       <Proyecciones proyeccion={proyeccion} />
       <Tendencia serie={serie} />
-      <Obras obras={obrasRent} />
+      <Obras
+        obras={obrasRent}
+        costo={costoTinglado}
+        sinObra={resumen.produccionSinObra}
+        sinObraN={resumen.produccionSinObraN}
+        onVerSinObra={() => { setSinObra(true); setTipo(""); setPage(1); irAMovimientos() }}
+      />
 
       {/* ───────────────────────────────────────────────── movimientos */}
-      <section className="mt-8">
+      <section className="mt-8" id="movimientos">
         <div className="mb-3 flex flex-wrap items-end gap-3">
           <h2 className="mr-auto font-heading text-lg font-bold uppercase tracking-wide">Movimientos</h2>
           <div className="relative">
@@ -276,6 +339,15 @@ export function FinanzasBoard(props: Props) {
             <option value="">Todos los tipos</option>
             {TIPOS.map(t => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
           </select>
+          <select value={pago} onChange={e => { setPago(e.target.value as EstadoPago | ""); setPage(1) }} className={inputCls} aria-label="Pago">
+            <option value="">Pagados y pendientes</option>
+            <option value="pendiente">Falta pagar</option>
+            <option value="pagado">Pagados</option>
+          </select>
+          <select value={medioFiltro} onChange={e => { setMedioFiltro(e.target.value); setPage(1) }} className={inputCls} aria-label="Medio de pago">
+            <option value="">Cualquier medio</option>
+            {MEDIOS_PAGO.map(mp => <option key={mp} value={mp}>{mp}</option>)}
+          </select>
           <Button
             variant={sinComprobante ? "default" : "outline"}
             size="sm"
@@ -283,7 +355,30 @@ export function FinanzasBoard(props: Props) {
           >
             <Filter /> Sin comprobante
           </Button>
+          <Button
+            variant={sinObra ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setSinObra(v => !v); setPage(1) }}
+            title="Gastos de producción que todavía no tienen obra"
+          >
+            <Filter /> Producción sin obra
+          </Button>
         </div>
+
+        {pago === "pendiente" && total > 0 && (
+          <PagarTodos
+            total={total}
+            filtro={() => {
+              const q = new URLSearchParams({ desde, hasta })
+              if (tipo) q.set("tipo", tipo)
+              if (search) q.set("search", search)
+              if (sinComprobante) q.set("sinComprobante", "1")
+              for (const [k, v] of filtrosExtra()) q.set(k, v)
+              return q.toString()
+            }}
+            onHecho={async n => { setAviso(`${n} gastos marcados como pagados.`); await refrescar() }}
+          />
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
@@ -294,18 +389,19 @@ export function FinanzasBoard(props: Props) {
                 <th className="px-3 py-2">Concepto</th>
                 <th className="px-3 py-2">Obra</th>
                 <th className="px-3 py-2 text-right">Monto</th>
+                <th className="px-3 py-2">Pago</th>
                 <th className="px-3 py-2">Comprobante</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {movimientos.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   No hay movimientos con esos filtros.
                 </td></tr>
               )}
               {movimientos.map(m => (
-                <Fila key={m.id} m={m} onCambio={refrescar} onAviso={setAviso} />
+                <Fila key={m.id} m={m} obras={obras} onCambio={refrescar} onAviso={setAviso} />
               ))}
             </tbody>
           </table>
@@ -372,6 +468,18 @@ function atajos() {
     { label: "Mes pasado", desde: iso(new Date(y, m - 1, 1)), hasta: iso(new Date(y, m, 0)) },
     { label: "Año", desde: `${y}-01-01`, hasta: iso(new Date(y, 11, 31)) },
   ]
+}
+
+/** Los últimos `n` meses, del más nuevo al más viejo, como períodos de un mes entero. */
+function ultimosMeses(n: number) {
+  const hoy = new Date()
+  const iso = (d: Date) => d.toLocaleDateString("en-CA")
+  return Array.from({ length: n }, (_, i) => {
+    const inicio = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
+    const fin = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 0)
+    const etiqueta = inicio.toLocaleDateString("es-AR", { month: "short", year: "2-digit" }).replace(".", "")
+    return { etiqueta, desde: iso(inicio), hasta: iso(fin) }
+  })
 }
 
 /* ─────────────────────────────────────────────────────────── indicadores */
@@ -494,60 +602,248 @@ function Tendencia({ serie }: { serie: SerieMes[] }) {
   )
 }
 
+/* ─────────────────────────────────────────────────────── pagos */
+
+/**
+ * Lo que se compró y todavía no se pagó: sobre todo, la tarjeta. No depende del
+ * período elegido —una deuda de julio sigue siendo deuda en octubre—, así que
+ * lo dice aunque se esté mirando otro mes.
+ */
+function Pendientes({ resumen, onVer, onVerTarjeta }: { resumen: Resumen; onVer: () => void; onVerTarjeta: () => void }) {
+  if (resumen.pendientes === 0) return null
+  return (
+    <section className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <Clock className="size-5 text-amber-300" />
+      <div className="mr-auto">
+        <p className="text-xs uppercase tracking-wide text-amber-300">Falta pagar</p>
+        <p className="text-xl font-bold">{money.format(resumen.pendiente)}</p>
+        <p className="text-xs text-muted-foreground">
+          {resumen.pendientes} {resumen.pendientes === 1 ? "gasto" : "gastos"} comprados y sin pagar
+          {resumen.pendienteTarjeta > 0 && ` · ${money.format(resumen.pendienteTarjeta)} vienen en el resumen de la tarjeta`}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {resumen.pendienteTarjeta > 0 && <Button variant="outline" size="sm" onClick={onVerTarjeta}>Ver los de tarjeta</Button>}
+        <Button size="sm" onClick={onVer}>Ver todo lo pendiente</Button>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Pagar de una vez todo lo que muestra el filtro. El caso real: llega el
+ * resumen de la tarjeta, se filtra «falta pagar» + «Tarjeta» y se paga todo con
+ * la fecha en que se pagó el resumen.
+ */
+function PagarTodos({ total, filtro, onHecho }: { total: number; filtro: () => string; onHecho: (n: number) => Promise<void> }) {
+  const [fecha, setFecha] = useState(hoyISO())
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function pagar() {
+    if (!confirm(`¿Marcar como pagados los ${total} gastos que estás viendo, con fecha ${fechaCorta(fecha)}?`)) return
+    setOcupado(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/finanzas/movimientos/pagar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filtro: filtro(), pagado: true, fecha }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error ?? "No se pudo marcar"); return }
+      await onHecho(data.marcados)
+    } finally { setOcupado(false) }
+  }
+
+  return (
+    <div className="mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3">
+      <p className="mr-auto text-sm">
+        ¿Ya pagaste estos <strong>{total}</strong>? Por ejemplo, con el resumen de la tarjeta.
+      </p>
+      <Campo label="Fecha de pago">
+        <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} />
+      </Campo>
+      <Button size="sm" onClick={() => void pagar()} disabled={ocupado || !fecha}>
+        <Check /> {ocupado ? "Marcando…" : `Marcar los ${total} como pagados`}
+      </Button>
+      {error && <p className="w-full text-sm text-destructive">{error}</p>}
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────── obras */
 
-function Obras({ obras }: { obras: RentabilidadObra[] }) {
-  if (obras.length === 0) return null
+const m2Fmt = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 })
+
+/**
+ * Cuánto cuesta cada tinglado y cuánto dejó. Arriba, el costo medio por m² de
+ * todo lo hecho —la cifra para presupuestar el próximo—; abajo, obra por obra
+ * con su desglose.
+ */
+function Obras({
+  obras, costo, sinObra, sinObraN, onVerSinObra,
+}: {
+  obras: RentabilidadObra[]
+  costo: CostoTinglado
+  sinObra: number
+  sinObraN: number
+  onVerSinObra: () => void
+}) {
+  const [abierta, setAbierta] = useState<string | null>(null)
+  if (obras.length === 0 && sinObraN === 0) return null
   return (
     <section className="mt-6 rounded-xl border border-border bg-card p-4">
-      <h2 className="font-heading text-lg font-bold uppercase tracking-wide">Rentabilidad por obra</h2>
+      <h2 className="font-heading text-lg font-bold uppercase tracking-wide">Cuánto cuesta cada tinglado</h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Sólo las obras con algo imputado. El ROI es sobre lo que costó hacerla: por cada peso de
-        material y mano de obra, cuánto volvió.
+        Los gastos de producción imputados a cada obra, contra sus medidas y lo que se cobró. Todo el
+        histórico, no sólo el período elegido: una obra no se corta a fin de mes.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="py-2 pr-3">Obra</th>
-              <th className="py-2 pr-3 text-right">Presupuestado</th>
-              <th className="py-2 pr-3 text-right">Cobrado</th>
-              <th className="py-2 pr-3 text-right">Costo</th>
-              <th className="py-2 pr-3 text-right">Resultado</th>
-              <th className="py-2 text-right">ROI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {obras.map(o => (
-              <tr key={o.lead_id} className="border-t border-border/60">
-                <td className="py-2 pr-3">
-                  <span className="font-medium">{o.quote_number ?? "s/n"}</span>{" "}
-                  <span className="text-muted-foreground">{o.quote_title ?? "Sin título"}</span>
-                  {o.cliente && <span className="block text-xs text-muted-foreground">{o.cliente}</span>}
-                </td>
-                <td className="py-2 pr-3 text-right text-muted-foreground">
-                  {o.presupuestado === null ? "—" : money.format(o.presupuestado)}
-                </td>
-                <td className="py-2 pr-3 text-right">{money.format(o.cobrado)}</td>
-                <td className="py-2 pr-3 text-right">{money.format(o.costo)}</td>
-                <td className={`py-2 pr-3 text-right font-semibold ${o.resultado >= 0 ? "text-emerald-400" : "text-destructive"}`}>
-                  {money.format(o.resultado)}
-                </td>
-                <td className="py-2 text-right">{pct(o.roi)}</td>
+
+      {costo.costoM2 !== null && (
+        <div className="mb-4 rounded-lg border border-border bg-background/40 p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Costo medio de producción</p>
+          <p className="text-2xl font-bold">
+            {money.format(costo.costoM2)} <span className="text-base font-normal text-muted-foreground">por m²</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Sobre {costo.obras} {costo.obras === 1 ? "obra" : "obras"} y {m2Fmt.format(costo.m2)} m² cubiertos ·
+            {" "}{money.format(costo.costo)} en total. Un tinglado de 10×20 saldría unos{" "}
+            <strong className="text-foreground">{money.format(costo.costoM2 * 200)}</strong> de costo.
+          </p>
+          {costo.porRubro.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {costo.porRubro.map(r => (
+                <span key={r.categoria} className="rounded-md border border-border px-2 py-1 text-xs">
+                  {r.categoria}: <strong>{r.porM2 === null ? "—" : money.format(r.porM2)}</strong>/m²
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {sinObraN > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+          <span className="mr-auto">
+            {sinObraN} {sinObraN === 1 ? "gasto de producción no tiene" : "gastos de producción no tienen"} obra
+            ({money.format(sinObra)}): no cuentan en el costo de ningún tinglado.
+          </span>
+          <Button variant="outline" size="xs" onClick={onVerSinObra}>Asignarlos</Button>
+        </div>
+      )}
+
+      {obras.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="py-2 pr-3">Obra</th>
+                <th className="py-2 pr-3 text-right">m²</th>
+                <th className="py-2 pr-3 text-right">Costo</th>
+                <th className="py-2 pr-3 text-right">Por m²</th>
+                <th className="py-2 pr-3 text-right" title="Qué parte de lo presupuestado se fue en producción">Del presupuesto</th>
+                <th className="py-2 pr-3 text-right">Cobrado</th>
+                <th className="py-2 pr-3 text-right">Resultado</th>
+                <th className="py-2 text-right">ROI</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {obras.map(o => {
+                const abierto = abierta === o.lead_id
+                return (
+                  <Fragment key={o.lead_id}>
+                    <tr className="cursor-pointer border-t border-border/60 hover:bg-muted/20" onClick={() => setAbierta(abierto ? null : o.lead_id)}>
+                      <td className="py-2 pr-3">
+                        <ChevronDown className={`mr-1 inline size-4 text-muted-foreground transition-transform ${abierto ? "rotate-180" : ""}`} />
+                        <span className="font-medium">{o.quote_number ?? "s/n"}</span>{" "}
+                        <span className="text-muted-foreground">{o.quote_title ?? "Sin título"}</span>
+                        {o.cliente && <span className="block pl-5 text-xs text-muted-foreground">{o.cliente}</span>}
+                      </td>
+                      <td className="py-2 pr-3 text-right text-muted-foreground">
+                        {o.m2 === null ? "—" : `${m2Fmt.format(o.m2)}`}
+                        {o.ancho && o.largo && <span className="block text-xs">{m2Fmt.format(o.ancho)}×{m2Fmt.format(o.largo)}</span>}
+                      </td>
+                      <td className="py-2 pr-3 text-right">{money.format(o.costo)}</td>
+                      <td className="py-2 pr-3 text-right font-semibold">{o.costoM2 === null ? "—" : money.format(o.costoM2)}</td>
+                      <td className="py-2 pr-3 text-right text-muted-foreground">{pct(o.costoSobrePresupuesto)}</td>
+                      <td className="py-2 pr-3 text-right">{money.format(o.cobrado)}</td>
+                      <td className={`py-2 pr-3 text-right font-semibold ${o.resultado >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                        {money.format(o.resultado)}
+                      </td>
+                      <td className="py-2 text-right">{pct(o.roi)}</td>
+                    </tr>
+                    {abierto && (
+                      <tr className="bg-muted/10">
+                        <td colSpan={8} className="px-3 pb-3 pt-1">
+                          {o.desglose.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Todavía no tiene gastos de producción.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {o.desglose.map(d => (
+                                <span key={d.categoria} className="rounded-md border border-border px-2 py-1 text-xs">
+                                  {d.categoria}: <strong>{money.format(d.monto)}</strong>
+                                  {o.m2 ? <span className="text-muted-foreground"> · {money.format(d.monto / o.m2)}/m²</span> : null}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Presupuestado {o.presupuestado === null ? "—" : money.format(o.presupuestado)}
+                            {o.pendiente > 0 && <> · <span className="text-amber-300">falta pagar {money.format(o.pendiente)}</span></>}
+                            {o.m2 === null && " · el presupuesto no tiene medidas, por eso no hay costo por m²"}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }
 
 /* ─────────────────────────────────────────────────────── fila y adjuntos */
 
-function Fila({ m, onCambio, onAviso }: { m: Movimiento; onCambio: () => Promise<void>; onAviso: (s: string) => void }) {
+function Fila({
+  m, obras, onCambio, onAviso,
+}: {
+  m: Movimiento
+  obras: { id: string; etiqueta: string }[]
+  onCambio: () => Promise<void>
+  onAviso: (s: string) => void
+}) {
   const input = useRef<HTMLInputElement>(null)
   const [subiendo, setSubiendo] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  // Sólo la producción y los ingresos se imputan a una obra.
+  const imputable = m.tipo === "produccion" || m.tipo === "ingreso"
+
+  async function cambiar(campos: Record<string, unknown>, error: string) {
+    setGuardando(true)
+    try {
+      const res = await fetch(`/api/admin/finanzas/movimientos/${m.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(campos),
+      })
+      if (res.ok) await onCambio()
+      else onAviso(error)
+    } finally { setGuardando(false) }
+  }
+
+  function alternarPago() {
+    if (m.pagado) {
+      if (!confirm(`¿Volver a poner «${m.concepto}» como pendiente de pago?`)) return
+      void cambiar({ pagado: false }, "No se pudo cambiar el pago")
+    } else {
+      void cambiar({ pagado: true, pagado_en: hoyISO() }, "No se pudo marcar como pagado")
+    }
+  }
 
   async function subir(file: File) {
     setSubiendo(true)
@@ -582,15 +878,50 @@ function Fila({ m, onCambio, onAviso }: { m: Movimiento; onCambio: () => Promise
         <span className="font-medium">{m.concepto}</span>
         {(m.categoria || m.proveedor) && (
           <span className="block text-xs text-muted-foreground">
-            {[m.categoria, m.proveedor, m.medio_pago].filter(Boolean).join(" · ")}
+            {[m.categoria, m.proveedor, m.medio_pago && (m.cuotas && m.cuotas > 1 ? `${m.medio_pago} en ${m.cuotas} cuotas` : m.medio_pago)].filter(Boolean).join(" · ")}
           </span>
         )}
       </td>
       <td className="px-3 py-2 text-xs text-muted-foreground">
-        {m.lead_numero ?? m.lead_titulo ?? "—"}
+        {/* La obra se cambia desde la fila: el gasto se carga en el galpón y la
+            obra muchas veces se decide después. */}
+        {imputable ? (
+          <select
+            value={m.lead_id ?? ""}
+            disabled={guardando}
+            onChange={e => void cambiar({ lead_id: e.target.value || null }, "No se pudo cambiar la obra")}
+            aria-label={`Obra de ${m.concepto}`}
+            className={`h-8 max-w-44 rounded-md border bg-background px-1 text-xs outline-none focus:border-primary ${
+              !m.lead_id && m.tipo === "produccion" ? "border-amber-500/60 text-amber-300" : "border-border"
+            }`}
+          >
+            <option value="">{m.tipo === "produccion" ? "Sin obra" : "—"}</option>
+            {obras.map(o => <option key={o.id} value={o.id}>{o.etiqueta}</option>)}
+          </select>
+        ) : "—"}
       </td>
       <td className={`whitespace-nowrap px-3 py-2 text-right font-semibold ${m.tipo === "ingreso" ? "text-emerald-400" : ""}`}>
         {m.tipo === "ingreso" ? "" : "−"}{money.format(Number(m.monto))}
+      </td>
+      <td className="px-3 py-2">
+        {m.tipo === "ingreso" ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <button
+            onClick={alternarPago}
+            disabled={guardando}
+            title={m.pagado ? "Volver a pendiente" : "Marcar como pagado hoy"}
+            className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-xs ${
+              m.pagado
+                ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                : "border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+            }`}
+          >
+            {m.pagado
+              ? <><Check className="inline size-3" /> Pagado{m.pagado_en && m.pagado_en !== m.fecha ? ` ${fechaCorta(m.pagado_en)}` : ""}</>
+              : <><Clock className="inline size-3" /> Pendiente</>}
+          </button>
+        )}
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-wrap items-center gap-1">
@@ -648,6 +979,10 @@ function ModalMovimiento({
   const [archivo, setArchivo] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
+  // Null = lo que toque por el medio: con tarjeta, pendiente; si no, pagado.
+  const [pagadoElegido, setPagadoElegido] = useState<boolean | null>(null)
+  const [cuotas, setCuotas] = useState("1")
+  const pagado = pagadoElegido ?? !NACE_PENDIENTE(medio)
 
   // Sólo la producción y los ingresos se imputan a una obra: un alquiler
   // imputado a un tinglado le arruinaría la rentabilidad.
@@ -664,6 +999,8 @@ function ModalMovimiento({
           fecha, tipo, concepto, categoria, monto: Number(monto),
           medio_pago: medio, proveedor, notas,
           leadId: imputable && leadId ? leadId : null,
+          pagado: tipo === "ingreso" ? true : pagado,
+          cuotas: medio === "Tarjeta" ? Number(cuotas) : null,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -729,6 +1066,24 @@ function ModalMovimiento({
             <input value={proveedor} onChange={e => setProveedor(e.target.value)} className={inputCls} />
           </Campo>
         </div>
+
+        {medio === "Tarjeta" && tipo !== "ingreso" && (
+          <Campo label="Cuotas">
+            <select value={cuotas} onChange={e => setCuotas(e.target.value)} className={inputCls}>
+              {[1, 2, 3, 6, 9, 12, 18].map(n => <option key={n} value={n}>{n === 1 ? "En un pago" : `${n} cuotas`}</option>)}
+            </select>
+          </Campo>
+        )}
+
+        {tipo !== "ingreso" && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={pagado} onChange={e => setPagadoElegido(e.target.checked)} className="size-4 accent-primary" />
+            Ya está pagado
+            <span className="text-xs text-muted-foreground">
+              {pagado ? "" : medio === "Tarjeta" ? "· queda pendiente hasta que pagues el resumen" : "· queda pendiente de pago"}
+            </span>
+          </label>
+        )}
 
         {imputable && (
           <Campo label="Obra a la que se imputa">

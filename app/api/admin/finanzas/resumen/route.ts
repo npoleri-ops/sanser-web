@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
 import { espacioUsado } from "@/lib/finanzas/comprobantes"
-import { proyeccion, rentabilidadObras, resumen, seriePorMes } from "@/lib/finanzas/resumen"
+import { costoTinglado, proyeccion, rentabilidadObras, resumen, seriePorMes } from "@/lib/finanzas/resumen"
 
 const ES_FECHA = /^\d{4}-\d{2}-\d{2}$/
 
@@ -21,13 +21,14 @@ export async function GET(req: Request) {
     ? p.get("hasta")!
     : new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-  const [datos, serie, obras, proy, espacio] = await Promise.all([
+  const [datos, serie, obras, proy, espacio, costo] = await Promise.all([
     resumen(desde, hasta),
     seriePorMes(12),
     rentabilidadObras(),
     proyeccion(),
     espacioUsado(),
+    costoTinglado(),
   ])
 
-  return NextResponse.json({ ok: true, resumen: datos, serie, obras, proyeccion: proy, espacio })
+  return NextResponse.json({ ok: true, resumen: datos, serie, obras, proyeccion: proy, espacio, costoTinglado: costo })
 }

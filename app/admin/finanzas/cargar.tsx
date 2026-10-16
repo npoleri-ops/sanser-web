@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Camera, Check, Trash2 } from "lucide-react"
+import { ArrowLeft, Camera, Check, Clock, Trash2 } from "lucide-react"
 import { COBRE, PAGUE, pideObra, type Concepto } from "@/lib/finanzas/conceptos"
-import type { Movimiento } from "@/lib/finanzas/types"
+import { NACE_PENDIENTE, type Movimiento } from "@/lib/finanzas/types"
 
 /**
  * La pantalla con la que se carga desde el galpón, con el teléfono en la mano y
@@ -44,6 +44,11 @@ export function Cargar({ obras, ultimos, onGuardado }: Props) {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [listo, setListo] = useState<string | null>(null)
+  // Cómo se pagó. Con tarjeta se compra hoy y se paga con el resumen, así que
+  // por defecto queda pendiente; se puede decir que ya se pagó.
+  const [medio, setMedio] = useState("")
+  const [cuotas, setCuotas] = useState(1)
+  const [tarjetaPagada, setTarjetaPagada] = useState(false)
   const camara = useRef<HTMLInputElement>(null)
 
   const grupos = signo === "cobre" ? COBRE : PAGUE
@@ -53,6 +58,7 @@ export function Cargar({ obras, ultimos, onGuardado }: Props) {
   function limpiar() {
     setSigno(null); setMonto(""); setConcepto(null); setObra("")
     setDetalle(""); setFoto(null); setFecha(hoyISO()); setOtroDia(false); setError(null)
+    setMedio(""); setCuotas(1); setTarjetaPagada(false)
   }
 
   async function guardar() {
@@ -72,6 +78,9 @@ export function Cargar({ obras, ultimos, onGuardado }: Props) {
           categoria: concepto.categoria,
           monto: Number(monto),
           leadId: necesitaObra && obra ? obra : null,
+          medio_pago: signo === "pague" ? medio || null : null,
+          cuotas: medio === "Tarjeta" ? cuotas : null,
+          pagado: signo === "pague" && NACE_PENDIENTE(medio) ? tarjetaPagada : true,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -87,7 +96,8 @@ export function Cargar({ obras, ultimos, onGuardado }: Props) {
         if (!up.ok) setError("Se guardó, pero la foto no se pudo subir. Adjuntala después.")
       }
 
-      setListo(`${signo === "cobre" ? "Cobro" : "Gasto"} de ${money.format(Number(monto))} guardado.`)
+      const pendiente = signo === "pague" && NACE_PENDIENTE(medio) && !tarjetaPagada
+      setListo(`${signo === "cobre" ? "Cobro" : "Gasto"} de ${money.format(Number(monto))} guardado${pendiente ? ", pendiente de pagar con el resumen" : ""}.`)
       limpiar()
       await onGuardado()
       setTimeout(() => setListo(null), 4000)
@@ -205,6 +215,56 @@ export function Cargar({ obras, ultimos, onGuardado }: Props) {
               <option value="">Todavía no sé / no es de una obra</option>
               {obras.map(o => <option key={o.id} value={o.id}>{o.etiqueta}</option>)}
             </select>
+          )}
+        </div>
+      )}
+
+      {signo === "pague" && (
+        <div>
+          <p className="mb-2 text-lg font-semibold">¿Cómo pagaste?</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {["Efectivo", "Transferencia", "Tarjeta", "Mercado Pago"].map(mp => (
+              <button
+                key={mp}
+                onClick={() => setMedio(medio === mp ? "" : mp)}
+                className={`min-h-12 rounded-xl border px-3 text-sm font-medium transition-colors ${
+                  medio === mp
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                {medio === mp && <Check className="mr-1 inline size-4 text-primary" />}
+                {mp}
+              </button>
+            ))}
+          </div>
+          {medio === "Tarjeta" && (
+            <div className="mt-3 space-y-3 rounded-xl border border-border p-3">
+              <label className="flex items-center justify-between gap-3 text-base">
+                <span>¿En cuántas cuotas?</span>
+                <select
+                  value={cuotas}
+                  onChange={e => setCuotas(Number(e.target.value))}
+                  className="min-h-12 rounded-xl border border-border bg-background px-3 text-base outline-none focus:border-primary"
+                >
+                  {[1, 2, 3, 6, 9, 12, 18].map(n => <option key={n} value={n}>{n === 1 ? "Un pago" : `${n} cuotas`}</option>)}
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setTarjetaPagada(false)}
+                  className={`min-h-12 rounded-xl border px-3 text-sm ${!tarjetaPagada ? "border-amber-500/60 bg-amber-500/10 text-amber-200" : "border-border text-muted-foreground"}`}
+                >
+                  <Clock className="mr-1 inline size-4" /> Lo pago con el resumen
+                </button>
+                <button
+                  onClick={() => setTarjetaPagada(true)}
+                  className={`min-h-12 rounded-xl border px-3 text-sm ${tarjetaPagada ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300" : "border-border text-muted-foreground"}`}
+                >
+                  <Check className="mr-1 inline size-4" /> Ya está pagado
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -330,6 +390,7 @@ function Ultimos({ ultimos, onCambio }: { ultimos: Movimiento[]; onCambio: () =>
                 <p className="truncate text-xs text-muted-foreground">
                   {m.fecha.split("-").reverse().join("/")}
                   {m.lead_numero && ` · ${m.lead_numero}`}
+                  {m.tipo !== "ingreso" && !m.pagado && <span className="text-amber-300"> · falta pagar</span>}
                   {(m.comprobantes?.length ?? 0) > 0 && " · con foto"}
                 </p>
               </div>
