@@ -64,6 +64,12 @@ export interface Movimiento {
   lead_id: string | null
   fijo_id: string | null
   periodo: string | null
+  /** Si ya salió la plata. Un gasto con tarjeta se compra hoy y se paga con el resumen. */
+  pagado: boolean
+  /** Cuándo se pagó, si no fue el mismo día de la compra. */
+  pagado_en: string | null
+  /** Cuotas de la tarjeta, si se pagó así. */
+  cuotas: number | null
   /** Datos de la obra imputada, para no pedirlos aparte en la tabla. */
   lead_titulo?: string | null
   lead_numero?: string | null
@@ -91,7 +97,19 @@ export interface NuevoMovimiento {
   proveedor?: string | null
   notas?: string | null
   leadId?: string | null
+  /** Sin dato, pagado: es como se cargó siempre. */
+  pagado?: boolean
+  cuotas?: number | null
 }
+
+/**
+ * Lo que se paga con tarjeta se compra hoy y se paga con el resumen. Por eso,
+ * al cargar, nace pendiente; el resto se paga en el momento.
+ */
+export const NACE_PENDIENTE = (medio: string | null | undefined) => medio === "Tarjeta"
+
+export const PAGO = ["pendiente", "pagado"] as const
+export type EstadoPago = (typeof PAGO)[number]
 
 export interface GastoFijo {
   id: string
@@ -111,6 +129,11 @@ export interface FiltroMovimientos {
   leadId?: string
   /** Sólo los que no tienen comprobante cargado. */
   sinComprobante?: boolean
+  /** Gastos pagados o pendientes de pago. Los ingresos no entran en ninguno. */
+  pago?: EstadoPago
+  medioPago?: string
+  /** Gastos de producción que todavía no tienen obra. */
+  sinObra?: boolean
 }
 
 /** Foto del período elegido. Todo se calcula en SQL y llega ya sumado. */
@@ -129,6 +152,17 @@ export interface Resumen {
   retorno: number | null
   movimientos: number
   sinComprobante: number
+  /**
+   * Lo que falta pagar, de cualquier fecha: una deuda de julio sigue siendo
+   * deuda en octubre, así que no depende del período elegido.
+   */
+  pendiente: number
+  pendientes: number
+  /** De lo pendiente, lo que es de tarjeta: lo que va a venir en el resumen. */
+  pendienteTarjeta: number
+  /** Gastos de producción sin obra, que no cuentan en el costo de ningún tinglado. */
+  produccionSinObra: number
+  produccionSinObraN: number
 }
 
 export interface SerieMes {
@@ -156,6 +190,32 @@ export interface RentabilidadObra {
   resultado: number
   /** (cobrado − costo) / costo. Null si todavía no hay costos cargados. */
   roi: number | null
+  /** Ancho × largo del presupuesto, en m². Null si el presupuesto no trae medidas. */
+  m2: number | null
+  ancho: number | null
+  largo: number | null
+  /** Costo de producción por m² cubierto. */
+  costoM2: number | null
+  /** Qué parte de lo presupuestado se fue en costo de producción. */
+  costoSobrePresupuesto: number | null
+  /** El costo separado por rubro (Perfilería, Chapa, Mano de obra…). */
+  desglose: { categoria: string; monto: number }[]
+  /** Gastos de esta obra que todavía no se pagaron. */
+  pendiente: number
+}
+
+/**
+ * Cuánto cuesta un tinglado, sacado de las obras que ya tienen costos cargados
+ * y medidas en el presupuesto. Sirve para presupuestar el próximo.
+ */
+export interface CostoTinglado {
+  obras: number
+  m2: number
+  costo: number
+  /** Costo total / m² totales: pondera por tamaño, un galpón grande pesa más. */
+  costoM2: number | null
+  /** El mismo cálculo por rubro: cuánto se va en chapa, perfilería… por m². */
+  porRubro: { categoria: string; monto: number; porM2: number | null }[]
 }
 
 export interface Proyeccion {

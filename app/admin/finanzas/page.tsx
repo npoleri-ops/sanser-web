@@ -3,7 +3,7 @@ import { LoginForm } from "../login-form"
 import { espacioUsado } from "@/lib/finanzas/comprobantes"
 import { listFijos } from "@/lib/finanzas/fijos"
 import { listMovimientos, obrasImputables } from "@/lib/finanzas/movimientos"
-import { proyeccion, rentabilidadObras, resumen, seriePorMes } from "@/lib/finanzas/resumen"
+import { costoTinglado, proyeccion, rentabilidadObras, resumen, seriePorMes } from "@/lib/finanzas/resumen"
 import { DEFAULT_PER_PAGE_FIN } from "@/lib/finanzas/types"
 import { FinanzasBoard } from "./finanzas-board"
 
@@ -36,9 +36,11 @@ export default async function FinanzasPage() {
 
   const { desde, hasta } = periodoPorDefecto()
 
-  const [{ movimientos, total }, datos, serie, obrasRent, proy, fijos, obras, espacio] =
+  const [{ movimientos, total }, datos, serie, obrasRent, proy, fijos, obras, espacio, costo] =
     await Promise.all([
-      listMovimientos({}, { limit: DEFAULT_PER_PAGE_FIN, offset: 0 }),
+      // Con el mismo período que el resumen: si no, la tabla mostraba todo el
+      // histórico debajo de unas cifras que decían «este año».
+      listMovimientos({ desde, hasta }, { limit: DEFAULT_PER_PAGE_FIN, offset: 0 }),
       resumen(desde, hasta),
       seriePorMes(12),
       rentabilidadObras(),
@@ -46,6 +48,7 @@ export default async function FinanzasPage() {
       listFijos(),
       obrasImputables(),
       espacioUsado(),
+      costoTinglado(),
     ])
 
   return (
@@ -59,6 +62,7 @@ export default async function FinanzasPage() {
       initialFijos={fijos}
       initialObras={obras}
       initialEspacio={espacio}
+      initialCostoTinglado={costo}
       perPage={DEFAULT_PER_PAGE_FIN}
     />
   )

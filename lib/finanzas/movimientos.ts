@@ -1,5 +1,5 @@
 import { query } from "@/lib/crm/db"
-import { TIPOS, type FiltroMovimientos, type Movimiento, type NuevoMovimiento, type Tipo } from "./types"
+import { NACE_PENDIENTE, TIPOS, type FiltroMovimientos, type Movimiento, type NuevoMovimiento, type Tipo } from "./types"
 
 /**
  * El libro de movimientos. Toda suma se hace en SQL y no en JavaScript: los
@@ -15,6 +15,7 @@ const CAMPOS = `
   to_char(m.fecha, 'YYYY-MM-DD') AS fecha,
   m.tipo, m.concepto, m.categoria,
   m.monto, m.medio_pago, m.proveedor, m.notas, m.lead_id, m.fijo_id, m.periodo,
+  m.pagado, to_char(m.pagado_en, 'YYYY-MM-DD') AS pagado_en, m.cuotas,
   l.quote_title AS lead_titulo,
   l.quote_number AS lead_numero,
   l.name AS lead_cliente,
@@ -57,6 +58,14 @@ function condiciones(f: FiltroMovimientos) {
   if (f.sinComprobante) {
     where.push(`NOT EXISTS (SELECT 1 FROM fin_comprobantes c WHERE c.movimiento_id = m.id)`)
   }
+  // Pagado y pendiente son de los gastos: un ingreso no se «paga».
+  if (f.pago === "pendiente") where.push(`m.tipo <> 'ingreso' AND NOT m.pagado`)
+  if (f.pago === "pagado") where.push(`m.tipo <> 'ingreso' AND m.pagado`)
+  if (f.medioPago) {
+    params.push(f.medioPago)
+    where.push(`m.medio_pago = $${params.length}`)
+  }
+  if (f.sinObra) where.push(`m.tipo = 'produccion' AND m.lead_id IS NULL`)
 
   return { clause: where.length ? `WHERE ${where.join(" AND ")}` : "", params }
 }
@@ -97,10 +106,15 @@ export async function getMovimiento(id: string): Promise<Movimiento | null> {
 }
 
 export async function crearMovimiento(nuevo: NuevoMovimiento): Promise<Movimiento> {
+  // Un ingreso no se «paga»: queda siempre como hecho. Un gasto con tarjeta
+  // nace pendiente salvo que se diga lo contrario; el resto, pagado.
+  const pagado = nuevo.tipo === "ingreso" ? true : (nuevo.pagado ?? !NACE_PENDIENTE(nuevo.medio_pago))
+  const cuotas = nuevo.medio_pago === "Tarjeta" && Number(nuevo.cuotas) >= 1 ? Math.round(Number(nuevo.cuotas)) : null
+
   const rows = await query<{ id: string }>(
     `INSERT INTO fin_movimientos
-       (fecha, tipo, concepto, categoria, monto, medio_pago, proveedor, notas, lead_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (fecha, tipo, concepto, categoria, monto, medio_pago, proveedor, notas, lead_id, pagado, cuotas)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING id`,
     [
       nuevo.fecha,
@@ -114,6 +128,8 @@ export async function crearMovimiento(nuevo: NuevoMovimiento): Promise<Movimient
       // Sólo la producción y los ingresos se imputan a una obra; un fijo
       // imputado a un tinglado ensuciaría su rentabilidad con el alquiler.
       nuevo.tipo === "produccion" || nuevo.tipo === "ingreso" ? nuevo.leadId || null : null,
+      pagado,
+      cuotas,
     ],
   )
 
@@ -132,6 +148,9 @@ const EDITABLES = [
   "proveedor",
   "notas",
   "lead_id",
+  "pagado",
+  "pagado_en",
+  "cuotas",
 ] as const
 
 export async function actualizarMovimiento(
@@ -150,6 +169,13 @@ export async function actualizarMovimiento(
       if (!Number.isFinite(n) || n <= 0) continue
       valor = n
     }
+    if (campo === "pagado" && typeof valor !== "boolean") continue
+    if (campo === "pagado_en" && valor !== null && valor !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(String(valor))) continue
+    if (campo === "cuotas" && valor !== null && valor !== "") {
+      const n = Math.round(Number(valor))
+      if (!(n >= 1 && n <= 48)) continue
+      valor = n
+    }
     params.push(valor === "" ? null : valor)
     sets.push(`${campo} = $${params.length}`)
   }
@@ -157,13 +183,53 @@ export async function actualizarMovimiento(
   if (sets.length === 0) return getMovimiento(id)
 
   params.push(id)
+  // Las mismas reglas que al crear, ahora en la base: sólo la producción y los
+  // ingresos se imputan a una obra, y un ingreso no queda nunca «sin pagar».
+  // Se aplican después del SET para que valgan también al cambiar el tipo.
   await query(
     `UPDATE fin_movimientos SET ${sets.join(", ")}, updated_at = now()
       WHERE id = $${params.length}`,
     params,
   )
+  await query(
+    `UPDATE fin_movimientos
+        SET lead_id = CASE WHEN tipo IN ('produccion', 'ingreso') THEN lead_id END,
+            pagado = CASE WHEN tipo = 'ingreso' THEN true ELSE pagado END,
+            pagado_en = CASE WHEN tipo = 'ingreso' OR NOT pagado THEN NULL ELSE pagado_en END
+      WHERE id = $1`,
+    [id],
+  )
 
   return getMovimiento(id)
+}
+
+/**
+ * Marcar varios gastos como pagados de una vez —o volver a ponerlos
+ * pendientes—. Es el caso real: llega el resumen de la tarjeta y se pagan todas
+ * las compras que traía. Los ingresos se ignoran.
+ */
+export async function marcarPagados(ids: string[], pagado: boolean, fecha: string | null): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await query<{ id: string }>(
+    `UPDATE fin_movimientos
+        SET pagado = $2,
+            pagado_en = CASE WHEN $2 THEN $3::date END,
+            updated_at = now()
+      WHERE id = ANY($1::bigint[]) AND tipo <> 'ingreso'
+      RETURNING id`,
+    [ids, pagado, pagado ? fecha : null],
+  )
+  return rows.length
+}
+
+/** Los ids de lo que cumple un filtro, para «marcar todos los que estoy viendo». */
+export async function idsFiltrados(filtro: FiltroMovimientos, limite = 1000): Promise<string[]> {
+  const { clause, params } = condiciones(filtro)
+  const rows = await query<{ id: string }>(
+    `SELECT m.id FROM fin_movimientos m ${clause} ORDER BY m.fecha LIMIT $${params.length + 1}`,
+    [...params, limite],
+  )
+  return rows.map(r => r.id)
 }
 
 export async function borrarMovimiento(id: string): Promise<boolean> {

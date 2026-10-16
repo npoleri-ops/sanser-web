@@ -136,3 +136,64 @@ ok("borrar movimiento", r.status === 200)
 // 11 · la página
 r = await req("/admin/finanzas")
 ok("la página carga", r.status === 200 && String(r.body).includes("Plata de SANSER"))
+
+// 12 · pagos: lo comprado y lo pagado
+r = await json("/api/admin/finanzas/movimientos", "POST",
+  { fecha: hoy, tipo: "produccion", concepto: "Chapa con tarjeta", monto: 400000, medio_pago: "Tarjeta", cuotas: 3, leadId: lead })
+const conTarjeta = r.body.movimiento
+ok("con tarjeta nace pendiente", r.status === 201 && conTarjeta.pagado === false && conTarjeta.cuotas === 3,
+   `pagado=${conTarjeta?.pagado} cuotas=${conTarjeta?.cuotas}`)
+r = await json("/api/admin/finanzas/movimientos", "POST",
+  { fecha: hoy, tipo: "variable", concepto: "Flete en efectivo", monto: 50000, medio_pago: "Efectivo" })
+const enEfectivo = r.body.movimiento
+ok("en efectivo nace pagado", enEfectivo?.pagado === true && enEfectivo?.cuotas === null)
+r = await json("/api/admin/finanzas/movimientos", "POST",
+  { fecha: hoy, tipo: "ingreso", concepto: "Cobro raro", monto: 1000, pagado: false })
+ok("un ingreso no queda nunca sin pagar", r.body.movimiento?.pagado === true)
+await req(`/api/admin/finanzas/movimientos/${r.body.movimiento.id}`, { method: "DELETE" })
+
+r = await req("/api/admin/finanzas/movimientos?pago=pendiente")
+ok("filtro «falta pagar»", r.body.total >= 1 && r.body.movimientos.every(m => !m.pagado && m.tipo !== "ingreso"), `${r.body.total} filas`)
+r = await req("/api/admin/finanzas/movimientos?medioPago=Tarjeta")
+ok("filtro por medio", r.body.movimientos.every(m => m.medio_pago === "Tarjeta"), `${r.body.total} filas`)
+
+r = await req(`/api/admin/finanzas/resumen?desde=${mes}-01&hasta=${hoy}`)
+ok("lo pendiente suma la tarjeta", r.body.resumen.pendiente === 400000 && r.body.resumen.pendienteTarjeta === 400000,
+   `pendiente ${r.body.resumen.pendiente} · tarjeta ${r.body.resumen.pendienteTarjeta}`)
+const deLaObra = r.body.obras.find(o => o.lead_id === lead)
+ok("la obra sabe lo que le falta pagar", deLaObra?.pendiente === 400000, String(deLaObra?.pendiente))
+
+r = await json("/api/admin/finanzas/movimientos/pagar", "POST", { filtro: "pago=pendiente&medioPago=Tarjeta", pagado: true })
+ok("pagar en lote sin fecha da error", r.status === 400, r.body?.error)
+r = await json("/api/admin/finanzas/movimientos/pagar", "POST",
+  { filtro: "pago=pendiente&medioPago=Tarjeta", pagado: true, fecha: hoy })
+ok("pagar el resumen de la tarjeta", r.status === 200 && r.body.marcados === 1, JSON.stringify(r.body))
+r = await req(`/api/admin/finanzas/movimientos/${conTarjeta.id}`)
+ok("queda pagado con su fecha", r.body.movimiento.pagado === true && r.body.movimiento.pagado_en === hoy,
+   `${r.body.movimiento.pagado} ${r.body.movimiento.pagado_en}`)
+r = await json(`/api/admin/finanzas/movimientos/${conTarjeta.id}`, "PATCH", { pagado: false })
+ok("se puede volver a pendiente", r.body.movimiento.pagado === false && r.body.movimiento.pagado_en === null)
+r = await json("/api/admin/finanzas/movimientos/pagar", "POST", { ids: [conTarjeta.id, enEfectivo.id], pagado: true, fecha: hoy })
+ok("pagar de a varios por id", r.body.marcados === 2, JSON.stringify(r.body))
+
+// 13 · producción sin obra y obra asignada después
+r = await json("/api/admin/finanzas/movimientos", "POST",
+  { fecha: hoy, tipo: "produccion", concepto: "Perfil sin obra", monto: 70000, categoria: "Perfilería" })
+const suelto = r.body.movimiento
+r = await req(`/api/admin/finanzas/resumen?desde=${mes}-01&hasta=${hoy}`)
+ok("avisa de la producción sin obra", r.body.resumen.produccionSinObraN === 1 && r.body.resumen.produccionSinObra === 70000,
+   `${r.body.resumen.produccionSinObraN} · ${r.body.resumen.produccionSinObra}`)
+r = await req("/api/admin/finanzas/movimientos?sinObra=1")
+ok("filtro «producción sin obra»", r.body.total === 1 && r.body.movimientos[0].id === suelto.id, `${r.body.total} filas`)
+r = await json(`/api/admin/finanzas/movimientos/${suelto.id}`, "PATCH", { lead_id: lead })
+ok("asignar la obra después", r.body.movimiento.lead_id === lead)
+r = await req("/api/admin/finanzas/movimientos?sinObra=1")
+ok("ya no figura sin obra", r.body.total === 0)
+r = await req(`/api/admin/finanzas/resumen?desde=${mes}-01&hasta=${hoy}`)
+const conDesglose = r.body.obras.find(o => o.lead_id === lead)
+ok("la obra lo suma en su desglose", conDesglose?.desglose.some(d => d.categoria === "Perfilería" && d.monto === 70000),
+   JSON.stringify(conDesglose?.desglose))
+ok("trae el costo por tinglado", typeof r.body.costoTinglado?.obras === "number", JSON.stringify(r.body.costoTinglado).slice(0, 90))
+
+r = await json(`/api/admin/finanzas/movimientos/${enEfectivo.id}`, "PATCH", { lead_id: lead })
+ok("un gasto variable no se imputa a una obra", r.body.movimiento.lead_id === null)
