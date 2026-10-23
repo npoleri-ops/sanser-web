@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
+import { reportarSolicitudPresupuesto } from "@/lib/google-ads"
 import type { Lead } from "@/lib/crm/types"
 import type { ThreeSceneRef } from "@/components/three/config-scene"
 
@@ -916,6 +917,7 @@ export function Cotizador({
     setIsGenerating(true)
     try {
       await registrarLead(datosDelPresupuesto())
+      reportarSolicitudPresupuesto()
       setPedidoEnviado(true)
     } finally {
       setIsGenerating(false)
@@ -1021,6 +1023,8 @@ export function Cotizador({
         quoteTotal: total,
       })
     }
+
+    if (!interno) reportarSolicitudPresupuesto()
 
     // El vendedor le escribe al cliente; el visitante nos escribe a nosotros.
     const destino = interno
