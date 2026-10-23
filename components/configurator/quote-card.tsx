@@ -9,6 +9,7 @@ import {
   TYPE_LABEL,
   type ShedConfig,
 } from "@/lib/shed-config"
+import { reportarSolicitudPresupuesto } from "@/lib/google-ads"
 
 export function QuoteCard({ config }: { config: ShedConfig }) {
   const c = computeMateriales(config)
@@ -52,6 +53,7 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
         })
       }).catch(() => {})
     } catch {}
+    reportarSolicitudPresupuesto()
 
     const message = buildWhatsAppMessage(config, { name, phone, email })
     window.open(`https://wa.me/5493743487728?text=${encodeURIComponent(message)}`, "_blank")

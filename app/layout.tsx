@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Oswald } from 'next/font/google'
 import { SITE_URL } from '@/lib/site'
+import { GOOGLE_ADS_ID } from '@/lib/google-ads'
 import Script from 'next/script'
 import './globals.css'
 
@@ -170,6 +171,16 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
         <WhatsAppModal />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-ads-tag" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GOOGLE_ADS_ID}');`}
+        </Script>
         <Analytics />
         <SpeedInsights />
       </body>
