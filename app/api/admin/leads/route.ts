@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       kind,
       name: body.name || null,
       phone: body.phone || null,
+      email: body.email || null,
       cuit: body.cuit || null,
       message: body.message || null,
       quoteTitle: body.quoteTitle || null,
@@ -117,6 +118,7 @@ export async function PUT(req: Request) {
   await actualizarBorrador(String(body.id), {
     name: body.name,
     phone: body.phone,
+    email: body.email,
     cuit: body.cuit,
     quoteTitle: body.quoteTitle,
     quoteTotal: typeof body.quoteTotal === "number" ? body.quoteTotal : null,

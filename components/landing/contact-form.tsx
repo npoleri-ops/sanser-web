@@ -2,11 +2,24 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare } from "lucide-react"
+import { Send, CheckCircle2, AlertCircle, Phone, User, MessageSquare, Mail } from "lucide-react"
+import { problemaDeContacto } from "@/lib/crm/contacto"
+import { CampoEmail, CampoTelefono } from "@/components/site/campos-contacto"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const mountTimeRef = useRef<number>(0)
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [intentado, setIntentado] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const limpiar = (form: HTMLFormElement) => {
+    form.reset()
+    setPhone("")
+    setEmail("")
+    setIntentado(false)
+  }
 
   useEffect(() => {
     mountTimeRef.current = Date.now()
@@ -23,7 +36,7 @@ export function ContactForm() {
     // Honeypot check: si está completo, simulamos éxito y abortamos
     if (empresaUrl && empresaUrl.trim() !== "") {
       setStatus("success")
-      form.reset()
+      limpiar(form)
       return
     }
 
@@ -31,16 +44,31 @@ export function ContactForm() {
     const timeElapsed = Date.now() - mountTimeRef.current
     if (timeElapsed < 2000) {
       setStatus("success")
-      form.reset()
+      limpiar(form)
       return
     }
 
+    setIntentado(true)
+    const problema = problemaDeContacto({
+      name: formData.get("name") as string,
+      phone,
+      email,
+      exigirEmail: true,
+    })
+    if (problema) {
+      setErrorMsg(problema)
+      setStatus("error")
+      return
+    }
+
+    setErrorMsg(null)
     setStatus("loading")
     
     try {
       const payload = {
         name: formData.get("name"),
-        phone: formData.get("phone"),
+        phone,
+        email,
         message: formData.get("message"),
         empresa_url: empresaUrl,
         mountTime: mountTimeRef.current.toString(),
@@ -57,15 +85,21 @@ export function ContactForm() {
       
       if (response.ok) {
         setStatus("success")
-        form.reset()
+        limpiar(form)
+      } else if (response.status === 400 || response.status === 429) {
+        // Rechazo a propósito (datos mal o demasiadas consultas): se explica.
+        const { message } = await response.json().catch(() => ({ message: null }))
+        setErrorMsg(message || "Revisá tus datos.")
+        setStatus("error")
       } else {
         // Fallback simulación para demostración si el API falla
         setTimeout(() => {
           setStatus("success")
-          form.reset()
+          limpiar(form)
         }, 1200)
       }
     } catch {
+      setErrorMsg(null)
       setStatus("error")
     }
   }
@@ -141,13 +175,30 @@ export function ContactForm() {
                     Teléfono / WhatsApp de contacto
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
+                    <Phone className="absolute left-3 top-[22px] size-4 -translate-y-1/2 text-muted-foreground" />
+                    <CampoTelefono
                       id="phone"
                       name="phone"
-                      type="tel"
-                      required
-                      placeholder="Ej: 3743 448876"
+                      value={phone}
+                      onChange={setPhone}
+                      mostrarErrores={intentado}
+                      className="flex h-11 w-full rounded-md border border-input bg-background/50 pl-10 pr-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-foreground">
+                    Correo electrónico
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-[22px] size-4 -translate-y-1/2 text-muted-foreground" />
+                    <CampoEmail
+                      id="email"
+                      name="email"
+                      value={email}
+                      onChange={setEmail}
+                      mostrarErrores={intentado}
                       className="flex h-11 w-full rounded-md border border-input bg-background/50 pl-10 pr-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
@@ -186,7 +237,7 @@ export function ContactForm() {
                 {status === "error" && (
                   <p className="flex items-center gap-2 text-sm text-red-500 mt-2">
                     <AlertCircle className="size-4" />
-                    Hubo un problema al enviar. Por favor intentá por WhatsApp.
+                    {errorMsg || "Hubo un problema al enviar. Por favor intentá por WhatsApp."}
                   </p>
                 )}
               </form>

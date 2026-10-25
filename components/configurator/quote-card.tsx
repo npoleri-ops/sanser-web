@@ -10,6 +10,8 @@ import {
   type ShedConfig,
 } from "@/lib/shed-config"
 import { reportarSolicitudPresupuesto } from "@/lib/google-ads"
+import { problemaDeContacto } from "@/lib/crm/contacto"
+import { CampoEmail, CampoTelefono } from "@/components/site/campos-contacto"
 
 export function QuoteCard({ config }: { config: ShedConfig }) {
   const c = computeMateriales(config)
@@ -17,6 +19,9 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
+  const [intentado, setIntentado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
 
   const rows = [
     { icon: Columns3, label: config.type.includes("varillas") ? "Columnas reticuladas (Varilla)" : "Columnas reticuladas", value: `${c.columnas} u.` },
@@ -31,28 +36,45 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
   }
 
   const handleSubmit = async () => {
-    const isPhoneValid = phone.replace(/\D/g, "").length >= 8
-    const isEmailValid = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    
-    if (!name.trim() || !isPhoneValid || !isEmailValid) {
-      alert("Por favor completá tu nombre, un teléfono válido y, si lo ingresás, un email correcto.")
+    setIntentado(true)
+    const problema = problemaDeContacto({ name, phone, email, exigirEmail: true })
+    if (problema) {
+      setError(problema)
       return
     }
 
+    setEnviando(true)
+    setError(null)
     try {
-      await fetch("/api/leads", {
+      const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "presupuesto",
           name: name.trim(),
           phone: phone.trim(),
+          email: email.trim(),
           quoteTitle: `Tinglado ${config.width}x${config.length}`,
-          quoteConfig: { ...config, email: email.trim() },
-          sourcePath: window.location.pathname
-        })
-      }).catch(() => {})
-    } catch {}
+          quoteConfig: config,
+          sourcePath: window.location.pathname,
+        }),
+      })
+      // Sólo frena lo que el servidor rechaza a propósito (datos o límite); si
+      // la base se cae, que el cliente llegue igual a WhatsApp.
+      if (res.status === 400) {
+        const { message } = await res.json().catch(() => ({ message: null }))
+        setError(message || "Revisá tus datos.")
+        return
+      }
+      if (res.status === 429) {
+        const { message } = await res.json().catch(() => ({ message: null }))
+        setError(message || "Ya recibimos tu pedido.")
+        return
+      }
+    } catch {
+    } finally {
+      setEnviando(false)
+    }
     reportarSolicitudPresupuesto()
 
     const message = buildWhatsAppMessage(config, { name, phone, email })
@@ -125,24 +147,23 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
               </div>
               <div>
                 <label className="text-xs font-bold uppercase text-foreground/80">Teléfono (WhatsApp)</label>
-                <input 
-                  type="text" 
-                  value={phone} 
-                  onChange={e => setPhone(e.target.value)}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm mt-1" 
-                  placeholder="Ej: 5491112345678"
+                <CampoTelefono
+                  value={phone}
+                  onChange={setPhone}
+                  mostrarErrores={intentado}
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm mt-1"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase text-foreground/80">Correo electrónico (Opcional)</label>
-                <input 
-                  type="email" 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm mt-1" 
-                  placeholder="Ej: marta@gmail.com"
+                <label className="text-xs font-bold uppercase text-foreground/80">Correo electrónico</label>
+                <CampoEmail
+                  value={email}
+                  onChange={setEmail}
+                  mostrarErrores={intentado}
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm mt-1"
                 />
               </div>
+              {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex gap-3 justify-end mt-6">
                 <button 
                   onClick={() => setShowModal(false)}
@@ -152,7 +173,8 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
                 </button>
                 <button 
                   onClick={handleSubmit}
-                  className="px-4 py-2 rounded-md text-sm font-semibold bg-[#F97316] text-white flex gap-2 items-center"
+                  disabled={enviando}
+                  className="px-4 py-2 rounded-md text-sm font-semibold bg-[#F97316] text-white flex gap-2 items-center disabled:opacity-60"
                 >
                   <MessageCircle className="size-4" />
                   Enviar y abrir WhatsApp

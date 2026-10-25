@@ -6,6 +6,7 @@ interface TrackPayload {
   kind: LeadKind
   name?: string | null
   phone?: string | null
+  email?: string | null
   cuit?: string | null
   message?: string | null
   quoteTitle?: string | null
@@ -23,6 +24,8 @@ export interface LeadRegistrado {
   leadId?: string
   pdfUrl?: string | null
   pdfToken?: string | null
+  /** Por qué el servidor no lo aceptó (datos mal o demasiados pedidos). */
+  error?: string
 }
 
 /**
@@ -43,7 +46,8 @@ export function trackLead(payload: TrackPayload) {
 }
 
 /**
- * Igual que trackLead pero esperando la respuesta, que trae el enlace al PDF.
+ * Igual que trackLead pero esperando la respuesta, que trae el enlace al PDF
+ * o el motivo del rechazo.
  * Si algo falla devuelve null: el presupuesto ya está descargado en el disco del
  * vendedor y eso no puede depender del CRM.
  */
@@ -54,6 +58,12 @@ export async function registrarLead(payload: TrackPayload): Promise<LeadRegistra
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, sourcePath: window.location.pathname }),
     })
+    // Lo que el servidor rechaza a propósito se le explica al visitante; un
+    // fallo de la base, no: eso no es culpa suya.
+    if (res.status === 400 || res.status === 429) {
+      const { message } = await res.json().catch(() => ({ message: null }))
+      return { error: message || "No pudimos registrar tu pedido. Revisá tus datos." }
+    }
     if (!res.ok) return null
     return (await res.json()) as LeadRegistrado
   } catch {

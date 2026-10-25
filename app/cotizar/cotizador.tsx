@@ -8,6 +8,8 @@ import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
+import { problemaDeContacto } from "@/lib/crm/contacto"
+import { CampoEmail, CampoTelefono } from "@/components/site/campos-contacto"
 import { reportarSolicitudPresupuesto } from "@/lib/google-ads"
 import type { Lead } from "@/lib/crm/types"
 import type { ThreeSceneRef } from "@/components/three/config-scene"
@@ -206,7 +208,8 @@ export function Cotizador({
   const [clientName, setClientName] = useState(leadInicial?.name ?? "")
   const [cuit, setCuit] = useState(leadInicial?.cuit ?? "")
   const [phone, setPhone] = useState(leadInicial?.phone ?? "")
-  const [email, setEmail] = useState((guardado as any)?.email ?? "")
+  const [email, setEmail] = useState(leadInicial?.email ?? "")
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
   const [materials, setMaterials] = useState(
     guardado?.materials ??
@@ -884,19 +887,25 @@ export function Cotizador({
     }
   }
 
-  // Validación de contacto para evitar leads fantasma
-  const isPhoneValid = phone.replace(/\D/g, "").length >= 8
-  const isEmailValid = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  const faltanDatosCliente = !clientName.trim() || !isPhoneValid || !isEmailValid
+  // Validación de contacto para evitar leads fantasma. El correo es
+  // obligatorio para el visitante: si el teléfono viene mal, es la única vía.
+  const problemaCliente = problemaDeContacto({
+    name: clientName,
+    phone,
+    email,
+    exigirEmail: !interno,
+  })
+  const faltanDatosCliente = problemaCliente !== null
 
   const datosDelPresupuesto = () => ({
     kind: "presupuesto" as const,
     name: clientName || null,
     phone: phone || null,
+    email: email.trim() || null,
     cuit: cuit || null,
     quoteTitle: title,
     quoteTotal: total,
-    quoteConfig: { ...config, items, materials, email },
+    quoteConfig: { ...config, items, materials },
   })
 
   /** Deja el presupuesto guardado como borrador y devuelve su id. */
@@ -909,14 +918,19 @@ export function Cotizador({
 
   /** Lo que hace el visitante: pedir el presupuesto, sin llevarse ningún papel. */
   const pedirPresupuesto = async () => {
-    if (faltanDatosCliente) {
-      alert("Por favor completá tu nombre, un teléfono válido y, si lo ingresás, un email correcto.")
+    if (problemaCliente) {
+      setErrorEnvio(problemaCliente)
       return
     }
 
     setIsGenerating(true)
+    setErrorEnvio(null)
     try {
-      await registrarLead(datosDelPresupuesto())
+      const registrado = await registrarLead(datosDelPresupuesto())
+      if (registrado?.error) {
+        setErrorEnvio(registrado.error)
+        return
+      }
       reportarSolicitudPresupuesto()
       setPedidoEnviado(true)
     } finally {
@@ -927,7 +941,7 @@ export function Cotizador({
   /** Santi descarga el borrador para revisarlo; no se guarda en el CRM. */
   const descargarBorrador = async () => {
     if (faltanDatosCliente) {
-      alert("Completá el nombre y el teléfono del cliente antes de generar el PDF.")
+      alert(problemaCliente)
       return
     }
     setIsGenerating(true)
@@ -946,7 +960,7 @@ export function Cotizador({
    */
   const confirmarPresupuesto = async () => {
     if (faltanDatosCliente) {
-      alert("Completá el nombre y el teléfono del cliente antes de confirmar.")
+      alert(problemaCliente)
       return
     }
 
@@ -989,8 +1003,8 @@ export function Cotizador({
   }
 
   const sendToWhatsApp = () => {
-    if (faltanDatosCliente) {
-      alert(interno ? "Completá el nombre y el teléfono del cliente antes de enviar." : "Dejanos tu nombre y tu teléfono para poder responderte.")
+    if (problemaCliente) {
+      alert(problemaCliente)
       return
     }
     
@@ -1017,6 +1031,7 @@ export function Cotizador({
         kind: "whatsapp",
         name: clientName || null,
         phone,
+        email: email.trim() || null,
         cuit: cuit || null,
         message: `Envío de presupuesto: ${title}`,
         quoteTitle: title,
@@ -1266,25 +1281,23 @@ export function Cotizador({
                 {interno ? "Teléfono Cliente (WhatsApp)" : "Tu teléfono (WhatsApp)"}{" "}
                 <span className="text-primary">*</span>
               </label>
-              <input 
-                type="text" 
-                value={phone} 
-                onChange={e => setPhone(e.target.value)}
-                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary" 
-                placeholder="Ej: 5491112345678"
+              <CampoTelefono
+                value={phone}
+                onChange={setPhone}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase text-foreground/80">
-                {interno ? "Email Cliente (Opcional)" : "Tu correo electrónico (Opcional)"}
+                {interno ? "Email Cliente (Opcional)" : "Tu correo electrónico"}{" "}
+                {!interno && <span className="text-primary">*</span>}
               </label>
-              <input 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary" 
-                placeholder="Ej: marta@gmail.com"
+              <CampoEmail
+                value={email}
+                onChange={setEmail}
+                opcional={interno}
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
 
@@ -1483,12 +1496,8 @@ export function Cotizador({
           </div>
         </div>
 
-        {faltanDatosCliente && !pedidoEnviado && (
-          <p className="pt-4 text-right text-xs text-primary">
-            {interno
-              ? "Completá el nombre, teléfono y email del cliente para generar el presupuesto."
-              : "Completá nombre, teléfono y correo para poder solicitar la cotización."}
-          </p>
+        {(errorEnvio || problemaCliente) && !pedidoEnviado && (
+          <p className="pt-4 text-right text-xs text-primary">{errorEnvio || problemaCliente}</p>
         )}
 
         {interno ? (

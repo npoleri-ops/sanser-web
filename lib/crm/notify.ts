@@ -26,6 +26,7 @@ export async function notifyLead(lead: Lead, pdfUrl?: string | null) {
   const lineas = [
     `Cliente: ${lead.name || "—"}`,
     `Teléfono: ${lead.phone || "—"}`,
+    `Correo: ${lead.email || "—"}`,
     lead.cuit ? `CUIT: ${lead.cuit}` : null,
     lead.quote_total ? `Total: ${money.format(Number(lead.quote_total))}` : null,
     lead.message ? `Mensaje: ${lead.message}` : null,
@@ -45,6 +46,10 @@ export async function notifyLead(lead: Lead, pdfUrl?: string | null) {
     form.append("_subject", `[SANSER] ${titulo}`)
     form.append("name", lead.name || "Cliente")
     form.append("phone", lead.phone || "")
+    if (lead.email) {
+      form.append("email", lead.email)
+      form.append("_replyto", lead.email)
+    }
     form.append("message", lineas.join("\n"))
 
     await fetch(NOTIFY_ENDPOINT, {

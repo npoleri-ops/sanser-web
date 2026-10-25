@@ -45,21 +45,14 @@ export function readRequestContext(req: Request): RequestContext {
 }
 
 /**
- * Un clic a WhatsApp no trae datos —es sólo una señal de interés—, pero un
- * presupuesto o una consulta sin nombre y teléfono no sirven para vender.
+ * Mínimo para el alta manual desde el panel: Santi carga a veces un fijo o un
+ * cliente que no dio correo, así que ahí no se aplica la validación estricta
+ * del visitante (ver problemaDeContacto en ./contacto).
  */
 export function faltaContacto(lead: NewLead) {
   if (lead.kind === "whatsapp") return false
-  
   const hasName = Boolean(lead.name?.trim())
   const hasPhone = Boolean(lead.phone && lead.phone.replace(/\D/g, "").length >= 8)
-  
-  if (lead.kind === "presupuesto") {
-    const email = (lead.quoteConfig as any)?.email
-    const hasEmail = Boolean(!email || email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return !hasName || !hasPhone || !hasEmail
-  }
-
   return !hasName || !hasPhone
 }
 
@@ -69,9 +62,9 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
        kind, name, phone, cuit, message,
        quote_title, quote_total, quote_config,
        source_path, referrer, user_agent, ip, city, region, country,
-       status, notes
+       status, notes, email
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-               COALESCE($16, 'nuevo'), $17)
+               COALESCE($16, 'nuevo'), $17, $18)
      RETURNING *`,
     [
       lead.kind,
@@ -91,6 +84,7 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
       ctx.country,
       lead.status ?? null,
       lead.notes ?? null,
+      lead.email?.trim().toLowerCase() || null,
     ],
   )
   return rows[0]
@@ -98,48 +92,149 @@ export async function createLead(lead: NewLead, ctx: RequestContext): Promise<Le
 
 /**
  * Regenerar el mismo presupuesto creaba una fila nueva cada vez (pasó con los
- * registros 8 y 9). Si en la última media hora ya hay uno igual —mismo teléfono
- * y mismo título— se actualiza en lugar de duplicar.
+ * registros 8 y 9). Si en la última media hora ya hay uno igual de la misma
+ * persona se actualiza en lugar de duplicar.
  */
 const VENTANA_DUPLICADOS = "30 minutes"
 
-export async function createOrUpdateLead(lead: NewLead, ctx: RequestContext): Promise<Lead> {
-  if (lead.phone && lead.quoteTitle) {
-    const rows = await query<Lead>(
-      `UPDATE leads SET
-         quote_total  = COALESCE($1, quote_total),
-         quote_config = COALESCE($2, quote_config),
-         name         = COALESCE($3, name),
-         cuit         = COALESCE($4, cuit),
-         updated_at   = now()
-       WHERE id = (
-         SELECT id FROM leads
-         -- Por la clave normalizada y no por la cadena: si el cliente escribe
-         -- el teléfono de otra forma, antes se creaba un duplicado.
-         WHERE kind = $5 AND phone_key = NULLIF(RIGHT(REGEXP_REPLACE($6, '\D', '', 'g'), 10), '')
-           AND quote_title = $7
-           AND quote_state = 'borrador'
-           AND deleted_at IS NULL
-           AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
-         ORDER BY created_at DESC
-         LIMIT 1
-       )
-       RETURNING *`,
-      [
-        lead.quoteTotal ?? null,
-        lead.quoteConfig ? JSON.stringify(lead.quoteConfig) : null,
-        lead.name ?? null,
-        lead.cuit ?? null,
-        lead.kind,
-        lead.phone,
-        lead.quoteTitle,
-      ],
-    )
+/**
+ * Condición SQL de «es la misma persona», sobre los parámetros $1 teléfono y
+ * $2 correo.
+ *
+ * El teléfono solo no alcanzaba: Leonardo pidió tres veces en cinco minutos
+ * corrigiendo el número cada vez, y cada corrección era un cliente nuevo. Para
+ * el visitante también cuenta el correo. La IP no: detrás de un mismo wifi hay
+ * familias y oficinas enteras, y fusionar por ella pisaba el correo de uno con
+ * el de otro; la IP sólo sirve para el tope de pedidos. Para Santi tampoco
+ * cuenta el correo: carga clientes a mano y no hay visitante que reconocer.
+ */
+const MISMA_PERSONA = `(
+  phone_key = NULLIF(RIGHT(REGEXP_REPLACE(COALESCE($1, ''), '\\D', '', 'g'), 10), '')
+  OR ($2::text IS NOT NULL AND lower(email) = $2)
+)`
 
-    if (rows[0]) return rows[0]
-  }
+function identidad(lead: NewLead, porVisitante: boolean) {
+  return [lead.phone ?? null, porVisitante ? lead.email?.trim().toLowerCase() || null : null]
+}
 
-  return createLead(lead, ctx)
+/**
+ * Si la misma persona ya dejó el mismo pedido hace un rato, lo actualiza con lo
+ * último que escribió —el teléfono corregido gana al anterior— y lo devuelve.
+ * Una consulta nueva del formulario se suma al mensaje en vez de pisarlo.
+ */
+export async function actualizarPedidoReciente(
+  lead: NewLead,
+  { porVisitante }: { porVisitante: boolean },
+): Promise<Lead | null> {
+  if (lead.kind === "whatsapp") return null
+  if (lead.kind === "presupuesto" && !lead.quoteTitle) return null
+
+  const rows = await query<Lead>(
+    `UPDATE leads SET
+       quote_total  = COALESCE($3, quote_total),
+       quote_config = COALESCE($4, quote_config),
+       name         = COALESCE($5, name),
+       cuit         = COALESCE($6, cuit),
+       phone        = COALESCE($1, phone),
+       email        = COALESCE($2, email),
+       message      = CASE
+                        WHEN $7::text IS NULL OR message = $7 THEN message
+                        WHEN message IS NULL THEN $7
+                        ELSE message || E'\n---\n' || $7
+                      END,
+       updated_at   = now()
+     WHERE id = (
+       SELECT id FROM leads
+       WHERE kind = $8 AND ${MISMA_PERSONA}
+         AND ($9::text IS NULL OR quote_title = $9)
+         AND quote_state = 'borrador'
+         AND deleted_at IS NULL
+         AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
+       ORDER BY created_at DESC
+       LIMIT 1
+     )
+     RETURNING *`,
+    [
+      ...identidad(lead, porVisitante),
+      lead.quoteTotal ?? null,
+      lead.quoteConfig ? JSON.stringify(lead.quoteConfig) : null,
+      lead.name ?? null,
+      lead.cuit ?? null,
+      lead.message ?? null,
+      lead.kind,
+      lead.kind === "presupuesto" ? lead.quoteTitle : null,
+    ],
+  )
+  return rows[0] ?? null
+}
+
+/**
+ * Tope de pedidos nuevos por persona. Un cliente que compara dos o tres
+ * tamaños entra holgado; lo que lo supera es alguien probando el formulario o
+ * un bot, y cada uno de esos llega a Santi como aviso por correo.
+ *
+ * Los pedidos repetidos no llegan hasta aquí: se fusionan antes con
+ * actualizarPedidoReciente.
+ */
+const LIMITE_POR_EMAIL = { pedidos: 3, ventana: "24 hours" }
+const LIMITE_POR_IP = { pedidos: 5, ventana: "1 hour" }
+
+export async function superaLimiteDePedidos(
+  email: string | null | undefined,
+  ip: string | null,
+): Promise<boolean> {
+  const correo = email?.trim().toLowerCase() || null
+  const rows = await query<{ por_email: number; por_ip: number }>(
+    `SELECT
+       COUNT(*) FILTER (
+         WHERE $1::text IS NOT NULL AND lower(email) = $1
+           AND created_at > now() - INTERVAL '${LIMITE_POR_EMAIL.ventana}'
+       )::int AS por_email,
+       COUNT(*) FILTER (
+         WHERE $2::text IS NOT NULL AND ip = $2
+           AND created_at > now() - INTERVAL '${LIMITE_POR_IP.ventana}'
+       )::int AS por_ip
+     FROM leads
+     WHERE kind <> 'whatsapp'
+       AND created_at > now() - INTERVAL '${LIMITE_POR_EMAIL.ventana}'
+       AND ((($1::text IS NOT NULL) AND lower(email) = $1) OR ($2::text IS NOT NULL AND ip = $2))`,
+    [correo, ip],
+  )
+  const fila = rows[0]
+  return Boolean(
+    fila && (fila.por_email >= LIMITE_POR_EMAIL.pedidos || fila.por_ip >= LIMITE_POR_IP.pedidos),
+  )
+}
+
+/**
+ * El clic a WhatsApp del cotizador público, cuando la misma persona acaba de
+ * pedir el presupuesto: queda como nota de ese pedido en vez de ser un registro
+ * más en la lista.
+ */
+export async function anotarWhatsAppEnPedidoReciente(
+  lead: NewLead,
+): Promise<Lead | null> {
+  // Una sola nota por más clics que haga, pero el pedido sigue siendo suyo.
+  const rows = await query<Lead>(
+    `UPDATE leads SET
+       notes = CASE
+                 WHEN notes LIKE '%escribió por WhatsApp%' THEN notes
+                 ELSE trim(both E'\n' from coalesce(notes, '') || E'\n' ||
+                           'El cliente escribió por WhatsApp desde el cotizador.')
+               END,
+       updated_at = now()
+     WHERE id = (
+       SELECT id FROM leads
+       WHERE kind = 'presupuesto' AND ${MISMA_PERSONA}
+         AND deleted_at IS NULL
+         AND created_at > now() - INTERVAL '${VENTANA_DUPLICADOS}'
+       ORDER BY created_at DESC
+       LIMIT 1
+     )
+     RETURNING *`,
+    identidad(lead, true),
+  )
+  return rows[0] ?? null
 }
 
 /**
@@ -182,6 +277,7 @@ export async function registrarConsultaDelCliente(pdfToken: string): Promise<Lea
 export interface DatosPresupuesto {
   name?: string | null
   phone?: string | null
+  email?: string | null
   cuit?: string | null
   quoteTitle?: string | null
   quoteTotal?: number | null
@@ -205,6 +301,7 @@ export async function actualizarBorrador(
        quote_title  = COALESCE($5, quote_title),
        quote_total  = COALESCE($6, quote_total),
        quote_config = COALESCE($7, quote_config),
+       email        = COALESCE($8, email),
        updated_at   = now()
      WHERE id = $1 AND kind = 'presupuesto' AND quote_state = 'borrador'
      RETURNING *`,
@@ -216,6 +313,7 @@ export async function actualizarBorrador(
       datos.quoteTitle ?? null,
       datos.quoteTotal ?? null,
       datos.quoteConfig ? JSON.stringify(datos.quoteConfig) : null,
+      datos.email?.trim().toLowerCase() || null,
     ],
   )
   return rows[0] ?? null
@@ -285,7 +383,7 @@ export async function listLeads(
   if (filters.search) {
     params.push(`%${filters.search}%`)
     where.push(
-      `(leads.name ILIKE $${params.length} OR leads.phone ILIKE $${params.length} OR leads.message ILIKE $${params.length} OR leads.quote_title ILIKE $${params.length})`,
+      `(leads.name ILIKE $${params.length} OR leads.phone ILIKE $${params.length} OR leads.email ILIKE $${params.length} OR leads.message ILIKE $${params.length} OR leads.quote_title ILIKE $${params.length})`,
     )
   }
   if (filters.dormidos) {

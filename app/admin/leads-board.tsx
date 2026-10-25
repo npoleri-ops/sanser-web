@@ -224,11 +224,11 @@ export function LeadsBoard({
     }
 
     const headers = [
-      "fecha", "tipo", "estado", "nombre", "telefono", "cuit",
+      "fecha", "tipo", "estado", "nombre", "telefono", "email", "cuit",
       "mensaje", "presupuesto", "total", "ciudad", "provincia", "pais", "ip", "notas",
     ]
     const rows = (todos as Lead[]).map(l => [
-      formatDate(l.created_at), KIND_LABEL[l.kind], STATUS_LABEL[l.status], l.name, l.phone, l.cuit,
+      formatDate(l.created_at), KIND_LABEL[l.kind], STATUS_LABEL[l.status], l.name, l.phone, l.email, l.cuit,
       l.message, l.quote_title, l.quote_total, l.city, l.region, l.country, l.ip, l.notes,
     ])
     const csv = [headers, ...rows]
@@ -310,7 +310,7 @@ export function LeadsBoard({
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Buscar por nombre, teléfono o mensaje"
+            placeholder="Buscar por nombre, teléfono, correo o mensaje"
             className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
           />
         </div>
@@ -479,6 +479,9 @@ export function LeadsBoard({
                           {lead.phone}
                         </a>
                       )}
+                      {lead.email && (
+                        <div className="text-xs text-muted-foreground">{lead.email}</div>
+                      )}
                     </td>
                     <td className="max-w-md px-4 py-3">
                       {lead.kind === "presupuesto" ? (
@@ -634,6 +637,13 @@ function LeadDetail({
             {lead.phone ? (
               <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 {lead.phone}
+              </a>
+            ) : "—"}
+          </Field>
+          <Field label="Correo">
+            {lead.email ? (
+              <a href={`mailto:${lead.email}`} className="text-primary hover:underline">
+                {lead.email}
               </a>
             ) : "—"}
           </Field>

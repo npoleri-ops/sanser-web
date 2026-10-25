@@ -207,3 +207,24 @@ ALTER TABLE fin_movimientos ADD COLUMN IF NOT EXISTS cuotas    SMALLINT
 -- La consulta de todos los días es «lo que falta pagar»: índice sólo de eso.
 CREATE INDEX IF NOT EXISTS fin_mov_pendientes_idx ON fin_movimientos (fecha)
   WHERE NOT pagado;
+
+-- ─────────────────────────────────────────── correo y pedidos repetidos
+
+-- El correo pasa a ser obligatorio para el visitante: con sólo el teléfono,
+-- uno mal escrito dejaba el pedido sin forma de contestar. Hasta ahora vivía
+-- dentro de quote_config y sólo en los presupuestos; con columna propia se
+-- puede buscar, exportar y, sobre todo, contar cuántas veces pidió la misma
+-- persona.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Recupera los que ya entraron con correo dentro de la configuración.
+UPDATE leads SET email = lower(trim(quote_config->>'email'))
+ WHERE email IS NULL AND COALESCE(trim(quote_config->>'email'), '') <> '';
+
+CREATE INDEX IF NOT EXISTS leads_email_idx ON leads (lower(email), created_at DESC)
+  WHERE email IS NOT NULL;
+
+-- El límite por IP mira sólo la última hora: el índice por fecha basta para
+-- acotar y éste resuelve el resto.
+CREATE INDEX IF NOT EXISTS leads_ip_idx ON leads (ip, created_at DESC)
+  WHERE ip IS NOT NULL;

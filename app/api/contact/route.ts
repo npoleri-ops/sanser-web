@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { createLead, faltaContacto, readRequestContext } from "@/lib/crm/leads";
+import {
+  actualizarPedidoReciente,
+  createLead,
+  readRequestContext,
+  superaLimiteDePedidos,
+} from "@/lib/crm/leads";
+import { normalizarTelefono, problemaDeContacto } from "@/lib/crm/contacto";
 import { isDatabaseConfigured } from "@/lib/crm/db";
 
 export async function POST(req: Request) {
@@ -8,6 +14,7 @@ export async function POST(req: Request) {
     const { 
       name, 
       phone, 
+      email,
       message, 
       empresa_url, 
       mountTime
@@ -32,29 +39,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Consulta enviada" }, { status: 200 });
     }
 
-    // El formulario ya los pide como obligatorios; esto cubre a quien mande el
-    // POST por su cuenta saltándose el navegador.
-    if (faltaContacto({ kind: "contacto", name, phone })) {
-      return NextResponse.json(
-        { success: false, message: "Hace falta tu nombre y tu teléfono para poder responderte." },
-        { status: 400 },
-      );
+    // El formulario ya los valida; esto cubre a quien mande el POST por su
+    // cuenta saltándose el navegador.
+    const problema = problemaDeContacto({ name, phone, email, exigirEmail: true });
+    if (problema) {
+      return NextResponse.json({ success: false, message: problema }, { status: 400 });
     }
+
+    const telefono = normalizarTelefono(phone);
+    const lead = {
+      kind: "contacto" as const,
+      name: String(name).trim(),
+      phone: telefono.ok ? telefono.digitos : phone,
+      email: String(email).trim().toLowerCase(),
+      message: message || null,
+      sourcePath: body.sourcePath || "/",
+    };
 
     // Guardar en el CRM antes de reenviar. Si la base falla no se pierde la
     // consulta: Formspree sigue siendo la vía de aviso por correo.
     if (isDatabaseConfigured()) {
       try {
-        await createLead(
-          {
-            kind: "contacto",
-            name: name || null,
-            phone: phone || null,
-            message: message || null,
-            sourcePath: body.sourcePath || "/",
-          },
-          readRequestContext(req),
-        );
+        const ctx = readRequestContext(req);
+        const repetido = await actualizarPedidoReciente(lead, { porVisitante: true });
+        if (repetido) {
+          // Ya se avisó la primera vez: el mensaje nuevo queda sumado al registro.
+          return NextResponse.json({ success: true, message: "Consulta enviada con éxito" });
+        }
+        if (await superaLimiteDePedidos(lead.email, ctx.ip)) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Ya recibimos tus consultas y te vamos a contactar. Si es urgente, escribinos por WhatsApp.",
+            },
+            { status: 429 },
+          );
+        }
+        await createLead(lead, ctx);
       } catch (dbError) {
         console.error("No se pudo guardar el contacto en el CRM", dbError);
       }
@@ -71,10 +92,12 @@ export async function POST(req: Request) {
     const formspreeEndpoint = "https://formspree.io/f/xyegjjdz";
     const formspreeFormData = new FormData();
     formspreeFormData.append("name", name || "Cliente");
-    formspreeFormData.append("phone", phone || "");
+    formspreeFormData.append("phone", telefono.ok ? telefono.legible : phone || "");
+    formspreeFormData.append("email", lead.email);
     formspreeFormData.append("message", message || "");
     formspreeFormData.append("_subject", `Nueva consulta de ${name || "Cliente"} (SANSER Web)`);
-    formspreeFormData.append("_replyto", "sansermetalurgica@gmail.com");
+    // Así «Responder» en el aviso le escribe al cliente y no a SANSER.
+    formspreeFormData.append("_replyto", lead.email);
 
     const response = await fetch(formspreeEndpoint, {
       method: "POST",

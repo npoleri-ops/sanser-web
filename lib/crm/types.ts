@@ -37,6 +37,7 @@ export interface Lead {
   notes: string | null
   name: string | null
   phone: string | null
+  email: string | null
   cuit: string | null
   message: string | null
   quote_title: string | null
@@ -72,6 +73,7 @@ export interface NewLead {
   kind: LeadKind
   name?: string | null
   phone?: string | null
+  email?: string | null
   cuit?: string | null
   message?: string | null
   quoteTitle?: string | null

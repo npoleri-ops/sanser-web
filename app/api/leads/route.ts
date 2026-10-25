@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server"
 import {
-  createOrUpdateLead,
-  faltaContacto,
+  actualizarPedidoReciente,
+  anotarWhatsAppEnPedidoReciente,
+  createLead,
   marcarPresupuestoEnviado,
   readRequestContext,
   registrarConsultaDelCliente,
+  superaLimiteDePedidos,
 } from "@/lib/crm/leads"
+import { isAuthenticated } from "@/lib/crm/auth"
+import { normalizarTelefono, problemaDeContacto } from "@/lib/crm/contacto"
 import { notifyLead } from "@/lib/crm/notify"
 import { savePdf } from "@/lib/crm/pdfs"
 import { isDatabaseConfigured } from "@/lib/crm/db"
@@ -45,26 +49,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, stored: false, actualizado: Boolean(lead) })
     }
 
+    // Con sesión abierta es Santi armando un presupuesto; si no, un visitante.
+    const interno = await isAuthenticated()
+    const ctx = readRequestContext(req)
+    const quoteConfig = body.quoteConfig ?? null
+    // Los formularios viejos que sigan abiertos mandan el correo dentro de la
+    // configuración.
+    const email = body.email || quoteConfig?.email || null
+
+    if (kind !== "whatsapp") {
+      const problema = problemaDeContacto({
+        name: body.name,
+        phone: body.phone,
+        email,
+        exigirEmail: !interno,
+      })
+      if (problema) {
+        return NextResponse.json({ ok: false, message: problema }, { status: 400 })
+      }
+    }
+
+    const telefono = normalizarTelefono(body.phone)
     const lead = {
       kind,
-      name: body.name || null,
-      phone: body.phone || null,
+      name: body.name?.trim() || null,
+      // Guardado listo para wa.me: «2216701307» sin el 549 no abre ningún chat.
+      phone: telefono.ok ? telefono.digitos : body.phone || null,
+      email: email ? String(email).trim().toLowerCase() : null,
       cuit: body.cuit || null,
       message: body.message || null,
       quoteTitle: body.quoteTitle || null,
       quoteTotal: typeof body.quoteTotal === "number" ? body.quoteTotal : null,
-      quoteConfig: body.quoteConfig ?? null,
+      quoteConfig,
       sourcePath: body.sourcePath || null,
     }
 
-    if (faltaContacto(lead)) {
-      return NextResponse.json(
-        { ok: false, message: "Falta el nombre o el teléfono del cliente" },
-        { status: 400 },
-      )
+    // El clic a WhatsApp de quien acaba de pedir presupuesto es parte de ese
+    // pedido, no un registro más.
+    if (kind === "whatsapp" && !interno) {
+      const anotado = await anotarWhatsAppEnPedidoReciente(lead)
+      if (anotado) return NextResponse.json({ ok: true, stored: false, actualizado: true })
     }
 
-    const guardado = await createOrUpdateLead(lead, readRequestContext(req))
+    const repetido = await actualizarPedidoReciente(lead, { porVisitante: !interno })
+    if (!repetido && !interno && kind !== "whatsapp" && (await superaLimiteDePedidos(lead.email, ctx.ip))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          limitado: true,
+          message:
+            "Ya recibimos tus pedidos y te vamos a contactar. Si querés sumar algo, escribinos por WhatsApp.",
+        },
+        { status: 429 },
+      )
+    }
+    const guardado = repetido ?? (await createLead(lead, ctx))
 
     // El PDF llega en base64 junto al presupuesto: así el vendedor puede mandar
     // un enlace por WhatsApp en vez de adjuntar el archivo a mano.
@@ -81,8 +120,8 @@ export async function POST(req: Request) {
     }
 
     // El aviso no bloquea la respuesta: el cotizador no tiene por qué esperar a
-    // que Formspree conteste.
-    if (kind !== "whatsapp") {
+    // que Formspree conteste. Un pedido repetido ya se avisó la primera vez.
+    if (kind !== "whatsapp" && !repetido) {
       void notifyLead(guardado, pdfUrl)
     }
 
