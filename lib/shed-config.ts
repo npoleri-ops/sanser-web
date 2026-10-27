@@ -13,7 +13,12 @@ export interface ShedConfig {
   wallSheet: WallSheetType
   color: RoofColor
   environment: EnvironmentType
-  walls: boolean // cerramientos laterales
+  walls: boolean // cerramientos laterales (compatibilidad)
+  wallLeft?: boolean // cerramiento lateral izquierdo
+  wallRight?: boolean // cerramiento lateral derecho
+  wallFront?: boolean // cerramiento frontal / tímpano
+  wallBack?: boolean // cerramiento trasero / tímpano
+  doorsCount?: number // cantidad de puertas de acceso peatonal
   gate: boolean // portón frontal
   gateBack: boolean // portón trasero
   centralColumns?: boolean // columnas intermedias de apoyo (1 agua)
@@ -29,6 +34,11 @@ export const DEFAULT_CONFIG: ShedConfig = {
   color: "negro",
   environment: "day",
   walls: false,
+  wallLeft: false,
+  wallRight: false,
+  wallFront: false,
+  wallBack: false,
+  doorsCount: 0,
   gate: false,
   gateBack: false,
   centralColumns: false,
@@ -132,7 +142,19 @@ export function buildWhatsAppMessage(
   const computo = computeMateriales(config)
 
   const extras: string[] = []
-  if (config.walls) extras.push("con cerramientos laterales")
+  if (config.wallLeft && config.wallRight) extras.push("con cerramientos laterales en ambos lados")
+  else if (config.wallLeft) extras.push("con cerramiento lateral izquierdo")
+  else if (config.wallRight) extras.push("con cerramiento lateral derecho")
+  else if (config.walls) extras.push("con cerramientos laterales")
+
+  if (config.wallFront && config.wallBack) extras.push("con cerramiento frente y fondo")
+  else if (config.wallFront) extras.push("con cerramiento frontal")
+  else if (config.wallBack) extras.push("con cerramiento trasero")
+
+  if (config.doorsCount && config.doorsCount > 0) {
+    extras.push(`con ${config.doorsCount} puerta(s) de acceso peatonal`)
+  }
+
   if (config.gate && config.gateBack) {
     extras.push("con portón pasante (Frente y Fondo)")
   } else if (config.gate) {
@@ -153,7 +175,13 @@ export function buildWhatsAppMessage(
   msg += `- Tipología: ${TYPE_LABEL[type]}\n`
   msg += `- Dimensiones: ${width}m (Ancho) x ${length}m (Largo) x ${height}m (Altura libre)\n`
   msg += `- Cubierta: Chapa ${SHEET_LABEL[sheet]} (Color: ${COLOR_LABEL[color]})\n`
-  msg += `- Cerramientos laterales: ${config.walls ? "Sí" : "No"}\n`
+  msg += `- Cerramiento Lat. Izquierdo: ${config.wallLeft ? "Sí" : (config.walls ? "Sí" : "No")}\n`
+  msg += `- Cerramiento Lat. Derecho: ${config.wallRight ? "Sí" : (config.walls ? "Sí" : "No")}\n`
+  msg += `- Cerramiento Frontal: ${config.wallFront ? "Sí" : "No"}\n`
+  msg += `- Cerramiento Trasero: ${config.wallBack ? "Sí" : "No"}\n`
+  if (config.doorsCount && config.doorsCount > 0) {
+    msg += `- Puertas de acceso: ${config.doorsCount} unid. (0.90x2.05m)\n`
+  }
   msg += `- Portón frontal: ${config.gate ? "Sí" : "No"}\n`
   msg += `- Portón trasero: ${config.gateBack ? "Sí" : "No"}\n`
 

@@ -38,6 +38,11 @@ function parseShedConfig(params: Record<string, string | undefined>) {
     : DEFAULT_CONFIG.color
 
   const paredes = params.paredes === "1"
+  const paredIzq = params.paredIzq === "1" || (paredes && params.paredIzq !== "0")
+  const paredDer = params.paredDer === "1" || (paredes && params.paredDer !== "0")
+  const paredFrente = params.paredFrente === "1"
+  const paredFondo = params.paredFondo === "1"
+  const puertas = parseInt(params.puertas ?? "0", 10) || 0
   const porton = params.porton === "1"
   const portonTrasero = params.portonTrasero === "1"
 
@@ -49,7 +54,12 @@ function parseShedConfig(params: Record<string, string | undefined>) {
     height: Math.min(20, Math.max(2, alto)),
     sheet: chapa,
     color,
-    walls: paredes,
+    walls: paredes || paredIzq || paredDer,
+    wallLeft: paredIzq,
+    wallRight: paredDer,
+    wallFront: paredFrente,
+    wallBack: paredFondo,
+    doorsCount: puertas,
     gate: porton,
     gateBack: portonTrasero,
   }

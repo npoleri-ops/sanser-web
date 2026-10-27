@@ -242,6 +242,7 @@ interface Built {
   walls: { pos: [number, number, number]; rot: [number, number, number]; shape: THREE.Shape }[]
   flanges: { pos: [number, number, number]; w: number; h: number; d: number }[]
   flashings: { pos: [number, number, number]; rotZ: number; h: number }[]
+  doors?: { pos: [number, number, number]; rot: [number, number, number] }[]
 }
 
 function useBuilt(config: ShedConfig): Built {
@@ -605,54 +606,89 @@ function useBuilt(config: ShedConfig): Built {
       return shape
     }
 
-    if (config.walls) {
+    const hasLeftWall = config.wallLeft ?? config.walls
+    const hasRightWall = config.wallRight ?? config.walls
+    const hasFrontWall = Boolean(config.wallFront)
+    const hasBackWall = Boolean(config.wallBack ?? (config.walls && !config.gateBack))
+
+    if (hasLeftWall) {
       walls.push({ pos: [-wallX, 0, 0], rot: [0, -Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2, topFn(-wallX)) })
+    }
+    if (hasRightWall) {
       walls.push({ pos: [wallX, 0, 0], rot: [0, Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2, topFn(wallX)) })
-      
-      if (!config.gateBack) {
-        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
-      }
     }
     
-    if (config.gate || config.gateBack) {
-      const gateW = Math.min(6, W * 0.4)
-      const gateH = clamp(H * 0.8, 3, 5)
-      
-      // Top header panel over the gate (shared for both front and back)
-      const headerShape = new THREE.Shape()
-      headerShape.moveTo(-gateW / 2, gateH)
-      headerShape.lineTo(gateW / 2, gateH)
-      const segments = 10
-      for (let i = 0; i <= segments; i++) {
-        const u = 1 - (i / segments)
-        const x = THREE.MathUtils.lerp(-gateW / 2, gateW / 2, u)
-        headerShape.lineTo(x, topFn(x) + wallVerticalOverlap)
-      }
-      headerShape.closePath()
-      
+    const gateW = Math.min(6, W * 0.4)
+    const gateH = clamp(H * 0.8, 3, 5)
+    
+    // Top header panel over the gate (shared for both front and back)
+    const headerShape = new THREE.Shape()
+    headerShape.moveTo(-gateW / 2, gateH)
+    headerShape.lineTo(gateW / 2, gateH)
+    const segments = 10
+    for (let i = 0; i <= segments; i++) {
+      const u = 1 - (i / segments)
+      const x = THREE.MathUtils.lerp(-gateW / 2, gateW / 2, u)
+      headerShape.lineTo(x, topFn(x) + wallVerticalOverlap)
+    }
+    headerShape.closePath()
+    
+    if (hasFrontWall) {
       if (config.gate) {
-        // Front Gate Side panels + Header
         walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
         walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
         walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: headerShape })
+      } else {
+        walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
       }
-      
+    } else if (config.gate) {
+      // Front Gate Side panels + Header
+      walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
+      walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
+      walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: headerShape })
+    }
+    
+    if (hasBackWall) {
       if (config.gateBack) {
-        // Back Gate Side panels + Header
         walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
         walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
         walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: headerShape })
+      } else {
+        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
       }
+    } else if (config.gateBack) {
+      // Back Gate Side panels + Header
+      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
+      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
+      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: headerShape })
     }
 
-    if (config.walls || config.gate || config.gateBack) {
+    if (hasLeftWall || hasRightWall || hasFrontWall || hasBackWall || config.gate || config.gateBack) {
       flashings.push({ pos: [-wallX, 0, wallZ], rotZ: 0, h: topFn(-wallX) + wallVerticalOverlap })
       flashings.push({ pos: [-wallX, 0, -wallZ], rotZ: -Math.PI / 2, h: topFn(-wallX) + wallVerticalOverlap })
       flashings.push({ pos: [wallX, 0, -wallZ], rotZ: Math.PI, h: topFn(wallX) + wallVerticalOverlap })
       flashings.push({ pos: [wallX, 0, wallZ], rotZ: Math.PI / 2, h: topFn(wallX) + wallVerticalOverlap })
     }
 
-    return { slab: { w: W, l: L }, bases, columns, trusses, roof, panels, walls, flanges, flashings }
+    const doors: Built["doors"] = []
+    if (config.doorsCount && config.doorsCount > 0) {
+      const cnt = Math.min(4, config.doorsCount)
+      for (let i = 0; i < cnt; i++) {
+        if (i === 0) {
+          const posX = Math.min(wallX - 1.2, W * 0.35)
+          doors.push({ pos: [posX, 0, wallZ + 0.03], rot: [0, 0, 0] })
+        } else if (i === 1) {
+          doors.push({ pos: [-wallX - 0.03, 0, wallZ - 2.5], rot: [0, -Math.PI / 2, 0] })
+        } else if (i === 2) {
+          doors.push({ pos: [wallX + 0.03, 0, wallZ - 2.5], rot: [0, Math.PI / 2, 0] })
+        } else if (i === 3) {
+          const posX = Math.max(-wallX + 1.2, -W * 0.35)
+          doors.push({ pos: [posX, 0, -wallZ - 0.03], rot: [0, Math.PI, 0] })
+        }
+      }
+    }
+
+    return { slab: { w: W, l: L }, bases, columns, trusses, roof, panels, walls, flanges, flashings, doors }
   }, [config])
 }
 
@@ -927,6 +963,22 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
           <mesh key={`fl_${i}`} position={f.pos} rotation={[-Math.PI / 2, 0, f.rotZ]} material={roofMat} castShadow>
             <extrudeGeometry args={[flashShape, { depth: f.h, bevelEnabled: false }]} />
           </mesh>
+        ))}
+        {built.doors?.map((d, i) => (
+          <group key={`door_${i}`} position={d.pos} rotation={d.rot}>
+            {/* Marco de puerta */}
+            <mesh position={[0, 1.05, 0]} material={mats.columns}>
+              <boxGeometry args={[1.04, 2.14, 0.08]} />
+            </mesh>
+            {/* Hoja de puerta */}
+            <mesh position={[0, 1.05, 0.01]} material={wallMat}>
+              <boxGeometry args={[0.92, 2.02, 0.04]} />
+            </mesh>
+            {/* Picaporte */}
+            <mesh position={[0.36, 1.0, 0.04]} material={mats.purlins}>
+              <boxGeometry args={[0.04, 0.12, 0.06]} />
+            </mesh>
+          </group>
         ))}
       </group>
     </group>

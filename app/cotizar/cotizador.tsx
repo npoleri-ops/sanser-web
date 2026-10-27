@@ -6,6 +6,7 @@ import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, 
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
+import { cn } from "@/lib/utils"
 import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -56,6 +57,33 @@ type Prices = typeof INITIAL_PRICES
 // Los inputs de medidas pueden quedar vacíos mientras se escribe: el estado guarda
 // esa cadena vacía aunque ShedConfig declare number.
 const EMPTY_NUMBER = "" as unknown as number
+
+// Cálculo de superficies de cerramientos en m²
+export const getSuperficies = (c: ShedConfig) => {
+  const ancho = c.width || 0;
+  const largo = c.length || 0;
+  const alto = c.height || 5;
+  const isUnAgua = c.type === "shed" || c.type === "shed_varillas";
+
+  const supLateral = Math.round(largo * alto);
+  const flecha = isUnAgua 
+    ? (ancho * Math.tan((8 * Math.PI) / 180)) 
+    : ((ancho / 2) * Math.tan((12 * Math.PI) / 180));
+  const supGable = Math.round((ancho * alto) + ((ancho * flecha) / 2));
+
+  const hasLeft = Boolean(c.wallLeft ?? c.walls);
+  const hasRight = Boolean(c.wallRight ?? c.walls);
+  const hasFront = Boolean(c.wallFront);
+  const hasBack = Boolean(c.wallBack);
+
+  const supTotalCerramientos = 
+    (hasLeft ? supLateral : 0) + 
+    (hasRight ? supLateral : 0) + 
+    (hasFront ? supGable : 0) + 
+    (hasBack ? supGable : 0);
+
+  return { supLateral, supGable, supTotalCerramientos, hasLeft, hasRight, hasFront, hasBack };
+}
 
 // Cálculo puro: sólo depende de sus argumentos, por eso vive fuera del componente.
 const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) => {
@@ -132,7 +160,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const p80N = currentPrices.perfil80Negro || 70800;
   const p80G = currentPrices.perfil80Galv || 84000;
   const pAng = currentPrices.angulo || 30000;
-  const pChapa = currentPrices.chapa || 13200;
+  const pChapa = currentPrices.chapa || 15000;
   const pBulonJuego = currentPrices.bulonesJuego || 1140;
   const pAran = currentPrices.arandelas || 3500;
   const pTornillo = currentPrices.tornillos || 15000;
@@ -161,17 +189,106 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   
   const subtotalTingladoCompleto = subtotalMateriales + subtotalManoObra + subtotalPintor;
 
+  // ── CERRAMIENTOS Y ABERTURAS ───────────────────────────────
+  const { supLateral, supGable, supTotalCerramientos, hasLeft, hasRight, hasFront, hasBack } = getSuperficies(currentConfig);
+
+  // Costo por m² de cerramiento completo (chapas, correas C 80x40 galvanizadas, tornillos y mano de obra de montaje)
+  const costoM2Cerramiento = Math.round(
+    (1.05 * pChapa) + 
+    ((0.8 / 12) * p80G) + 
+    ((6 / 100) * pTornillo) + 
+    4500
+  );
+
+  const doorsCount = Math.max(0, currentConfig.doorsCount || 0);
+  const precioPuerta = 320000; // Puerta de acceso peatonal 0.90x2.05m con marco reforzado y cerradura
+
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
   const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
+  const sheetLabel = SHEET_LABEL[currentConfig.sheet] || "Cincalum T-110";
   
   const nuevosItems: QuoteItem[] = [
     { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTingladoCompleto },
-    { id: "flete-2", description: "Transporte / Flete / Instalación", unit: "viaje", quantity: 1, price: currentPrices.flete || 0 }
   ];
 
-  const nuevoDetalle = isVarillas 
+  if (hasLeft) {
+    nuevosItems.push({
+      id: "cerramiento-lat-izq",
+      description: `Cerramiento Lateral Izquierdo (${supLateral} m² - Chapa ${sheetLabel})`,
+      unit: "m²",
+      quantity: supLateral,
+      price: costoM2Cerramiento,
+    });
+  }
+
+  if (hasRight) {
+    nuevosItems.push({
+      id: "cerramiento-lat-der",
+      description: `Cerramiento Lateral Derecho (${supLateral} m² - Chapa ${sheetLabel})`,
+      unit: "m²",
+      quantity: supLateral,
+      price: costoM2Cerramiento,
+    });
+  }
+
+  if (hasFront) {
+    nuevosItems.push({
+      id: "cerramiento-frontal",
+      description: `Cerramiento Frontal / Tímpano (${supGable} m² - Chapa ${sheetLabel})`,
+      unit: "m²",
+      quantity: supGable,
+      price: costoM2Cerramiento,
+    });
+  }
+
+  if (hasBack) {
+    nuevosItems.push({
+      id: "cerramiento-trasero",
+      description: `Cerramiento Trasero / Tímpano (${supGable} m² - Chapa ${sheetLabel})`,
+      unit: "m²",
+      quantity: supGable,
+      price: costoM2Cerramiento,
+    });
+  }
+
+  if (doorsCount > 0) {
+    nuevosItems.push({
+      id: "puertas-acceso",
+      description: "Puerta de acceso peatonal (0.90 × 2.05m con marco reforzado y cerradura)",
+      unit: "unid",
+      quantity: doorsCount,
+      price: precioPuerta,
+    });
+  }
+
+  nuevosItems.push({
+    id: "flete-2",
+    description: "Transporte / Flete / Instalación",
+    unit: "viaje",
+    quantity: 1,
+    price: currentPrices.flete || 0,
+  });
+
+  let nuevoDetalle = isVarillas 
     ? `Estructura de reticulado liviano en Varilla Conformada Ø12 (cordones) y Ø8 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
     : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
+
+  const partesCerramiento: string[] = [];
+  if (hasLeft && hasRight) partesCerramiento.push(`laterales ambos lados (${supLateral * 2} m²)`);
+  else if (hasLeft) partesCerramiento.push(`lateral izquierdo (${supLateral} m²)`);
+  else if (hasRight) partesCerramiento.push(`lateral derecho (${supLateral} m²)`);
+
+  if (hasFront && hasBack) partesCerramiento.push(`frente y fondo (${supGable * 2} m²)`);
+  else if (hasFront) partesCerramiento.push(`frontal (${supGable} m²)`);
+  else if (hasBack) partesCerramiento.push(`trasero (${supGable} m²)`);
+
+  if (partesCerramiento.length > 0) {
+    nuevoDetalle += ` / Cerramientos en chapa ${sheetLabel} sobre correas C 80x40 galvanizadas (${partesCerramiento.join(", ")}, total: ${supTotalCerramientos} m²).`;
+  }
+
+  if (doorsCount > 0) {
+    nuevoDetalle += ` / Incluye ${doorsCount} puerta(s) de acceso peatonal (0.90x2.05m) con marco metálico y cerradura.`;
+  }
 
   return { nuevoTitulo, nuevosItems, nuevoDetalle }
 }
@@ -244,7 +361,12 @@ export function Cotizador({
       alto: String(config.height),
       chapa: config.sheet,
       color: config.color,
-      paredes: config.walls ? "1" : "0",
+      paredes: (config.wallLeft || config.wallRight || config.walls) ? "1" : "0",
+      paredIzq: config.wallLeft ? "1" : "0",
+      paredDer: config.wallRight ? "1" : "0",
+      paredFrente: config.wallFront ? "1" : "0",
+      paredFondo: config.wallBack ? "1" : "0",
+      puertas: String(config.doorsCount || 0),
       porton: config.gate ? "1" : "0",
       portonTrasero: config.gateBack ? "1" : "0",
     })
@@ -346,12 +468,23 @@ export function Cotizador({
       const storedAncho = localStorage.getItem('sanser_ancho')
       const storedLargo = localStorage.getItem('sanser_largo')
       const storedAlto = localStorage.getItem('sanser_alto')
+      const storedWallLeft = localStorage.getItem('sanser_wall_left') === '1'
+      const storedWallRight = localStorage.getItem('sanser_wall_right') === '1'
+      const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
+      const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
+      const storedDoors = parseInt(localStorage.getItem('sanser_doors_count') || '0', 10)
       if (storedAncho && storedLargo && storedAlto) {
         setConfig(prev => ({
           ...prev,
           width: parseFloat(storedAncho) || 15,
           length: parseFloat(storedLargo) || 20,
-          height: parseFloat(storedAlto) || 5
+          height: parseFloat(storedAlto) || 5,
+          wallLeft: storedWallLeft,
+          wallRight: storedWallRight,
+          wallFront: storedWallFront,
+          wallBack: storedWallBack,
+          walls: storedWallLeft || storedWallRight,
+          doorsCount: storedDoors,
         }))
       }
     } catch (e) {
@@ -367,10 +500,15 @@ export function Cotizador({
       localStorage.setItem('sanser_ancho', config.width.toString())
       localStorage.setItem('sanser_largo', config.length.toString())
       localStorage.setItem('sanser_alto', config.height.toString())
+      localStorage.setItem('sanser_wall_left', config.wallLeft ? '1' : '0')
+      localStorage.setItem('sanser_wall_right', config.wallRight ? '1' : '0')
+      localStorage.setItem('sanser_wall_front', config.wallFront ? '1' : '0')
+      localStorage.setItem('sanser_wall_back', config.wallBack ? '1' : '0')
+      localStorage.setItem('sanser_doors_count', (config.doorsCount || 0).toString())
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [hydrated, config.width, config.length, config.height])
+  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount])
 
   const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
@@ -1013,9 +1151,17 @@ export function Cotizador({
     const enlacePdf = pdfCompartido?.title === title ? pdfCompartido.url : null
     const bloquePdf = enlacePdf ? `\n\nPodés descargarlo acá:\n${enlacePdf}` : ""
 
+    const { supTotalCerramientos } = getSuperficies(config)
+    const doorsCount = config.doorsCount || 0
+
+    const desgloseItems = items
+      .filter(i => (i.price * i.quantity > 0) || !i.description.includes("Transporte"))
+      .map(i => `• ${i.description}: $ ${(i.price * i.quantity).toLocaleString("es-AR")}`)
+      .join("\n")
+
     const message = interno
-      ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\nTotal estimado: *$ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
-      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* y quiero consultar.${bloquePdf}`
+      ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\n*Detalle del presupuesto:*\n${desgloseItems}\n\n*Total estimado: $ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
+      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* (${config.width}x${config.length}m, alto ${config.height}m${supTotalCerramientos > 0 ? `, con ${supTotalCerramientos} m² de cerramientos` : ""}${doorsCount > 0 ? `, ${doorsCount} puerta(s) de acceso` : ""}) y quiero consultar.${bloquePdf}`
     const encodedMessage = encodeURIComponent(message)
     
     // Si el presupuesto ya está en el CRM, enviarlo lo marca como contactado en
@@ -1047,6 +1193,19 @@ export function Cotizador({
       : CONTACT.whatsappBase
 
     window.open(`${destino}?text=${encodedMessage}`, '_blank')
+  }
+
+  const { supLateral, supGable, supTotalCerramientos } = getSuperficies(config)
+
+  const toggleAmbosLaterales = () => {
+    const ambosActivos = Boolean(config.wallLeft && config.wallRight)
+    const nuevo = !ambosActivos
+    setConfig(prev => ({
+      ...prev,
+      wallLeft: nuevo,
+      wallRight: nuevo,
+      walls: nuevo,
+    }))
   }
 
   return (
@@ -1233,6 +1392,189 @@ export function Cotizador({
                 </label>
               </div>
             )}
+
+            {/* Cerramientos y Aberturas */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
+                    Cerramientos y Aberturas
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Elegí qué laterales cerrar y agregá puertas de acceso
+                  </p>
+                </div>
+                {supTotalCerramientos > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary border border-primary/20">
+                    Total: {supTotalCerramientos} m²
+                  </span>
+                )}
+              </div>
+
+              {/* Cerramientos Laterales (Izquierdo y Derecho) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase text-foreground/80">
+                    Laterales (Largo: {config.length || 0}m × Alto: {config.height || 0}m)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleAmbosLaterales}
+                    className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+                  >
+                    {config.wallLeft && config.wallRight ? "Desmarcar ambos" : "Marcar ambos"}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Lateral Izquierdo */}
+                  <label
+                    htmlFor="wall-left"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.wallLeft 
+                        ? "bg-primary/10 border-primary shadow-sm" 
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Lat. Izquierdo</span>
+                      <input
+                        id="wall-left"
+                        type="checkbox"
+                        checked={!!config.wallLeft}
+                        onChange={e => setConfig({ ...config, wallLeft: e.target.checked, walls: e.target.checked || !!config.wallRight })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Superficie: <strong className="text-foreground">{supLateral} m²</strong>
+                    </span>
+                  </label>
+
+                  {/* Lateral Derecho */}
+                  <label
+                    htmlFor="wall-right"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.wallRight 
+                        ? "bg-primary/10 border-primary shadow-sm" 
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Lat. Derecho</span>
+                      <input
+                        id="wall-right"
+                        type="checkbox"
+                        checked={!!config.wallRight}
+                        onChange={e => setConfig({ ...config, wallRight: e.target.checked, walls: !!config.wallLeft || e.target.checked })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Superficie: <strong className="text-foreground">{supLateral} m²</strong>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Cerramientos Frontal y Trasero (Tímpanos) */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase text-foreground/80">
+                  Frente y Fondo (Ancho: {config.width || 0}m + Tímpano)
+                </span>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Frontal */}
+                  <label
+                    htmlFor="wall-front"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.wallFront 
+                        ? "bg-primary/10 border-primary shadow-sm" 
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Frente / Frontal</span>
+                      <input
+                        id="wall-front"
+                        type="checkbox"
+                        checked={!!config.wallFront}
+                        onChange={e => setConfig({ ...config, wallFront: e.target.checked })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Superficie: <strong className="text-foreground">{supGable} m²</strong>
+                    </span>
+                  </label>
+
+                  {/* Trasero */}
+                  <label
+                    htmlFor="wall-back"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.wallBack 
+                        ? "bg-primary/10 border-primary shadow-sm" 
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Fondo / Trasero</span>
+                      <input
+                        id="wall-back"
+                        type="checkbox"
+                        checked={!!config.wallBack}
+                        onChange={e => setConfig({ ...config, wallBack: e.target.checked })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Superficie: <strong className="text-foreground">{supGable} m²</strong>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Puertas de Acceso Peatonal */}
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold uppercase text-foreground/80 block">
+                      Puertas de Acceso Peatonal
+                    </label>
+                    <span className="text-[11px] text-muted-foreground">
+                      0.90 × 2.05 m con marco reforzado y cerradura de seguridad
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config, doorsCount: Math.max(0, (config.doorsCount || 0) - 1) })}
+                      disabled={!config.doorsCount || config.doorsCount <= 0}
+                      className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      title="Quitar puerta"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-mono font-bold text-sm text-foreground">
+                      {config.doorsCount || 0}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config, doorsCount: Math.min(10, (config.doorsCount || 0) + 1) })}
+                      className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted transition-colors cursor-pointer"
+                      title="Agregar puerta"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <h2 className="text-xl font-bold border-b border-border pb-2 mt-6">
               {interno ? "Datos y Descripción" : "Tus datos"}
