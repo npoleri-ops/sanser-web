@@ -71,10 +71,11 @@ export const getSuperficies = (c: ShedConfig) => {
     : ((ancho / 2) * Math.tan((12 * Math.PI) / 180));
   const supGable = Math.round((ancho * alto) + ((ancho * flecha) / 2));
 
-  const hasLeft = Boolean(c.wallLeft ?? c.walls);
-  const hasRight = Boolean(c.wallRight ?? c.walls);
+  const legacyWalls = Boolean(c.walls && !c.wallLeft && !c.wallRight);
+  const hasLeft = Boolean(c.wallLeft || legacyWalls);
+  const hasRight = Boolean(c.wallRight || legacyWalls);
   const hasFront = Boolean(c.wallFront);
-  const hasBack = Boolean(c.wallBack);
+  const hasBack = Boolean(c.wallBack || legacyWalls);
 
   const supTotalCerramientos = 
     (hasLeft ? supLateral : 0) + 
@@ -261,6 +262,26 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     });
   }
 
+  if (currentConfig.gate) {
+    nuevosItems.push({
+      id: "porton-frontal",
+      description: "Portón frontal para acceso de vehículos",
+      unit: "unid",
+      quantity: 1,
+      price: 0,
+    });
+  }
+
+  if (currentConfig.gateBack) {
+    nuevosItems.push({
+      id: "porton-trasero",
+      description: "Portón trasero para vehículos (galpón pasante)",
+      unit: "unid",
+      quantity: 1,
+      price: 0,
+    });
+  }
+
   nuevosItems.push({
     id: "flete-2",
     description: "Transporte / Flete / Instalación",
@@ -288,6 +309,14 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
 
   if (doorsCount > 0) {
     nuevoDetalle += ` / Incluye ${doorsCount} puerta(s) de acceso peatonal (0.90x2.05m) con marco metálico y cerradura.`;
+  }
+
+  if (currentConfig.gate && currentConfig.gateBack) {
+    nuevoDetalle += " / Incluye portones vehiculares frontal y trasero (galpón pasante).";
+  } else if (currentConfig.gate) {
+    nuevoDetalle += " / Incluye portón vehicular frontal de acceso.";
+  } else if (currentConfig.gateBack) {
+    nuevoDetalle += " / Incluye portón vehicular trasero de acceso.";
   }
 
   return { nuevoTitulo, nuevosItems, nuevoDetalle }
@@ -473,6 +502,8 @@ export function Cotizador({
       const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
       const storedDoors = parseInt(localStorage.getItem('sanser_doors_count') || '0', 10)
+      const storedGate = localStorage.getItem('sanser_gate') === '1'
+      const storedGateBack = localStorage.getItem('sanser_gate_back') === '1'
       if (storedAncho && storedLargo && storedAlto) {
         setConfig(prev => ({
           ...prev,
@@ -485,6 +516,8 @@ export function Cotizador({
           wallBack: storedWallBack,
           walls: storedWallLeft || storedWallRight,
           doorsCount: storedDoors,
+          gate: storedGate,
+          gateBack: storedGateBack,
         }))
       }
     } catch (e) {
@@ -505,10 +538,12 @@ export function Cotizador({
       localStorage.setItem('sanser_wall_front', config.wallFront ? '1' : '0')
       localStorage.setItem('sanser_wall_back', config.wallBack ? '1' : '0')
       localStorage.setItem('sanser_doors_count', (config.doorsCount || 0).toString())
+      localStorage.setItem('sanser_gate', config.gate ? '1' : '0')
+      localStorage.setItem('sanser_gate_back', config.gateBack ? '1' : '0')
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount])
+  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount, config.gate, config.gateBack])
 
   const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
@@ -1161,7 +1196,7 @@ export function Cotizador({
 
     const message = interno
       ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\n*Detalle del presupuesto:*\n${desgloseItems}\n\n*Total estimado: $ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
-      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* (${config.width}x${config.length}m, alto ${config.height}m${supTotalCerramientos > 0 ? `, con ${supTotalCerramientos} m² de cerramientos` : ""}${doorsCount > 0 ? `, ${doorsCount} puerta(s) de acceso` : ""}) y quiero consultar.${bloquePdf}`
+      : `Hola! Soy ${clientName}. Coticé en la web un *${title}* (${config.width}x${config.length}m, alto ${config.height}m${supTotalCerramientos > 0 ? `, con ${supTotalCerramientos} m² de cerramientos` : ""}${doorsCount > 0 ? `, ${doorsCount} puerta(s) de acceso` : ""}${config.gate ? ", con portón frontal" : ""}${config.gateBack ? ", con portón trasero" : ""}) y quiero consultar.${bloquePdf}`
     const encodedMessage = encodeURIComponent(message)
     
     // Si el presupuesto ya está en el CRM, enviarlo lo marca como contactado en
@@ -1572,6 +1607,64 @@ export function Cotizador({
                       +
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Portones de Acceso Vehicular */}
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <span className="text-xs font-bold uppercase text-foreground/80 block">
+                  Portones
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Portón Frontal */}
+                  <label
+                    htmlFor="gate-front"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.gate
+                        ? "bg-primary/10 border-primary shadow-sm"
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Portón Frontal</span>
+                      <input
+                        id="gate-front"
+                        type="checkbox"
+                        checked={!!config.gate}
+                        onChange={e => setConfig({ ...config, gate: e.target.checked })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Abertura delantera para acceso vehicular
+                    </span>
+                  </label>
+
+                  {/* Portón Trasero */}
+                  <label
+                    htmlFor="gate-back"
+                    className={cn(
+                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
+                      config.gateBack
+                        ? "bg-primary/10 border-primary shadow-sm"
+                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Portón Trasero</span>
+                      <input
+                        id="gate-back"
+                        type="checkbox"
+                        checked={!!config.gateBack}
+                        onChange={e => setConfig({ ...config, gateBack: e.target.checked })}
+                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
+                      />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Abertura posterior (galpón pasante)
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>

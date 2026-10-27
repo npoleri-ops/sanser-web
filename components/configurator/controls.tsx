@@ -18,6 +18,7 @@ import {
 interface Props {
   config: ShedConfig
   update: <K extends keyof ShedConfig>(key: K, value: ShedConfig[K]) => void
+  updateMany: (patch: Partial<ShedConfig>) => void
 }
 
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
@@ -259,7 +260,7 @@ function Toggle({
   )
 }
 
-export function Controls({ config, update }: Props) {
+export function Controls({ config, update, updateMany }: Props) {
   return (
     <div className="space-y-7">
       <Group label="Tipología">
@@ -358,14 +359,37 @@ export function Controls({ config, update }: Props) {
         </div>
       </Group>
 
-      <Group label="Opciones Adicionales">
+      <Group label="Cerramientos">
         <div className="space-y-2">
           <Toggle
-            label="Cerramientos laterales"
-            desc="Chapa en los laterales y fondo"
-            checked={config.walls}
-            onChange={(v) => update("walls", v)}
+            label="Lateral Izquierdo"
+            desc="Chapa en el lateral izquierdo"
+            checked={Boolean(config.wallLeft)}
+            onChange={(v) => updateMany({ wallLeft: v, walls: v || Boolean(config.wallRight) })}
           />
+          <Toggle
+            label="Lateral Derecho"
+            desc="Chapa en el lateral derecho"
+            checked={Boolean(config.wallRight)}
+            onChange={(v) => updateMany({ wallRight: v, walls: Boolean(config.wallLeft) || v })}
+          />
+          <Toggle
+            label="Frente / Frontal"
+            desc="Chapa en el tímpano frontal"
+            checked={Boolean(config.wallFront)}
+            onChange={(v) => update("wallFront", v)}
+          />
+          <Toggle
+            label="Fondo / Trasero"
+            desc="Chapa en el tímpano trasero"
+            checked={Boolean(config.wallBack)}
+            onChange={(v) => update("wallBack", v)}
+          />
+        </div>
+      </Group>
+
+      <Group label="Portones">
+        <div className="space-y-2">
           <Toggle
             label="Portón frontal"
             desc="Abertura delantera para acceso de vehículos"

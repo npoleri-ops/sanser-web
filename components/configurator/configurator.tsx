@@ -35,6 +35,10 @@ export function Configurator() {
     [],
   )
 
+  const updateMany = useCallback((patch: Partial<ShedConfig>) => {
+    setConfig((prev) => ({ ...prev, ...patch }))
+  }, [])
+
   return (
     <div className="flex flex-col lg:flex-row w-full min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden lg:overflow-hidden relative pb-20 lg:pb-0">
       {/* Left: controls */}
@@ -56,7 +60,7 @@ export function Configurator() {
             Reset
           </button>
         </div>
-        <Controls config={config} update={update} />
+        <Controls config={config} update={update} updateMany={updateMany} />
       </aside>
 
       {/* Center: 3D scene */}

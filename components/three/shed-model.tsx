@@ -606,10 +606,11 @@ function useBuilt(config: ShedConfig): Built {
       return shape
     }
 
-    const hasLeftWall = config.wallLeft ?? config.walls
-    const hasRightWall = config.wallRight ?? config.walls
+    const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
+    const hasLeftWall = Boolean(config.wallLeft || legacyWalls)
+    const hasRightWall = Boolean(config.wallRight || legacyWalls)
     const hasFrontWall = Boolean(config.wallFront)
-    const hasBackWall = Boolean(config.wallBack ?? (config.walls && !config.gateBack))
+    const hasBackWall = Boolean(config.wallBack || (legacyWalls && !config.gateBack))
 
     if (hasLeftWall) {
       walls.push({ pos: [-wallX, 0, 0], rot: [0, -Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2, topFn(-wallX)) })
