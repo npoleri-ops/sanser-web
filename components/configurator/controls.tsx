@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import {
   COLOR_HEX,
@@ -74,13 +75,127 @@ function Slider({
   unit: string
   onChange: (v: number) => void
 }) {
+  const [inputValue, setInputValue] = useState<string>(String(value))
+  const [isFocused, setIsFocused] = useState(false)
+
+  // Sincronizar el valor cuando cambia externamente (ej: slider, reset) y el input no está en foco
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(String(value))
+    }
+  }, [value, isFocused])
+
+  // Función auxiliar para acotar y redondear al múltiplo del paso permitido
+  const clampAndRound = (val: number): number => {
+    let clamped = Math.min(Math.max(val, min), max)
+    const inv = 1 / step
+    clamped = Math.round(clamped * inv) / inv
+    const precision = step.toString().split(".")[1]?.length ?? 0
+    return Number(clamped.toFixed(precision))
+  }
+
+  // Manejo de escritura en el input
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value
+    setInputValue(raw)
+
+    if (raw === "" || raw === "-") return
+
+    const num = parseFloat(raw)
+    if (isNaN(num)) return
+
+    // Si supera el máximo permitido al escribir, limitar inmediatamente
+    if (num > max) {
+      const clamped = max
+      setInputValue(String(clamped))
+      onChange(clamped)
+      return
+    }
+
+    // Si ya está dentro del rango permitido [min, max], sincronizar bidireccionalmente en tiempo real
+    if (num >= min) {
+      onChange(num)
+    }
+  }
+
+  // Al perder el foco (onBlur), validar límites y formatear
+  const handleBlur = () => {
+    setIsFocused(false)
+    const rawTrimmed = inputValue.trim()
+
+    if (rawTrimmed === "") {
+      const clamped = clampAndRound(min)
+      setInputValue(String(clamped))
+      onChange(clamped)
+      return
+    }
+
+    const num = parseFloat(rawTrimmed)
+    if (isNaN(num)) {
+      const clamped = clampAndRound(min)
+      setInputValue(String(clamped))
+      onChange(clamped)
+      return
+    }
+
+    const clamped = clampAndRound(num)
+    setInputValue(String(clamped))
+    onChange(clamped)
+  }
+
+  // Atajos de teclado: Enter confirma y desenfoca, Escape restaura, prevenir signos científicos/negativos
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur()
+    } else if (e.key === "Escape") {
+      setInputValue(String(value))
+      e.currentTarget.blur()
+    } else if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+      e.preventDefault()
+    }
+  }
+
+  // Desplazamiento del slider
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value)
+    setInputValue(String(val))
+    onChange(val)
+  }
+
+  const inputId = `dim-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="font-mono text-sm font-600 text-foreground">
-          {value} <span className="text-[#F97316]">{unit}</span>
-        </span>
+      <div className="mb-2 flex items-center justify-between">
+        <label
+          htmlFor={inputId}
+          className="text-sm font-medium text-muted-foreground cursor-pointer select-none"
+        >
+          {label}
+        </label>
+        <div className="flex items-center rounded-sm border border-border/80 bg-secondary/40 px-2 py-0.5 transition-colors hover:border-[#F97316]/50 focus-within:border-[#F97316] focus-within:bg-secondary/70 focus-within:ring-1 focus-within:ring-[#F97316]/40">
+          <input
+            id={inputId}
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            onFocus={(e) => {
+              setIsFocused(true)
+              e.target.select()
+            }}
+            onWheel={(e) => e.currentTarget.blur()}
+            aria-label={`${label} en ${unit}`}
+            className="w-14 bg-transparent text-right font-mono text-sm font-semibold text-foreground focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <span className="ml-1 select-none font-mono text-xs font-semibold text-[#F97316]">
+            {unit}
+          </span>
+        </div>
       </div>
       <input
         type="range"
@@ -88,13 +203,20 @@ function Slider({
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={handleSliderChange}
+        aria-label={`Slider de ${label}`}
         style={{ accentColor: "#F97316" }}
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary"
       />
       <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-        <span>{min}{unit}</span>
-        <span>{max}{unit}</span>
+        <span>
+          {min}
+          {unit}
+        </span>
+        <span>
+          {max}
+          {unit}
+        </span>
       </div>
     </div>
   )
