@@ -1,13 +1,15 @@
 "use client"
 
+
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, getGuiaMontaje } from "@/lib/shed-config"
+import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
 import { CampoEmail, CampoTelefono } from "@/components/site/campos-contacto"
@@ -58,6 +60,40 @@ type Prices = typeof INITIAL_PRICES
 // esa cadena vacía aunque ShedConfig declare number.
 const EMPTY_NUMBER = "" as unknown as number
 
+// Mapeo dinámico de videos explicativos de montaje según tipología.
+// Ruta base: /videos/montaje/ (almacenados en public/videos/montaje/)
+export const MONTAJE_VIDEOS_MAP: Record<ShedType, { filename: string; label: string }> = {
+  gable: {
+    filename: "2-aguas.mp4",
+    label: "Dos Aguas Reticulado",
+  },
+  gable_portico: {
+    filename: "2-aguas.mp4",
+    label: "Dos Aguas Pórtico",
+  },
+  gable_varillas: {
+    filename: "2-aguas.mp4",
+    label: "Dos Aguas Varilla",
+  },
+  shed: {
+    filename: "1-agua.mp4",
+    label: "Un Agua Reticulado",
+  },
+  shed_varillas: {
+    filename: "1-agua.mp4",
+    label: "Un Agua Varilla",
+  },
+}
+
+export const getMontajeVideo = (type: ShedType) => {
+  const item = MONTAJE_VIDEOS_MAP[type] || MONTAJE_VIDEOS_MAP.gable
+  return {
+    src: `/videos/montaje/${item.filename}`,
+    filename: item.filename,
+    label: item.label,
+  }
+}
+
 // Cálculo de superficies de cerramientos en m²
 export const getSuperficies = (c: ShedConfig) => {
   const ancho = c.width || 0;
@@ -66,8 +102,8 @@ export const getSuperficies = (c: ShedConfig) => {
   const isUnAgua = c.type === "shed" || c.type === "shed_varillas";
 
   const supLateral = Math.round(largo * alto);
-  const flecha = isUnAgua 
-    ? (ancho * Math.tan((8 * Math.PI) / 180)) 
+  const flecha = isUnAgua
+    ? (ancho * Math.tan((8 * Math.PI) / 180))
     : ((ancho / 2) * Math.tan((12 * Math.PI) / 180));
   const supGable = Math.round((ancho * alto) + ((ancho * flecha) / 2));
 
@@ -77,10 +113,10 @@ export const getSuperficies = (c: ShedConfig) => {
   const hasFront = Boolean(c.wallFront);
   const hasBack = Boolean(c.wallBack || legacyWalls);
 
-  const supTotalCerramientos = 
-    (hasLeft ? supLateral : 0) + 
-    (hasRight ? supLateral : 0) + 
-    (hasFront ? supGable : 0) + 
+  const supTotalCerramientos =
+    (hasLeft ? supLateral : 0) +
+    (hasRight ? supLateral : 0) +
+    (hasFront ? supGable : 0) +
     (hasBack ? supGable : 0);
 
   return { supLateral, supGable, supTotalCerramientos, hasLeft, hasRight, hasFront, hasBack };
@@ -101,14 +137,14 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const factorColumna = (altoLibre + 1) / 6;
 
   // Perfiles 120 (Barras)
-  const barras120 = isVarillas ? 0 : Math.ceil(isUnAgua 
-    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1)) 
+  const barras120 = isVarillas ? 0 : Math.ceil(isUnAgua
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1))
     : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2))
   );
 
   // Perfiles 80 Negro (Barras)
-  const barras80Negro = isVarillas ? 0 : Math.ceil(isUnAgua 
-    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33)) 
+  const barras80Negro = isVarillas ? 0 : Math.ceil(isUnAgua
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33))
     : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
   );
 
@@ -117,8 +153,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   let barrasVarilla8 = 0;
   if (isVarillas) {
     const lengthPerCabreada = isUnAgua ? ancho : (ancho / Math.cos(12 * Math.PI / 180));
-    const metrosCordonesCabreada = lengthPerCabreada * 2; 
-    const metrosZigzagCabreada = lengthPerCabreada * 2.5; 
+    const metrosCordonesCabreada = lengthPerCabreada * 2;
+    const metrosZigzagCabreada = lengthPerCabreada * 2.5;
 
     const metrosCordonesColumna = altoLibre * 4;
     const metrosZigzagColumna = altoLibre * 4 * 1.5;
@@ -142,7 +178,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
 
   // Bulones y Tuercas: 8 por pórtico (1 agua) o 12 por pórtico (2 aguas), más 2 juegos extra de margen por seguridad
   const bulonesJuegos = (isUnAgua ? (numPorticos * 8) : (numPorticos * 12)) + 2;
-  
+
   // Cálculo ajustado de arandelas (mínimo 3 kg, redondeo superior cada 60 m2)
   const arandelaKg = Math.max(3, Math.ceil((ancho * largo) / 60));
 
@@ -170,7 +206,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const pVarilla12 = currentPrices.varilla12 || 12000;
   const pVarilla8 = currentPrices.varilla8 || 5500;
 
-  const subtotalMateriales = 
+  const subtotalMateriales =
     (barras120 * p120) +
     (barras80Negro * p80N) +
     (barras80Galv * p80G) +
@@ -187,7 +223,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const superficie = ancho * largo;
   const subtotalManoObra = Math.round(superficie * 11000);
   const subtotalPintor = 200000;
-  
+
   const subtotalTingladoCompleto = subtotalMateriales + subtotalManoObra + subtotalPintor;
 
   // ── CERRAMIENTOS Y ABERTURAS ───────────────────────────────
@@ -195,9 +231,9 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
 
   // Costo por m² de cerramiento completo (chapas, correas C 80x40 galvanizadas, tornillos y mano de obra de montaje)
   const costoM2Cerramiento = Math.round(
-    (1.05 * pChapa) + 
-    ((0.8 / 12) * p80G) + 
-    ((6 / 100) * pTornillo) + 
+    (1.05 * pChapa) +
+    ((0.8 / 12) * p80G) +
+    ((6 / 100) * pTornillo) +
     4500
   );
 
@@ -207,7 +243,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
   const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
   const sheetLabel = SHEET_LABEL[currentConfig.sheet] || "Cincalum T-110";
-  
+
   const nuevosItems: QuoteItem[] = [
     { id: "tinglado-1", description: nuevoTitulo, unit: "unid", quantity: 1, price: subtotalTingladoCompleto },
   ];
@@ -290,7 +326,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     price: currentPrices.flete || 0,
   });
 
-  let nuevoDetalle = isVarillas 
+  let nuevoDetalle = isVarillas
     ? `Estructura de reticulado liviano en Varilla Conformada Ø12 (cordones) y Ø8 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
     : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
@@ -359,7 +395,7 @@ export function Cotizador({
   const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
   const [materials, setMaterials] = useState(
     guardado?.materials ??
-      "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Cubierta: Cincalum T-110 (Cal. 25) / Tornillos",
+    "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Cubierta: Cincalum T-110 (Cal. 25) / Tornillos",
   )
   const [images, setImages] = useState<string[]>([])
   const [items, setItems] = useState<QuoteItem[]>(
@@ -398,6 +434,7 @@ export function Cotizador({
       puertas: String(config.doorsCount || 0),
       porton: config.gate ? "1" : "0",
       portonTrasero: config.gateBack ? "1" : "0",
+      ...(etapaMontaje > 0 ? { etapa: String(etapaMontaje) } : {}),
     })
     const url = `${window.location.origin}/3d?${params.toString()}`
 
@@ -435,7 +472,7 @@ export function Cotizador({
       try {
         const canvas = document.querySelector('canvas') as HTMLCanvasElement | null
         if (canvas) setCapturas3D(prev => [...prev, canvas.toDataURL('image/png')])
-      } catch {}
+      } catch { }
     }
   }
 
@@ -470,6 +507,24 @@ export function Cotizador({
   )
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
+
+  const [videoLinkCopied, setVideoLinkCopied] = useState(false)
+  const videoMontaje = getMontajeVideo(config.type)
+  const [etapaMontaje, setEtapaMontaje] = useState(0)
+  const pasosMontaje = getGuiaMontaje(config)
+
+  const copiarLinkVideo = async () => {
+    const url = typeof window !== "undefined" ? `${window.location.origin}${videoMontaje.src}` : videoMontaje.src
+    try {
+      await navigator.clipboard.writeText(url)
+      setVideoLinkCopied(true)
+      setTimeout(() => setVideoLinkCopied(false), 3000)
+    } catch {
+      if (typeof window !== "undefined") {
+        window.open(url, "_blank")
+      }
+    }
+  }
 
   // Las medidas se recuperan de localStorage al montar; hasta que eso pasa no se
   // guarda nada, o el efecto de guardado pisaría lo almacenado con los valores por defecto.
@@ -555,45 +610,45 @@ export function Cotizador({
       const text = await res.text()
       const lines = text.split('\n')
       const newPrices: Partial<Prices> = {}
-      
-      lines.forEach(line => {
-         // Soporta CSVs con comillas (ej: "Tornillos, Caja")
-         // Para simplificar, si la hoja ahora es 3 columnas (Material, Unidad, Precio)
-         // nos basamos en el final de la línea para encontrar el precio.
-         const parts = line.split(',')
-         if (parts.length < 2) return
-         
-         const textMatch = line.toLowerCase()
-         // El precio suele estar al final de la línea en CSV limpios
-         const rawPrice = parts[parts.length - 1]
-         
-         const parsePrecioInt = (val: string | number) => { 
-           const n = parseFloat(String(val).replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, '')); 
-           return (isNaN(n)) ? 0 : n; 
-         };
-         const p = parsePrecioInt(rawPrice)
-         
-         if (p <= 0) return 
 
-         // Mapeo directo de nombres
-         if (textMatch.includes('120') && textMatch.includes('perfil')) newPrices.perfil120 = p
-         else if (textMatch.includes('80') && textMatch.includes('perfil')) {
-           if (textMatch.includes('galv')) newPrices.perfil80Galv = p
-           else newPrices.perfil80Negro = p
-         }
-         else if (textMatch.includes('ángulo') || textMatch.includes('angulo')) newPrices.angulo = p
-         else if (textMatch.includes('chapa') || textMatch.includes('t101')) newPrices.chapa = p
-         else if (textMatch.includes('bulón') || textMatch.includes('bulon') || textMatch.includes('juego')) newPrices.bulonesJuego = p
-         else if (textMatch.includes('arandela')) newPrices.arandelas = p
-         else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
-         else if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('óxido')) newPrices.pintura = p
-         else if (textMatch.includes('aguarrás') || textMatch.includes('aguarras')) newPrices.aguarras = p
-         else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
-         else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
-         else if (textMatch.includes('varilla') && textMatch.includes('12')) newPrices.varilla12 = p
-         else if (textMatch.includes('varilla') && textMatch.includes('8')) newPrices.varilla8 = p
+      lines.forEach(line => {
+        // Soporta CSVs con comillas (ej: "Tornillos, Caja")
+        // Para simplificar, si la hoja ahora es 3 columnas (Material, Unidad, Precio)
+        // nos basamos en el final de la línea para encontrar el precio.
+        const parts = line.split(',')
+        if (parts.length < 2) return
+
+        const textMatch = line.toLowerCase()
+        // El precio suele estar al final de la línea en CSV limpios
+        const rawPrice = parts[parts.length - 1]
+
+        const parsePrecioInt = (val: string | number) => {
+          const n = parseFloat(String(val).replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, ''));
+          return (isNaN(n)) ? 0 : n;
+        };
+        const p = parsePrecioInt(rawPrice)
+
+        if (p <= 0) return
+
+        // Mapeo directo de nombres
+        if (textMatch.includes('120') && textMatch.includes('perfil')) newPrices.perfil120 = p
+        else if (textMatch.includes('80') && textMatch.includes('perfil')) {
+          if (textMatch.includes('galv')) newPrices.perfil80Galv = p
+          else newPrices.perfil80Negro = p
+        }
+        else if (textMatch.includes('ángulo') || textMatch.includes('angulo')) newPrices.angulo = p
+        else if (textMatch.includes('chapa') || textMatch.includes('t101')) newPrices.chapa = p
+        else if (textMatch.includes('bulón') || textMatch.includes('bulon') || textMatch.includes('juego')) newPrices.bulonesJuego = p
+        else if (textMatch.includes('arandela')) newPrices.arandelas = p
+        else if (textMatch.includes('autoperforante') || textMatch.includes('tornillo')) newPrices.tornillos = p
+        else if (textMatch.includes('pintura') || textMatch.includes('convertidor') || textMatch.includes('óxido')) newPrices.pintura = p
+        else if (textMatch.includes('aguarrás') || textMatch.includes('aguarras')) newPrices.aguarras = p
+        else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
+        else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
+        else if (textMatch.includes('varilla') && textMatch.includes('12')) newPrices.varilla12 = p
+        else if (textMatch.includes('varilla') && textMatch.includes('8')) newPrices.varilla8 = p
       })
-      
+
       console.log("DETALLE MATERIALES CSV MAREADOS:", newPrices)
       setPrices(prev => ({ ...prev, ...newPrices }))
     } catch (e) {
@@ -651,15 +706,15 @@ export function Cotizador({
 
     // ── Paleta corporativa SANSER ───────────────────────────────────────────
     const C = {
-      naranja:   [249, 115,  22] as [number,number,number], // #f97316
-      oscuro:    [ 17,  24,  39] as [number,number,number], // #111827
-      oscuro2:   [ 31,  41,  55] as [number,number,number], // #1f2937
-      grisClaro: [249, 250, 251] as [number,number,number], // #f9fafb
-      grisBorde: [229, 231, 235] as [number,number,number], // #e5e7eb
-      grisTexto: [107, 114, 128] as [number,number,number], // #6b7280
-      texto:     [ 55,  65,  81] as [number,number,number], // #374151
-      blanco:    [255, 255, 255] as [number,number,number],
-      negro:     [  0,   0,   0] as [number,number,number],
+      naranja: [249, 115, 22] as [number, number, number], // #f97316
+      oscuro: [17, 24, 39] as [number, number, number], // #111827
+      oscuro2: [31, 41, 55] as [number, number, number], // #1f2937
+      grisClaro: [249, 250, 251] as [number, number, number], // #f9fafb
+      grisBorde: [229, 231, 235] as [number, number, number], // #e5e7eb
+      grisTexto: [107, 114, 128] as [number, number, number], // #6b7280
+      texto: [55, 65, 81] as [number, number, number], // #374151
+      blanco: [255, 255, 255] as [number, number, number],
+      negro: [0, 0, 0] as [number, number, number],
     }
 
     // ── Capturas 3D ───────────────────────────────────────
@@ -696,7 +751,7 @@ export function Cotizador({
           try {
             const canvas3d = document.querySelector('canvas') as HTMLCanvasElement | null
             if (canvas3d) imgSlots.push(canvas3d.toDataURL('image/png'))
-          } catch {}
+          } catch { }
         }
       }
     }
@@ -728,8 +783,8 @@ export function Cotizador({
       // Logo oficial SANSER dibujado con primitivas jsPDF
       // viewBox 0 0 100 50 → escala uniforme a 28x14mm (relación 2:1 exacta)
       // Origen: x=8, y=11 (centrado verticalmente en la banda de 40mm)
-      const S  = 0.28          // factor de escala uniforme (100px → 28mm)
-      const lx = (px: number) => 8  + px * S
+      const S = 0.28          // factor de escala uniforme (100px → 28mm)
+      const lx = (px: number) => 8 + px * S
       const ly = (py: number) => 11 + py * S   // Y base = 11mm
 
       doc.setDrawColor(...C.naranja)
@@ -738,18 +793,18 @@ export function Cotizador({
 
       // Techo a 2 aguas: M 10 16 L 35 6 L 90 22
       doc.line(lx(10), ly(16), lx(35), ly(6))
-      doc.line(lx(35), ly(6),  lx(90), ly(22))
+      doc.line(lx(35), ly(6), lx(90), ly(22))
 
-      // Columnas verticales
-      ;[
-        [10, 16, 10, 45],
-        [35,  6, 35, 45],
-        [53, 11.5, 53, 45],
-        [71, 16.8, 71, 45],
-        [90, 22,   90, 45],
-      ].forEach(([x1, y1, x2, y2]) => {
-        doc.line(lx(x1), ly(y1), lx(x2), ly(y2))
-      })
+        // Columnas verticales
+        ;[
+          [10, 16, 10, 45],
+          [35, 6, 35, 45],
+          [53, 11.5, 53, 45],
+          [71, 16.8, 71, 45],
+          [90, 22, 90, 45],
+        ].forEach(([x1, y1, x2, y2]) => {
+          doc.line(lx(x1), ly(y1), lx(x2), ly(y2))
+        })
 
       doc.setLineWidth(0.2)
       doc.setLineCap('butt')
@@ -1180,9 +1235,9 @@ export function Cotizador({
       alert(problemaCliente)
       return
     }
-    
+
     const totalStr = total.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    
+
     const enlacePdf = pdfCompartido?.title === title ? pdfCompartido.url : null
     const bloquePdf = enlacePdf ? `\n\nPodés descargarlo acá:\n${enlacePdf}` : ""
 
@@ -1198,7 +1253,7 @@ export function Cotizador({
       ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\n*Detalle del presupuesto:*\n${desgloseItems}\n\n*Total estimado: $ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
       : `Hola! Soy ${clientName}. Coticé en la web un *${title}* (${config.width}x${config.length}m, alto ${config.height}m${supTotalCerramientos > 0 ? `, con ${supTotalCerramientos} m² de cerramientos` : ""}${doorsCount > 0 ? `, ${doorsCount} puerta(s) de acceso` : ""}${config.gate ? ", con portón frontal" : ""}${config.gateBack ? ", con portón trasero" : ""}) y quiero consultar.${bloquePdf}`
     const encodedMessage = encodeURIComponent(message)
-    
+
     // Si el presupuesto ya está en el CRM, enviarlo lo marca como contactado en
     // lugar de crear otro registro del mismo cliente.
     if (enlacePdf && pdfCompartido) {
@@ -1246,7 +1301,7 @@ export function Cotizador({
   return (
     <div className="min-h-screen bg-background py-10 px-4 md:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        
+
         <div>
           <h1 className="text-3xl font-display font-bold uppercase tracking-wider text-primary flex items-center gap-2">
             <FileText className="size-6" />
@@ -1261,7 +1316,7 @@ export function Cotizador({
 
         {/* 3D Visualizer */}
         <div className="space-y-3">
-          <div className="h-[400px] w-full bg-[#12141a] rounded-xl overflow-hidden border border-border shadow-sm relative">
+          <div className="h-[460px] md:h-[500px] w-full bg-[#12141a] rounded-xl overflow-hidden border border-border shadow-sm relative">
             <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
               {interno ? "Vista Previa 3D" : "Tu estructura en 3D — giralo con el mouse"}
             </div>
@@ -1293,7 +1348,14 @@ export function Cotizador({
                 </Button>
               </div>
             )}
-            <ConfigScene config={config} onReady={onSceneReady} />
+            <ConfigScene config={config} onReady={onSceneReady} etapaMontaje={etapaMontaje} />
+            {sceneReady && (
+              <BarraSecuencia
+                pasos={pasosMontaje}
+                etapa={etapaMontaje}
+                onEtapa={setEtapaMontaje}
+              />
+            )}
           </div>
 
           {/* Thumbnails de vistas capturadas (solo modo interno) */}
@@ -1357,7 +1419,7 @@ export function Cotizador({
           {/* Panel Form */}
           <div className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm">
             <h2 className="text-xl font-bold border-b border-border pb-2">Dimensiones del Tinglado</h2>
-            
+
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-foreground/80">Tipo de Estructura</label>
               <div className="flex flex-wrap gap-2">
@@ -1365,11 +1427,10 @@ export function Cotizador({
                   <button
                     key={typeVal}
                     onClick={() => setConfig({ ...config, type: typeVal })}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors border ${
-                      config.type === typeVal 
-                        ? 'bg-primary text-primary-foreground border-primary' 
-                        : 'bg-background hover:bg-muted border-input text-foreground'
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors border ${config.type === typeVal
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-muted border-input text-foreground'
+                      }`}
                   >
                     {label}
                   </button>
@@ -1380,42 +1441,42 @@ export function Cotizador({
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold uppercase text-foreground/80">Ancho (m)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="3" max="50" step="1"
-                  value={config.width === EMPTY_NUMBER ? "" : config.width} 
+                  value={config.width === EMPTY_NUMBER ? "" : config.width}
                   onChange={e => setConfig({ ...config, width: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold uppercase text-foreground/80">Largo (m)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="3" max="100" step="1"
-                  value={config.length === EMPTY_NUMBER ? "" : config.length} 
+                  value={config.length === EMPTY_NUMBER ? "" : config.length}
                   onChange={e => setConfig({ ...config, length: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold uppercase text-foreground/80">Alto (m)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="2" max="20" step="0.5"
-                  value={config.height === EMPTY_NUMBER ? "" : config.height} 
+                  value={config.height === EMPTY_NUMBER ? "" : config.height}
                   onChange={e => setConfig({ ...config, height: e.target.value === "" ? EMPTY_NUMBER : parseFloat(e.target.value) })}
                   onFocus={e => e.target.select()}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono" 
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono"
                 />
               </div>
             </div>
-            
+
             {config.type === "shed" && (
               <div className="flex items-center gap-2 pt-2">
-                <input 
+                <input
                   type="checkbox"
                   id="centralColumns"
                   checked={!!config.centralColumns}
@@ -1467,8 +1528,8 @@ export function Cotizador({
                     htmlFor="wall-left"
                     className={cn(
                       "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallLeft 
-                        ? "bg-primary/10 border-primary shadow-sm" 
+                      config.wallLeft
+                        ? "bg-primary/10 border-primary shadow-sm"
                         : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
                     )}
                   >
@@ -1492,8 +1553,8 @@ export function Cotizador({
                     htmlFor="wall-right"
                     className={cn(
                       "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallRight 
-                        ? "bg-primary/10 border-primary shadow-sm" 
+                      config.wallRight
+                        ? "bg-primary/10 border-primary shadow-sm"
                         : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
                     )}
                   >
@@ -1526,8 +1587,8 @@ export function Cotizador({
                     htmlFor="wall-front"
                     className={cn(
                       "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallFront 
-                        ? "bg-primary/10 border-primary shadow-sm" 
+                      config.wallFront
+                        ? "bg-primary/10 border-primary shadow-sm"
                         : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
                     )}
                   >
@@ -1551,8 +1612,8 @@ export function Cotizador({
                     htmlFor="wall-back"
                     className={cn(
                       "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallBack 
-                        ? "bg-primary/10 border-primary shadow-sm" 
+                      config.wallBack
+                        ? "bg-primary/10 border-primary shadow-sm"
                         : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
                     )}
                   >
@@ -1584,7 +1645,7 @@ export function Cotizador({
                       0.90 × 2.05 m con marco reforzado y cerradura de seguridad
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1688,27 +1749,27 @@ export function Cotizador({
             </div>
 
             {interno && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase text-foreground/80">Fecha</label>
-                <input 
-                  type="text" 
-                  value={date} 
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary" 
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-foreground/80">Fecha</label>
+                  <input
+                    type="text"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-foreground/80">CUIT Cliente</label>
+                  <input
+                    type="text"
+                    value={cuit}
+                    onChange={e => setCuit(e.target.value)}
+                    className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    placeholder="Opcional"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase text-foreground/80">CUIT Cliente</label>
-                <input 
-                  type="text" 
-                  value={cuit} 
-                  onChange={e => setCuit(e.target.value)}
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary" 
-                  placeholder="Opcional"
-                />
-              </div>
-            </div>
             )}
 
             <div className="space-y-1">
@@ -1772,22 +1833,22 @@ export function Cotizador({
             </div>
 
             {interno && (
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-foreground/80">Imágenes Adicionales Opcionales</label>
-              <div className="flex items-center gap-4">
-                <label className="cursor-pointer bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2 border border-border transition-colors">
-                  <ImageIcon className="size-4" />
-                  Subir Fotos
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
-                </label>
-                <span className="text-xs text-muted-foreground">{images.length} foto(s) cargadas</span>
-                {images.length > 0 && (
-                  <button onClick={() => setImages([])} className="text-xs text-red-500 hover:underline">
-                    Borrar
-                  </button>
-                )}
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-foreground/80">Imágenes Adicionales Opcionales</label>
+                <div className="flex items-center gap-4">
+                  <label className="cursor-pointer bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2 border border-border transition-colors">
+                    <ImageIcon className="size-4" />
+                    Subir Fotos
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
+                  <span className="text-xs text-muted-foreground">{images.length} foto(s) cargadas</span>
+                  {images.length > 0 && (
+                    <button onClick={() => setImages([])} className="text-xs text-red-500 hover:underline">
+                      Borrar
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
             )}
 
           </div>
@@ -1800,10 +1861,10 @@ export function Cotizador({
               </h2>
               {interno && (
                 <div className="flex items-center gap-2">
-                  <Button 
-                    onClick={() => fetchCSV(true)} 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    onClick={() => fetchCSV(true)}
+                    variant="outline"
+                    size="sm"
                     className="h-8 gap-2 text-xs"
                     disabled={isLoadingPrices}
                   >
@@ -1822,7 +1883,7 @@ export function Cotizador({
                 {items.map(item => {
                   const isTransporte = item.description.includes("Transporte / Flete / Instalación")
                   const isCero = item.quantity * item.price === 0
-                  
+
                   return (
                     <div
                       key={item.id}
@@ -1850,58 +1911,58 @@ export function Cotizador({
             )}
 
             {interno && (
-            <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
-              {items.map((item) => (
-                <div key={item.id} className="p-3 border border-border rounded-lg space-y-3 bg-background/50 relative group">
-                  <button 
-                    onClick={() => removeItem(item.id)}
-                    className="absolute right-2 top-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                  
-                  <div className="pr-6">
-                    <input 
-                      type="text" 
-                      value={item.description}
-                      onChange={e => updateItem(item.id, 'description', e.target.value)}
-                      placeholder="Descripción del ítem"
-                      className="w-full bg-transparent border-b border-border pb-1 text-sm focus:outline-none focus:border-primary"
-                    />
+              <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
+                {items.map((item) => (
+                  <div key={item.id} className="p-3 border border-border rounded-lg space-y-3 bg-background/50 relative group">
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="absolute right-2 top-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+
+                    <div className="pr-6">
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={e => updateItem(item.id, 'description', e.target.value)}
+                        placeholder="Descripción del ítem"
+                        className="w-full bg-transparent border-b border-border pb-1 text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-foreground/90">Unidad</label>
+                        <input
+                          type="text"
+                          value={item.unit}
+                          onChange={e => updateItem(item.id, 'unit', e.target.value)}
+                          className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-foreground/90">Cant.</label>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-foreground/90">Precio Unit.</label>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={e => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-foreground/90">Unidad</label>
-                      <input 
-                        type="text" 
-                        value={item.unit}
-                        onChange={e => updateItem(item.id, 'unit', e.target.value)}
-                        className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-foreground/90">Cant.</label>
-                      <input 
-                        type="number" 
-                        value={item.quantity}
-                        onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-foreground/90">Precio Unit.</label>
-                      <input 
-                        type="number" 
-                        value={item.price}
-                        onChange={e => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-background border border-input rounded px-2 py-1 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             )}
 
             <div className="pt-4 border-t border-border flex flex-col gap-2">
@@ -1927,6 +1988,74 @@ export function Cotizador({
                   <strong className="text-foreground/80">El flete y la instalación se cotizan según la ubicación de entrega.</strong>
                 </p>
               )}
+            </div>
+
+            {/* Módulo de Video Explicativo de Montaje Paso a Paso */}
+            <div className="pt-5 border-t border-border space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                    <Video className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Video Explicativo de Montaje
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Paso a paso de armado e instalación ({videoMontaje.label})
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20 whitespace-nowrap">
+                  {videoMontaje.filename}
+                </span>
+              </div>
+
+              {/* Reproductor de Video */}
+              <div className="relative overflow-hidden rounded-lg border border-border bg-black/60 shadow-inner">
+                <video
+                  key={videoMontaje.src}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full aspect-video object-cover"
+                >
+                  <source src={videoMontaje.src} type="video/mp4" />
+                  Tu navegador no soporta la reproducción de video HTML5.
+                </video>
+              </div>
+
+              {/* Botones de acción directa */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <a
+                  href={videoMontaje.src}
+                  download={videoMontaje.filename}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background/80 hover:bg-muted hover:border-primary/40 px-3 py-2 text-xs font-bold text-foreground transition-all shadow-sm"
+                  title={`Descargar archivo ${videoMontaje.filename}`}
+                >
+                  <Download className="size-3.5 text-primary shrink-0" />
+                  <span>Descargar video</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={copiarLinkVideo}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-bold transition-all shadow-sm cursor-pointer",
+                    videoLinkCopied
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                      : "border-input bg-background/80 hover:bg-muted hover:border-primary/40 text-foreground"
+                  )}
+                  title="Copiar enlace directo del video para enviar por WhatsApp"
+                >
+                  {videoLinkCopied ? (
+                    <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Copy className="size-3.5 text-primary shrink-0" />
+                  )}
+                  <span>{videoLinkCopied ? "¡Enlace copiado!" : "Copiar enlace del video"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

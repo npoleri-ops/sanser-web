@@ -4,8 +4,9 @@ import dynamic from "next/dynamic"
 import { useState, useCallback } from "react"
 import { Share2, CheckCircle2 } from "lucide-react"
 import type { ShedConfig } from "@/lib/shed-config"
-import { TYPE_LABEL } from "@/lib/shed-config"
+import { TYPE_LABEL, getGuiaMontaje } from "@/lib/shed-config"
 import type { ThreeSceneRef } from "@/components/three/config-scene"
+import { BarraSecuencia } from "@/components/three/barra-secuencia"
 
 const ConfigScene = dynamic(
   () =>
@@ -18,13 +19,31 @@ const ConfigScene = dynamic(
 export function Visor3D({ config }: { config: ShedConfig }) {
   const [sceneReady, setSceneReady] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [etapaMontaje, setEtapaMontaje] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = parseInt(new URLSearchParams(window.location.search).get("etapa") || "0", 10)
+      return isNaN(p) ? 0 : p
+    }
+    return 0
+  })
+
+  const pasosMontaje = getGuiaMontaje(config)
 
   const onReady = useCallback((_ref: ThreeSceneRef) => {
     setSceneReady(true)
   }, [])
 
   const compartirEnlace = async () => {
-    const url = window.location.href
+    let url = window.location.href
+    try {
+      const u = new URL(url)
+      if (etapaMontaje > 0) {
+        u.searchParams.set("etapa", String(etapaMontaje))
+      } else {
+        u.searchParams.delete("etapa")
+      }
+      url = u.toString()
+    } catch {}
     try {
       if (navigator.share) {
         await navigator.share({
@@ -104,7 +123,14 @@ export function Visor3D({ config }: { config: ShedConfig }) {
             <p className="text-white/50 text-sm">Cargando visor 3D…</p>
           </div>
         )}
-        <ConfigScene config={config} onReady={onReady} />
+        <ConfigScene config={config} onReady={onReady} etapaMontaje={etapaMontaje} />
+        {sceneReady && (
+          <BarraSecuencia
+            pasos={pasosMontaje}
+            etapa={etapaMontaje}
+            onEtapa={setEtapaMontaje}
+          />
+        )}
       </div>
 
       {/* Pie de página */}

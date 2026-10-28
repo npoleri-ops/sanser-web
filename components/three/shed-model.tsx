@@ -724,9 +724,13 @@ interface ShedModelProps {
   animated?: boolean
   showSlab?: boolean
   onCycle?: () => void
+  /** Etapa de montaje visible (0 = completo, 1-6 = paso a paso). */
+  etapaMontaje?: number
 }
 
-export function ShedModel({ config, animated = false, showSlab = true, onCycle }: ShedModelProps) {
+export function ShedModel({ config, animated = false, showSlab = true, onCycle, etapaMontaje = 0 }: ShedModelProps) {
+  // En modo secuencia (etapaMontaje > 0) la animación automática queda inhibida.
+  const enSecuencia = etapaMontaje > 0
   const built = useBuilt(config)
 
   // One steel material per reveal group (so opacity animates independently).
@@ -872,7 +876,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
   const tRef = useRef(0)
 
   useFrame((_, delta) => {
-    if (!animated) return
+    if (!animated || enSecuencia) return
 
     const prevT = tRef.current
     tRef.current += delta
@@ -919,6 +923,15 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
     apply(gCovering.current, wallMat, 3, 6)
   })
 
+  // Visibilidad por etapa: 0 = todo visible; 1..6 = progresivo.
+  const s = etapaMontaje
+  const visBase     = !enSecuencia || s >= 1
+  const visColumnas = !enSecuencia || s >= 2
+  const visTrusses  = !enSecuencia || s >= 3
+  const visPurlins  = !enSecuencia || s >= 4
+  const visCubierta = !enSecuencia || s >= 5
+  const visCierres  = !enSecuencia || s >= 6
+
   return (
     <group>
       {showSlab && (
@@ -928,15 +941,15 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
         </mesh>
       )}
 
-      <group ref={gBases}>
+      <group ref={gBases} visible={visBase}>
         <Beams segs={built.bases} material={mats.bases} />
       </group>
 
-      <group ref={gColumns}>
+      <group ref={gColumns} visible={visColumnas}>
         <Beams segs={built.columns} material={mats.columns} />
       </group>
 
-      <group ref={gTrusses}>
+      <group ref={gTrusses} visible={visTrusses}>
         <Beams segs={built.trusses} material={mats.trusses} isRound={config.type.includes("varillas")} />
         {built.flanges.map((f, i) => (
           <mesh key={`f${i}`} position={f.pos} material={mats.trusses} castShadow>
@@ -945,27 +958,27 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle }
         ))}
       </group>
 
-      <group ref={gPurlins}>
+      <group ref={gPurlins} visible={visPurlins}>
         <Beams segs={built.roof} material={mats.purlins} />
       </group>
 
-      <group ref={gCovering}>
+      <group ref={gCovering} visible={visCubierta}>
         {built.panels.map((p, i) => (
           <mesh key={`p${i}`} position={p.pos} rotation={p.rot} material={roofMat} castShadow receiveShadow>
             <boxGeometry args={[p.w, 0.06, p.l]} />
           </mesh>
         ))}
-        {built.walls.map((w, i) => (
+        {visCierres && built.walls.map((w, i) => (
           <mesh key={`w${i}`} position={w.pos} rotation={w.rot} material={wallMat} castShadow receiveShadow>
             <extrudeGeometry args={[w.shape, { depth: 0.05, bevelEnabled: false }]} />
           </mesh>
         ))}
-        {built.flashings.map((f, i) => (
+        {visCierres && built.flashings.map((f, i) => (
           <mesh key={`fl_${i}`} position={f.pos} rotation={[-Math.PI / 2, 0, f.rotZ]} material={roofMat} castShadow>
             <extrudeGeometry args={[flashShape, { depth: f.h, bevelEnabled: false }]} />
           </mesh>
         ))}
-        {built.doors?.map((d, i) => (
+        {visCierres && built.doors?.map((d, i) => (
           <group key={`door_${i}`} position={d.pos} rotation={d.rot}>
             {/* Marco de puerta */}
             <mesh position={[0, 1.05, 0]} material={mats.columns}>

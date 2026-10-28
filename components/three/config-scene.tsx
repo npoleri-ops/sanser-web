@@ -68,9 +68,12 @@ function Dimensions({ config }: { config: ShedConfig }) {
 export function ConfigScene({
   config,
   onReady,
+  etapaMontaje = 0,
 }: {
   config: ShedConfig
   onReady?: (ref: ThreeSceneRef) => void
+  /** Etapa de secuencia de montaje pasada al ShedModel (0 = completo). */
+  etapaMontaje?: number
 }) {
   const camDist = (Math.max(config.width, config.length) * 1.15 + 12) * 0.82
 
@@ -125,7 +128,7 @@ export function ConfigScene({
           <directionalLight position={[20, 30, -25]} intensity={4.0} color="#ffffff" />
 
           <Suspense fallback={<Html center><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></Html>}>
-            <ShedModel config={config} showSlab />
+            <ShedModel config={config} showSlab etapaMontaje={etapaMontaje} />
             <Dimensions config={config} />
           </Suspense>
 
