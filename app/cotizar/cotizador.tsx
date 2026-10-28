@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
@@ -57,40 +57,6 @@ type Prices = typeof INITIAL_PRICES
 // Los inputs de medidas pueden quedar vacíos mientras se escribe: el estado guarda
 // esa cadena vacía aunque ShedConfig declare number.
 const EMPTY_NUMBER = "" as unknown as number
-
-// Mapeo dinámico de videos explicativos de montaje según tipología.
-// Ruta base: /videos/montaje/ (almacenados en public/videos/montaje/)
-export const MONTAJE_VIDEOS_MAP: Record<ShedType, { filename: string; label: string }> = {
-  gable: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Reticulado",
-  },
-  gable_portico: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Pórtico",
-  },
-  gable_varillas: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Varilla",
-  },
-  shed: {
-    filename: "1-agua.mp4",
-    label: "Un Agua Reticulado",
-  },
-  shed_varillas: {
-    filename: "1-agua.mp4",
-    label: "Un Agua Varilla",
-  },
-}
-
-export const getMontajeVideo = (type: ShedType) => {
-  const item = MONTAJE_VIDEOS_MAP[type] || MONTAJE_VIDEOS_MAP.gable
-  return {
-    src: `/videos/montaje/${item.filename}`,
-    filename: item.filename,
-    label: item.label,
-  }
-}
 
 // Cálculo de superficies de cerramientos en m²
 export const getSuperficies = (c: ShedConfig) => {
@@ -504,22 +470,6 @@ export function Cotizador({
   )
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
-
-  const [videoLinkCopied, setVideoLinkCopied] = useState(false)
-  const videoMontaje = getMontajeVideo(config.type)
-
-  const copiarLinkVideo = async () => {
-    const url = typeof window !== "undefined" ? `${window.location.origin}${videoMontaje.src}` : videoMontaje.src
-    try {
-      await navigator.clipboard.writeText(url)
-      setVideoLinkCopied(true)
-      setTimeout(() => setVideoLinkCopied(false), 3000)
-    } catch {
-      if (typeof window !== "undefined") {
-        window.open(url, "_blank")
-      }
-    }
-  }
 
   // Las medidas se recuperan de localStorage al montar; hasta que eso pasa no se
   // guarda nada, o el efecto de guardado pisaría lo almacenado con los valores por defecto.
@@ -1977,74 +1927,6 @@ export function Cotizador({
                   <strong className="text-foreground/80">El flete y la instalación se cotizan según la ubicación de entrega.</strong>
                 </p>
               )}
-            </div>
-
-            {/* Módulo de Video Explicativo de Montaje Paso a Paso */}
-            <div className="pt-5 border-t border-border space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
-                    <Video className="size-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Video Explicativo de Montaje
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Paso a paso de armado e instalación ({videoMontaje.label})
-                    </p>
-                  </div>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20 whitespace-nowrap">
-                  {videoMontaje.filename}
-                </span>
-              </div>
-
-              {/* Reproductor de Video */}
-              <div className="relative overflow-hidden rounded-lg border border-border bg-black/60 shadow-inner">
-                <video
-                  key={videoMontaje.src}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full aspect-video object-cover"
-                >
-                  <source src={videoMontaje.src} type="video/mp4" />
-                  Tu navegador no soporta la reproducción de video HTML5.
-                </video>
-              </div>
-
-              {/* Botones de acción directa */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <a
-                  href={videoMontaje.src}
-                  download={videoMontaje.filename}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background/80 hover:bg-muted hover:border-primary/40 px-3 py-2 text-xs font-bold text-foreground transition-all shadow-sm"
-                  title={`Descargar archivo ${videoMontaje.filename}`}
-                >
-                  <Download className="size-3.5 text-primary shrink-0" />
-                  <span>Descargar video</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={copiarLinkVideo}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-bold transition-all shadow-sm cursor-pointer",
-                    videoLinkCopied
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                      : "border-input bg-background/80 hover:bg-muted hover:border-primary/40 text-foreground"
-                  )}
-                  title="Copiar enlace directo del video para enviar por WhatsApp"
-                >
-                  {videoLinkCopied ? (
-                    <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Copy className="size-3.5 text-primary shrink-0" />
-                  )}
-                  <span>{videoLinkCopied ? "¡Enlace copiado!" : "Copiar enlace del video"}</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>
