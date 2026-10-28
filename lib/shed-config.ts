@@ -323,13 +323,6 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
     })
   }
 
-  // Paso final: terminaciones y control de calidad
-  pasos.push({
-    paso: numeroPaso,
-    titulo: "Pintura y terminaciones",
-    descripcion: `Aplicar convertidor de óxido en toda la estructura metálica (columnas, cabreadas y correas) y luego esmalte sintético en color negro mate. Revisar bulonería y tornillos autoperforantes. Limpiar residuos de obra y realizar el control final de plomada, nivel y estanqueidad de la cubierta.`,
-    categoria: "Terminaciones",
-  })
 
   return pasos
 }

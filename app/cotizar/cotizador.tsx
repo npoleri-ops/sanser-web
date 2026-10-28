@@ -479,16 +479,56 @@ export function Cotizador({
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
-  const [videoLinkCopied, setVideoLinkCopied] = useState(false)
   const videoMontaje = getMontajeVideo(config)
-  const [videoError, setVideoError] = useState(false)
+  const [videoDisponible, setVideoDisponible] = useState(false)
+  const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null)
+  const [activeFilename, setActiveFilename] = useState<string | null>(null)
+  const [videoLinkCopied, setVideoLinkCopied] = useState(false)
 
   useEffect(() => {
-    setVideoError(false)
-  }, [videoMontaje.src])
+    let cancelado = false
+    setVideoDisponible(false)
+    setActiveVideoSrc(null)
+    setActiveFilename(null)
 
-  const activeVideoSrc = videoError ? videoMontaje.fallbackSrc : videoMontaje.src
-  const activeFilename = videoError ? videoMontaje.fallbackFilename : videoMontaje.filename
+    const checkVideo = async () => {
+      try {
+        const res = await fetch(videoMontaje.src, { method: "HEAD" })
+        const contentType = res.headers.get("content-type") || ""
+        if (!cancelado && res.ok && (contentType.includes("video") || contentType.includes("octet-stream"))) {
+          setActiveVideoSrc(videoMontaje.src)
+          setActiveFilename(videoMontaje.filename)
+          setVideoDisponible(true)
+          return
+        }
+      } catch {}
+
+      if (videoMontaje.fallbackSrc !== videoMontaje.src) {
+        try {
+          const resFb = await fetch(videoMontaje.fallbackSrc, { method: "HEAD" })
+          const contentType = resFb.headers.get("content-type") || ""
+          if (!cancelado && resFb.ok && (contentType.includes("video") || contentType.includes("octet-stream"))) {
+            setActiveVideoSrc(videoMontaje.fallbackSrc)
+            setActiveFilename(videoMontaje.fallbackFilename)
+            setVideoDisponible(true)
+            return
+          }
+        } catch {}
+      }
+
+      if (!cancelado) {
+        setVideoDisponible(false)
+        setActiveVideoSrc(null)
+        setActiveFilename(null)
+      }
+    }
+
+    void checkVideo()
+
+    return () => {
+      cancelado = true
+    }
+  }, [videoMontaje.src, videoMontaje.fallbackSrc, videoMontaje.filename, videoMontaje.fallbackFilename])
 
   const [leadToken, setLeadToken] = useState<string | null>(
     leadInicial?.pdf_token ?? tokenPublico ?? null,
@@ -500,7 +540,8 @@ export function Cotizador({
   const pasosMontaje = getGuiaMontaje(config)
 
   const copiarLinkVideo = async () => {
-    const url = typeof window !== "undefined" ? `${window.location.origin}${videoMontaje.src}` : videoMontaje.src
+    if (!activeVideoSrc) return
+    const url = typeof window !== "undefined" ? `${window.location.origin}${activeVideoSrc}` : activeVideoSrc
     try {
       await navigator.clipboard.writeText(url)
       setVideoLinkCopied(true)
@@ -1292,7 +1333,7 @@ export function Cotizador({
     const tokenActivo = leadToken || pdfCompartido?.token
     const enlaceInteractivo = tokenActivo ? `${window.location.origin}/cotizar?token=${tokenActivo}` : null
     const bloqueInteractivo = enlaceInteractivo
-      ? `\n\nPodés explorar tu galpón en 3D, ver la secuencia de armado y el video explicativo aquí:\n${enlaceInteractivo}`
+      ? `\n\nPodés ver la cotización interactiva, modelo 3D y la secuencia de armado paso a paso acá:\n${enlaceInteractivo}`
       : ""
 
     const { supTotalCerramientos } = getSuperficies(config)
@@ -1364,7 +1405,7 @@ export function Cotizador({
                 {clientName ? `¡Hola ${clientName}! Este es tu proyecto a medida` : "Tu proyecto de estructura a medida"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Podés girar el modelo 3D, avanzar por la secuencia de montaje paso a paso y ver el video explicativo adaptado a tu configuración.
+                Podés girar el modelo 3D interactivo y explorar la secuencia de montaje paso a paso de tu estructura.
               </p>
             </div>
             <div className="shrink-0 flex items-center gap-2">
@@ -2095,86 +2136,104 @@ export function Cotizador({
               )}
             </div>
 
-            {/* Módulo de Video Explicativo de Montaje Paso a Paso */}
-            <div className="pt-5 border-t border-border space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
-                    <Video className="size-4" />
+            {/* Módulo de Video Explicativo de Montaje (solo visible si el archivo mp4 existe en el servidor) */}
+            {videoDisponible && activeVideoSrc && activeFilename ? (
+              <div className="pt-5 border-t border-border space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      <Video className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Video Explicativo de Montaje
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Paso a paso de armado e instalación ({videoMontaje.label})
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Video Explicativo de Montaje
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20 whitespace-nowrap">
+                    {activeFilename}
+                  </span>
+                </div>
+
+                {/* Reproductor de Video */}
+                <div className="relative overflow-hidden rounded-lg border border-border bg-black/60 shadow-inner">
+                  <video
+                    key={activeVideoSrc}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full aspect-video object-cover"
+                    onError={() => setVideoDisponible(false)}
+                  >
+                    <source
+                      src={activeVideoSrc}
+                      type="video/mp4"
+                      onError={() => setVideoDisponible(false)}
+                    />
+                    Tu navegador no soporta la reproducción de video HTML5.
+                  </video>
+                </div>
+
+                {/* Botones de acción directa */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href={activeVideoSrc}
+                    download={activeFilename}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background/80 hover:bg-muted hover:border-primary/40 px-3 py-2 text-xs font-bold text-foreground transition-all shadow-sm"
+                    title={`Descargar archivo ${activeFilename}`}
+                  >
+                    <Download className="size-3.5 text-primary shrink-0" />
+                    <span>Descargar video</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={copiarLinkVideo}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-bold transition-all shadow-sm cursor-pointer",
+                      videoLinkCopied
+                        ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                        : "border-input bg-background/80 hover:bg-muted hover:border-primary/40 text-foreground"
+                    )}
+                    title="Copiar enlace directo del video para enviar por WhatsApp"
+                  >
+                    {videoLinkCopied ? (
+                      <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <Copy className="size-3.5 text-primary shrink-0" />
+                    )}
+                    <span>{videoLinkCopied ? "¡Enlace copiado!" : "Copiar enlace del video"}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Prioridad 100% al Visor 3D Interactivo y Copiar Link 3D cuando no hay archivo mp4 */
+              <div className="pt-4 border-t border-border">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-primary/20 bg-primary/5">
+                  <div className="space-y-0.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                      <Eye className="size-3.5 text-primary" /> Visor 3D y Secuencia de Montaje
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
-                      Paso a paso de armado e instalación ({videoMontaje.label})
+                      Explorá las dimensiones reales, componentes y el montaje paso a paso directamente en el modelo 3D interactivo.
                     </p>
                   </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={copiarLink3D}
+                    className="shrink-0 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                  >
+                    <Share2 className="size-3.5" />
+                    {link3DCopied ? "¡Link 3D copiado!" : "Copiar Link 3D"}
+                  </Button>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20 whitespace-nowrap">
-                  {activeFilename}
-                </span>
               </div>
-
-              {/* Reproductor de Video */}
-              <div className="relative overflow-hidden rounded-lg border border-border bg-black/60 shadow-inner">
-                <video
-                  key={activeVideoSrc}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full aspect-video object-cover"
-                  onError={() => {
-                    if (!videoError && videoMontaje.src !== videoMontaje.fallbackSrc) {
-                      setVideoError(true)
-                    }
-                  }}
-                >
-                  <source
-                    src={activeVideoSrc}
-                    type="video/mp4"
-                    onError={() => {
-                      if (!videoError && videoMontaje.src !== videoMontaje.fallbackSrc) {
-                        setVideoError(true)
-                      }
-                    }}
-                  />
-                  Tu navegador no soporta la reproducción de video HTML5.
-                </video>
-              </div>
-
-              {/* Botones de acción directa */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <a
-                  href={activeVideoSrc}
-                  download={activeFilename}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background/80 hover:bg-muted hover:border-primary/40 px-3 py-2 text-xs font-bold text-foreground transition-all shadow-sm"
-                  title={`Descargar archivo ${activeFilename}`}
-                >
-                  <Download className="size-3.5 text-primary shrink-0" />
-                  <span>Descargar video</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={copiarLinkVideo}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-bold transition-all shadow-sm cursor-pointer",
-                    videoLinkCopied
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                      : "border-input bg-background/80 hover:bg-muted hover:border-primary/40 text-foreground"
-                  )}
-                  title="Copiar enlace directo del video para enviar por WhatsApp"
-                >
-                  {videoLinkCopied ? (
-                    <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Copy className="size-3.5 text-primary shrink-0" />
-                  )}
-                  <span>{videoLinkCopied ? "¡Enlace copiado!" : "Copiar enlace del video"}</span>
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -2202,7 +2261,7 @@ export function Cotizador({
               title="Copiar enlace cliente para explorar 3D interactivo y secuencia de montaje"
             >
               {enlaceCopiado ? <CheckCircle2 className="size-4" /> : <Share2 className="size-4" />}
-              {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D/Video)"}
+              {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D)"}
             </Button>
 
             <div className="flex flex-col items-end gap-1">
