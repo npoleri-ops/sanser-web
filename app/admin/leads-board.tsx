@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   FileDown,
   FilePen,
   FileText,
@@ -258,9 +259,12 @@ export function LeadsBoard({
             presupuestos · {stats.porTipo.contacto} consultas · {stats.porTipo.whatsapp} WhatsApp
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="lg" onClick={() => setCreating(true)}>
-            <Plus /> Nuevo
+        <div className="flex flex-wrap gap-2">
+          <Link href="/cotizar" className={buttonVariants({ size: "lg" })}>
+            <FilePen className="size-4 mr-1.5" /> Nueva Cotización
+          </Link>
+          <Button variant="outline" size="lg" onClick={() => setCreating(true)}>
+            <Plus /> Nuevo Lead
           </Button>
           <Button variant="outline" size="lg" onClick={refresh} disabled={loading}>
             <RefreshCw className={loading ? "animate-spin" : ""} /> Actualizar
@@ -613,6 +617,7 @@ function LeadDetail({
   const [notes, setNotes] = useState(lead.notes ?? "")
   const [saving, setSaving] = useState(false)
   const [enlaceCopiado, setEnlaceCopiado] = useState(false)
+  const [enlaceInteractivoCopiado, setEnlaceInteractivoCopiado] = useState(false)
 
   return (
     <div
@@ -705,29 +710,57 @@ function LeadDetail({
           )}
 
           {lead.pdf_token && (
-            <Field label="PDF del presupuesto">
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={`/api/presupuesto/${lead.pdf_token}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                >
-                  <FileDown className="size-4" /> Abrir
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(
-                      `${window.location.origin}/api/presupuesto/${lead.pdf_token}`,
-                    )
-                    setEnlaceCopiado(true)
-                  }}
-                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
-                >
-                  {enlaceCopiado ? "Enlace copiado" : "Copiar enlace"}
-                </button>
-              </div>
-            </Field>
+            <>
+              <Field label="PDF del presupuesto">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={`/api/presupuesto/${lead.pdf_token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <FileDown className="size-4" /> Abrir PDF
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(
+                        `${window.location.origin}/api/presupuesto/${lead.pdf_token}`,
+                      )
+                      setEnlaceCopiado(true)
+                      setTimeout(() => setEnlaceCopiado(false), 2000)
+                    }}
+                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+                  >
+                    {enlaceCopiado ? "Enlace copiado" : "Copiar enlace PDF"}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Enlace interactivo (3D / Montaje)">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={`/cotizar?token=${lead.pdf_token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm font-medium"
+                  >
+                    <Eye className="size-4" /> Abrir cotizador interactivo
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(
+                        `${window.location.origin}/cotizar?token=${lead.pdf_token}`,
+                      )
+                      setEnlaceInteractivoCopiado(true)
+                      setTimeout(() => setEnlaceInteractivoCopiado(false), 2000)
+                    }}
+                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+                  >
+                    {enlaceInteractivoCopiado ? "Enlace copiado" : "Copiar enlace cliente"}
+                  </button>
+                </div>
+              </Field>
+            </>
           )}
 
           {lead.phone && (lead.phone_count ?? 0) > 1 && (

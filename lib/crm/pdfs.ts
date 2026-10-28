@@ -43,3 +43,29 @@ export async function getPdfTokenForLead(leadId: string) {
   )
   return rows[0]?.token ?? null
 }
+
+/**
+ * Obtiene o genera un token UUID único para el lead (incluso antes de que el
+ * PDF esté compilado o subido). Esto permite compartir inmediatamente el enlace
+ * interactivo (/cotizar?token=X o /3d) con el cliente.
+ */
+export async function getOrCreateTokenForLead(leadId: string): Promise<string> {
+  const existing = await getPdfTokenForLead(leadId)
+  if (existing) return existing
+
+  try {
+    const rows = await query<{ token: string }>(
+      `INSERT INTO lead_pdfs (lead_id, content, size_bytes)
+       VALUES ($1, $2, 0)
+       ON CONFLICT (lead_id) DO NOTHING
+       RETURNING token`,
+      [leadId, Buffer.from("")],
+    )
+    if (rows[0]?.token) return rows[0].token
+  } catch {
+    // Si ya existe u ocurrió conflicto concurrente
+  }
+
+  const fallback = await getPdfTokenForLead(leadId)
+  return fallback || ""
+}

@@ -334,6 +334,83 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   return pasos
 }
 
+// ─── Videos explicativos de montaje ──────────────────────────────────────────
+
+export interface MontajeVideoInfo {
+  src: string
+  fallbackSrc: string
+  filename: string
+  fallbackFilename: string
+  label: string
+  hasCerramientos: boolean
+  hasPorton: boolean
+  hasPuertas: boolean
+}
+
+/**
+ * Selecciona la variante del video explicativo según la configuración completa
+ * del tinglado: tipología base, presencia de cerramientos y aberturas.
+ * Si la variante específica no existe en disco, el visor realiza un fallback fluido
+ * a fallbackSrc (la versión genérica de la estructura).
+ */
+export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
+  const { type } = config
+  const isUnAgua = type === "shed" || type === "shed_varillas"
+  const isPortico = type === "gable_portico"
+
+  const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
+  const hasCerramientos = Boolean(
+    config.wallLeft || config.wallRight || config.wallFront || config.wallBack || legacyWalls
+  )
+  const hasPorton = Boolean(config.gate || config.gateBack)
+  const hasPuertas = Boolean(config.doorsCount && config.doorsCount > 0)
+  const hasAberturas = hasPorton || hasPuertas
+
+  // Tipología base
+  let baseSlug = "2-aguas"
+  let baseLabel = "A 2 Aguas"
+  if (isUnAgua) {
+    baseSlug = "1-agua"
+    baseLabel = "A 1 Agua"
+  } else if (isPortico) {
+    baseSlug = "2-aguas-portico"
+    baseLabel = "A 2 Aguas Pórtico"
+  }
+
+  const fallbackFilename = isUnAgua ? "1-agua.mp4" : "2-aguas.mp4"
+  const fallbackSrc = `/videos/montaje/${fallbackFilename}`
+
+  // Variante específica según cerramientos y aberturas
+  let variantSlug = baseSlug
+  let variantDesc = "Estructura abierta"
+
+  if (hasCerramientos && hasAberturas) {
+    variantSlug = `${baseSlug}-con-cerramiento-y-aberturas`
+    variantDesc = "Con cerramientos y aberturas"
+  } else if (hasCerramientos) {
+    variantSlug = `${baseSlug}-con-cerramiento`
+    variantDesc = "Con cerramiento perimetral"
+  } else if (hasAberturas) {
+    variantSlug = `${baseSlug}-con-aberturas`
+    variantDesc = "Con portón / puertas de acceso"
+  }
+
+  const filename = `${variantSlug}.mp4`
+  const src = `/videos/montaje/${filename}`
+  const label = `${baseLabel} (${variantDesc})`
+
+  return {
+    src,
+    fallbackSrc,
+    filename,
+    fallbackFilename,
+    label,
+    hasCerramientos,
+    hasPorton,
+    hasPuertas,
+  }
+}
+
 export const CONTACT = {
   phoneDisplay: "03743-487728",
   phoneSecondaryDisplay: "03743-448876",

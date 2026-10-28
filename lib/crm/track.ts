@@ -24,6 +24,8 @@ export interface LeadRegistrado {
   leadId?: string
   pdfUrl?: string | null
   pdfToken?: string | null
+  token?: string | null
+  cotizarUrl?: string | null
   /** Por qué el servidor no lo aceptó (datos mal o demasiados pedidos). */
   error?: string
 }

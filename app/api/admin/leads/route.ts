@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isAuthenticated } from "@/lib/crm/auth"
+import { getOrCreateTokenForLead } from "@/lib/crm/pdfs"
 import {
   actualizarBorrador,
   confirmarPresupuesto,
@@ -16,6 +17,7 @@ import {
   LEAD_STATUSES,
   type LeadKind,
   type LeadStatus,
+  type NewLead,
 } from "@/lib/crm/types"
 
 const MAX_PER_PAGE = 500
@@ -72,11 +74,18 @@ export async function POST(req: Request) {
 
   const total = Number(body.quoteTotal)
 
-  const datos = {
+  const datos: NewLead = {
     kind,
     name: body.name || null,
     phone: body.phone || null,
+    email: body.email || null,
+    cuit: body.cuit || null,
+    message: body.message || null,
+    quoteTitle: body.quoteTitle || null,
+    quoteTotal: Number.isFinite(total) && total > 0 ? total : null,
+    quoteConfig: body.quoteConfig ?? null,
   }
+
   if (faltaContacto(datos)) {
     return NextResponse.json(
       { ok: false, message: "El nombre y el teléfono son obligatorios" },
@@ -94,6 +103,7 @@ export async function POST(req: Request) {
       message: body.message || null,
       quoteTitle: body.quoteTitle || null,
       quoteTotal: Number.isFinite(total) && total > 0 ? total : null,
+      quoteConfig: body.quoteConfig ?? null,
       status: (body.status as LeadStatus) || null,
       notes: body.notes || null,
       // Marca de dónde salió: no vino del sitio, lo cargó alguien a mano.
@@ -102,7 +112,19 @@ export async function POST(req: Request) {
     { referrer: null, userAgent: null, ip: null, city: null, region: null, country: null },
   )
 
-  return NextResponse.json({ ok: true, lead })
+  let token: string | null = null
+  let cotizarUrl: string | null = null
+  if (kind === "presupuesto") {
+    token = await getOrCreateTokenForLead(lead.id)
+    cotizarUrl = `/cotizar?token=${token}`
+  }
+
+  return NextResponse.json({
+    ok: true,
+    lead: { ...lead, token, pdf_token: token },
+    token,
+    cotizarUrl,
+  })
 }
 
 /** Confirmar un presupuesto: sólo desde el panel, nunca desde el cotizador público. */

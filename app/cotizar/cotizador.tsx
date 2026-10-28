@@ -1,14 +1,15 @@
 "use client"
 
 
+
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, getGuiaMontaje } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -60,39 +61,7 @@ type Prices = typeof INITIAL_PRICES
 // esa cadena vacía aunque ShedConfig declare number.
 const EMPTY_NUMBER = "" as unknown as number
 
-// Mapeo dinámico de videos explicativos de montaje según tipología.
-// Ruta base: /videos/montaje/ (almacenados en public/videos/montaje/)
-export const MONTAJE_VIDEOS_MAP: Record<ShedType, { filename: string; label: string }> = {
-  gable: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Reticulado",
-  },
-  gable_portico: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Pórtico",
-  },
-  gable_varillas: {
-    filename: "2-aguas.mp4",
-    label: "Dos Aguas Varilla",
-  },
-  shed: {
-    filename: "1-agua.mp4",
-    label: "Un Agua Reticulado",
-  },
-  shed_varillas: {
-    filename: "1-agua.mp4",
-    label: "Un Agua Varilla",
-  },
-}
-
-export const getMontajeVideo = (type: ShedType) => {
-  const item = MONTAJE_VIDEOS_MAP[type] || MONTAJE_VIDEOS_MAP.gable
-  return {
-    src: `/videos/montaje/${item.filename}`,
-    filename: item.filename,
-    label: item.label,
-  }
-}
+// (getMontajeVideo reside en lib/shed-config.ts con soporte dinámico de variantes)
 
 // Cálculo de superficies de cerramientos en m²
 export const getSuperficies = (c: ShedConfig) => {
@@ -367,9 +336,11 @@ const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 export function Cotizador({
   interno,
   leadInicial,
+  tokenPublico,
 }: {
   interno: boolean
   leadInicial?: Lead | null
+  tokenPublico?: string | null
 }) {
   // Un presupuesto reabierto trae su configuración e ítems ya ajustados a mano.
   const guardado = (leadInicial?.quote_config ?? null) as
@@ -509,7 +480,22 @@ export function Cotizador({
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
   const [videoLinkCopied, setVideoLinkCopied] = useState(false)
-  const videoMontaje = getMontajeVideo(config.type)
+  const videoMontaje = getMontajeVideo(config)
+  const [videoError, setVideoError] = useState(false)
+
+  useEffect(() => {
+    setVideoError(false)
+  }, [videoMontaje.src])
+
+  const activeVideoSrc = videoError ? videoMontaje.fallbackSrc : videoMontaje.src
+  const activeFilename = videoError ? videoMontaje.fallbackFilename : videoMontaje.filename
+
+  const [leadToken, setLeadToken] = useState<string | null>(
+    leadInicial?.pdf_token ?? tokenPublico ?? null,
+  )
+  const [enlaceCopiado, setEnlaceCopiado] = useState(false)
+  const [guardandoCrm, setGuardandoCrm] = useState(false)
+  const [mensajeCrm, setMensajeCrm] = useState<string | null>(null)
   const [etapaMontaje, setEtapaMontaje] = useState(0)
   const pasosMontaje = getGuiaMontaje(config)
 
@@ -1140,8 +1126,70 @@ export function Cotizador({
   const guardarBorrador = async (): Promise<string | null> => {
     if (leadId) return leadId
     const registrado = await registrarLead(datosDelPresupuesto())
-    if (registrado?.leadId) setLeadId(registrado.leadId)
+    if (registrado?.leadId) {
+      setLeadId(registrado.leadId)
+      if (registrado.token) setLeadToken(registrado.token)
+    }
     return registrado?.leadId ?? null
+  }
+
+  const guardarEnCRM = async () => {
+    if (!clientName.trim() && !phone.trim()) {
+      alert("Por favor ingresá al menos el nombre o el teléfono del cliente para registrar la cotización en el CRM.")
+      return
+    }
+    setGuardandoCrm(true)
+    setMensajeCrm(null)
+    try {
+      const registrado = await registrarLead(datosDelPresupuesto())
+      if (registrado?.error) {
+        setMensajeCrm(`Error: ${registrado.error}`)
+        return
+      }
+      if (registrado?.leadId) setLeadId(registrado.leadId)
+      const token = registrado?.token || registrado?.pdfToken || leadToken
+      if (token) setLeadToken(token)
+      setMensajeCrm("Cotización guardada en el CRM con éxito.")
+    } catch {
+      setMensajeCrm("Error al guardar en el CRM.")
+    } finally {
+      setGuardandoCrm(false)
+    }
+  }
+
+  const copiarEnlaceInteractivo = async () => {
+    let token = leadToken
+    if (!token) {
+      if (!clientName.trim() && !phone.trim()) {
+        alert("Completá el nombre o teléfono del cliente antes de generar el enlace interactivo.")
+        return
+      }
+      setGuardandoCrm(true)
+      try {
+        const registrado = await registrarLead(datosDelPresupuesto())
+        if (registrado?.token || registrado?.pdfToken) {
+          token = registrado.token || registrado.pdfToken || null
+          setLeadToken(token)
+          if (registrado.leadId) setLeadId(registrado.leadId)
+        }
+      } finally {
+        setGuardandoCrm(false)
+      }
+    }
+
+    if (!token) {
+      await copiarLink3D()
+      return
+    }
+
+    const url = `${window.location.origin}/cotizar?token=${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setEnlaceCopiado(true)
+      setTimeout(() => setEnlaceCopiado(false), 3000)
+    } catch {
+      window.open(url, "_blank")
+    }
   }
 
   /** Lo que hace el visitante: pedir el presupuesto, sin llevarse ningún papel. */
@@ -1241,6 +1289,12 @@ export function Cotizador({
     const enlacePdf = pdfCompartido?.title === title ? pdfCompartido.url : null
     const bloquePdf = enlacePdf ? `\n\nPodés descargarlo acá:\n${enlacePdf}` : ""
 
+    const tokenActivo = leadToken || pdfCompartido?.token
+    const enlaceInteractivo = tokenActivo ? `${window.location.origin}/cotizar?token=${tokenActivo}` : null
+    const bloqueInteractivo = enlaceInteractivo
+      ? `\n\nPodés explorar tu galpón en 3D, ver la secuencia de armado y el video explicativo aquí:\n${enlaceInteractivo}`
+      : ""
+
     const { supTotalCerramientos } = getSuperficies(config)
     const doorsCount = config.doorsCount || 0
 
@@ -1250,7 +1304,7 @@ export function Cotizador({
       .join("\n")
 
     const message = interno
-      ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\n*Detalle del presupuesto:*\n${desgloseItems}\n\n*Total estimado: $ ${totalStr}*${bloquePdf}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
+      ? `Hola! Te adjuntamos el presupuesto de tu proyecto: *${title}*.\n\n*Detalle del presupuesto:*\n${desgloseItems}\n\n*Total estimado: $ ${totalStr}*${bloquePdf}${bloqueInteractivo}\n\nCualquier consulta estamos a disposición.\n\nSaludos,\nSANSER Metalúrgica.`
       : `Hola! Soy ${clientName}. Coticé en la web un *${title}* (${config.width}x${config.length}m, alto ${config.height}m${supTotalCerramientos > 0 ? `, con ${supTotalCerramientos} m² de cerramientos` : ""}${doorsCount > 0 ? `, ${doorsCount} puerta(s) de acceso` : ""}${config.gate ? ", con portón frontal" : ""}${config.gateBack ? ", con portón trasero" : ""}) y quiero consultar.${bloquePdf}`
     const encodedMessage = encodeURIComponent(message)
 
@@ -1302,17 +1356,68 @@ export function Cotizador({
     <div className="min-h-screen bg-background py-10 px-4 md:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
 
-        <div>
-          <h1 className="text-3xl font-display font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-            <FileText className="size-6" />
-            {interno ? "Cotizador Interno" : "Cotizá tu tinglado"}
-          </h1>
-          <p className="text-muted-foreground">
-            {interno
-              ? "Genera presupuestos institucionales en PDF para enviar a los clientes."
-              : "Elegí las medidas, mirá tu estructura en 3D y descargá el presupuesto en PDF al instante."}
-          </p>
+        {tokenPublico && !interno && (
+          <div className="rounded-xl border border-primary/30 bg-primary/10 p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Presupuesto interactivo personalizado</span>
+              <h2 className="text-lg font-bold text-foreground">
+                {clientName ? `¡Hola ${clientName}! Este es tu proyecto a medida` : "Tu proyecto de estructura a medida"}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Podés girar el modelo 3D, avanzar por la secuencia de montaje paso a paso y ver el video explicativo adaptado a tu configuración.
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/20 text-primary border border-primary/30">
+                SANSER 3D
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+              <FileText className="size-6" />
+              {interno ? "Cotizador Interno" : "Cotizá tu tinglado"}
+            </h1>
+            <p className="text-muted-foreground">
+              {interno
+                ? "Genera presupuestos institucionales en PDF para enviar a los clientes."
+                : "Elegí las medidas, mirá tu estructura en 3D y descargá el presupuesto en PDF al instante."}
+            </p>
+          </div>
+          {interno && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={guardarEnCRM}
+                disabled={guardandoCrm}
+                className="gap-1.5 text-xs font-medium"
+              >
+                {guardandoCrm ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                {leadToken ? "Guardar en CRM" : "Guardar en CRM"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={copiarEnlaceInteractivo}
+                disabled={guardandoCrm}
+                className="gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary/10"
+                title="Copia el enlace único para que el cliente vea este galpón en 3D interactivo con video y secuencia"
+              >
+                {enlaceCopiado ? <CheckCircle2 className="size-3.5" /> : <Share2 className="size-3.5" />}
+                {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente"}
+              </Button>
+            </div>
+          )}
         </div>
+        {interno && mensajeCrm && (
+          <div className="text-xs text-primary bg-primary/10 border border-primary/20 rounded-md px-3 py-2 animate-in fade-in">
+            {mensajeCrm}
+          </div>
+        )}
 
         {/* 3D Visualizer */}
         <div className="space-y-3">
@@ -2007,20 +2112,33 @@ export function Cotizador({
                   </div>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20 whitespace-nowrap">
-                  {videoMontaje.filename}
+                  {activeFilename}
                 </span>
               </div>
 
               {/* Reproductor de Video */}
               <div className="relative overflow-hidden rounded-lg border border-border bg-black/60 shadow-inner">
                 <video
-                  key={videoMontaje.src}
+                  key={activeVideoSrc}
                   controls
                   playsInline
                   preload="metadata"
                   className="w-full aspect-video object-cover"
+                  onError={() => {
+                    if (!videoError && videoMontaje.src !== videoMontaje.fallbackSrc) {
+                      setVideoError(true)
+                    }
+                  }}
                 >
-                  <source src={videoMontaje.src} type="video/mp4" />
+                  <source
+                    src={activeVideoSrc}
+                    type="video/mp4"
+                    onError={() => {
+                      if (!videoError && videoMontaje.src !== videoMontaje.fallbackSrc) {
+                        setVideoError(true)
+                      }
+                    }}
+                  />
                   Tu navegador no soporta la reproducción de video HTML5.
                 </video>
               </div>
@@ -2028,10 +2146,10 @@ export function Cotizador({
               {/* Botones de acción directa */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <a
-                  href={videoMontaje.src}
-                  download={videoMontaje.filename}
+                  href={activeVideoSrc}
+                  download={activeFilename}
                   className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background/80 hover:bg-muted hover:border-primary/40 px-3 py-2 text-xs font-bold text-foreground transition-all shadow-sm"
-                  title={`Descargar archivo ${videoMontaje.filename}`}
+                  title={`Descargar archivo ${activeFilename}`}
                 >
                   <Download className="size-3.5 text-primary shrink-0" />
                   <span>Descargar video</span>
@@ -2065,7 +2183,28 @@ export function Cotizador({
         )}
 
         {interno ? (
-          <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-end pt-4">
+            <Button
+              onClick={guardarEnCRM}
+              variant="outline"
+              disabled={guardandoCrm}
+              className="gap-2"
+            >
+              {guardandoCrm ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              {leadToken ? "Actualizar en CRM" : "Guardar en CRM"}
+            </Button>
+
+            <Button
+              onClick={copiarEnlaceInteractivo}
+              variant="outline"
+              disabled={guardandoCrm}
+              className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+              title="Copiar enlace cliente para explorar 3D interactivo y secuencia de montaje"
+            >
+              {enlaceCopiado ? <CheckCircle2 className="size-4" /> : <Share2 className="size-4" />}
+              {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D/Video)"}
+            </Button>
+
             <div className="flex flex-col items-end gap-1">
               <Button
                 onClick={sendToWhatsApp}

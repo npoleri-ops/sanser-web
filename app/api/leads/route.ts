@@ -11,7 +11,7 @@ import {
 import { isAuthenticated } from "@/lib/crm/auth"
 import { normalizarTelefono, problemaDeContacto } from "@/lib/crm/contacto"
 import { notifyLead } from "@/lib/crm/notify"
-import { savePdf } from "@/lib/crm/pdfs"
+import { getOrCreateTokenForLead, savePdf } from "@/lib/crm/pdfs"
 import { isDatabaseConfigured } from "@/lib/crm/db"
 import { LEAD_KINDS, type LeadKind } from "@/lib/crm/types"
 
@@ -125,7 +125,20 @@ export async function POST(req: Request) {
       void notifyLead(guardado, pdfUrl)
     }
 
-    return NextResponse.json({ ok: true, stored: true, leadId: guardado.id, pdfUrl, pdfToken })
+    if (!pdfToken && kind === "presupuesto") {
+      pdfToken = await getOrCreateTokenForLead(guardado.id)
+    }
+
+    const cotizarUrl = pdfToken ? `${publicOrigin(req)}/cotizar?token=${pdfToken}` : null
+    return NextResponse.json({
+      ok: true,
+      stored: true,
+      leadId: guardado.id,
+      pdfUrl,
+      pdfToken,
+      token: pdfToken,
+      cotizarUrl,
+    })
   } catch (error) {
     console.error("No se pudo registrar el lead", error)
     return NextResponse.json({ ok: true, stored: false })
