@@ -42,9 +42,14 @@ function parseShedConfig(params: Record<string, string | undefined>) {
   const paredDer = params.paredDer === "1" || (paredes && params.paredDer !== "0")
   const paredFrente = params.paredFrente === "1"
   const paredFondo = params.paredFondo === "1"
-  const puertas = Math.max(0, parseInt(params.puertas ?? "0", 10) || 0)
-  const porton = params.porton === "1"
-  const portonTrasero = params.portonTrasero === "1"
+
+  // Mapear explícitamente: params.puertas, params.puerta, params.doors, params.doorsCount
+  const rawPuertas = params.puertas ?? params.puerta ?? params.doors ?? params.doorsCount
+  const parsedPuertas = rawPuertas !== undefined && rawPuertas !== null ? parseInt(String(rawPuertas), 10) : 0
+  const puertas = !isNaN(parsedPuertas) && parsedPuertas > 0 ? parsedPuertas : 0
+
+  const porton = params.porton === "1" || params.gate === "1"
+  const portonTrasero = params.portonTrasero === "1" || params.gateBack === "1"
 
   return {
     ...DEFAULT_CONFIG,
