@@ -12,6 +12,7 @@ export interface ShedConfig {
   sheet: SheetType
   wallSheet: WallSheetType
   color: RoofColor
+  colorChapa?: "cincalum" | "negro"
   environment: EnvironmentType
   walls: boolean // cerramientos laterales (compatibilidad)
   wallLeft?: boolean // cerramiento lateral izquierdo
@@ -33,7 +34,8 @@ export const DEFAULT_CONFIG: ShedConfig = {
   height: 5,
   sheet: "t101",
   wallSheet: "same",
-  color: "negro",
+  color: "cincalum",
+  colorChapa: "cincalum",
   environment: "day",
   walls: false,
   wallLeft: false,
@@ -57,8 +59,8 @@ export const LIMITS = {
 }
 
 export const COLOR_HEX: Record<RoofColor, string> = {
-  cincalum: "#c9ced6",
-  negro: "#141518",
+  cincalum: "#A8B2B9",
+  negro: "#222222",
 }
 
 export const COLOR_LABEL: Record<RoofColor, string> = {

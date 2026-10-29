@@ -811,10 +811,11 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
     bumpMapW.repeat.set(1, 1)
     bumpMapW.needsUpdate = true
 
-    const isCincalum = config.color === "cincalum"
-    const finalColor = isCincalum ? "#a1a8b3" : COLOR_HEX[config.color]
-    const metalness = isCincalum ? 0.9 : 0.6
-    const roughness = isCincalum ? 0.2 : 0.5
+    const activeColor = config.colorChapa ?? config.color ?? "cincalum"
+    const isCincalum = activeColor === "cincalum"
+    const finalColor = isCincalum ? "#A8B2B9" : "#222222"
+    const metalness = isCincalum ? 0.75 : 0.1
+    const roughness = isCincalum ? 0.35 : 0.8
 
     // EXTREME bumpScale so ridges catch heavy shadow and light
     const bumpScale = 3.0
@@ -854,7 +855,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
     wMat.needsUpdate = true
 
     return { roofMat: rMat, wallMat: wMat }
-  }, [config.color, config.length, config.sheet, config.wallSheet])
+  }, [config.color, config.colorChapa, config.length, config.sheet, config.wallSheet])
 
   const flashShape = useMemo(() => {
     const s = new THREE.Shape()

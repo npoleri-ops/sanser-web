@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -396,7 +396,7 @@ export function Cotizador({
       largo: String(config.length),
       alto: String(config.height),
       chapa: config.sheet,
-      color: config.color,
+      color: config.colorChapa ?? config.color ?? "cincalum",
       paredes: (config.wallLeft || config.wallRight || config.walls) ? "1" : "0",
       paredIzq: config.wallLeft ? "1" : "0",
       paredDer: config.wallRight ? "1" : "0",
@@ -476,8 +476,11 @@ export function Cotizador({
   const [config, setConfig] = useState<ShedConfig>(() => {
     const base = guardado ? { ...DEFAULT_CONFIG, ...guardado } : DEFAULT_CONFIG
     const doors = Math.max(0, Number(guardado?.doorsCount ?? guardado?.puertasPeatonales ?? guardado?.doors ?? 0))
+    const color = (guardado?.colorChapa ?? guardado?.color ?? DEFAULT_CONFIG.color ?? "cincalum") as RoofColor
     return {
       ...base,
+      color,
+      colorChapa: color,
       doorsCount: doors,
       puertasPeatonales: doors,
       doors: doors,
@@ -590,6 +593,8 @@ export function Cotizador({
       const storedWallRight = localStorage.getItem('sanser_wall_right') === '1'
       const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
+      const storedColor = localStorage.getItem('sanser_color_chapa') as RoofColor | null
+      const validColor: RoofColor = (storedColor === "cincalum" || storedColor === "negro") ? storedColor : "cincalum"
       const rawStoredDoors = localStorage.getItem('sanser_doors_count')
       const storedDoors = rawStoredDoors !== null ? Math.max(0, parseInt(rawStoredDoors, 10) || 0) : 0
       const storedGate = localStorage.getItem('sanser_gate') === '1'
@@ -608,6 +613,8 @@ export function Cotizador({
           doorsCount: storedDoors,
           puertasPeatonales: storedDoors,
           doors: storedDoors,
+          color: validColor,
+          colorChapa: validColor,
           gate: storedGate,
           gateBack: storedGateBack,
         }))
@@ -632,10 +639,11 @@ export function Cotizador({
       localStorage.setItem('sanser_doors_count', (config.doorsCount || 0).toString())
       localStorage.setItem('sanser_gate', config.gate ? '1' : '0')
       localStorage.setItem('sanser_gate_back', config.gateBack ? '1' : '0')
+      localStorage.setItem('sanser_color_chapa', config.colorChapa ?? config.color ?? 'cincalum')
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount, config.gate, config.gateBack])
+  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount, config.color, config.colorChapa, config.gate, config.gateBack])
 
   const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
@@ -1644,6 +1652,39 @@ export function Cotizador({
                 </label>
               </div>
             )}
+
+            {/* Color de Chapa */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <label className="text-xs font-bold uppercase text-foreground/80 block">Color de Chapa</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, colorChapa: "cincalum", color: "cincalum" })}
+                  className={cn(
+                    "flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold rounded-lg border transition-all cursor-pointer",
+                    (config.colorChapa ?? config.color) === "cincalum"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background hover:bg-muted border-input text-foreground"
+                  )}
+                >
+                  <span className="size-3.5 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: "#A8B2B9" }} />
+                  Cincalum
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, colorChapa: "negro", color: "negro" })}
+                  className={cn(
+                    "flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold rounded-lg border transition-all cursor-pointer",
+                    (config.colorChapa ?? config.color) === "negro"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background hover:bg-muted border-input text-foreground"
+                  )}
+                >
+                  <span className="size-3.5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: "#222222" }} />
+                  Negro
+                </button>
+              </div>
+            </div>
 
             {/* Cerramientos y Aberturas */}
             <div className="space-y-4 pt-4 border-t border-border">
