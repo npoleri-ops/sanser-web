@@ -377,7 +377,7 @@ export function MapaFederal({ onGoEditor }: MapaFederalProps = {}) {
                         />
 
                         {/* Etiqueta compacta en el mapa (Diseño y tipografía armonizados) */}
-                        <g transform={`translate(${x}, ${y - 12})`}>
+                        <g transform={`translate(${x + (destino.labelOffset?.x ?? 0)}, ${y + (destino.labelOffset?.y ?? -12)})`}>
                           <rect
                             x="-36"
                             y="-14"

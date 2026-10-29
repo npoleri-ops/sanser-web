@@ -43,6 +43,10 @@ export interface DestinoObra {
   distanciaKm: number
   estructuras: string[]
   tipoEstructura?: string
+  labelOffset?: {
+    x?: number
+    y?: number
+  }
 }
 
 /**
@@ -96,6 +100,21 @@ export const DESTINOS_OBRAS: DestinoObra[] = [
       "Tinglado 10x20m a 2 Aguas",
     ],
     tipoEstructura: "Tinglados Reticulados (2 Obras)",
+  },
+  {
+    id: "barreal",
+    ciudad: "Barreal",
+    provincia: "San Juan",
+    obras: 1,
+    coordenadas: { lat: -31.6483, lng: -69.4708 },
+    svgCoords: { x: 137.1, y: 227.7 },
+    pathD: "M 525.6 121.7 Q 315.0 105.0 137.1 227.7",
+    distanciaKm: 1690,
+    estructuras: [
+      "Nuevo tinglado metálico instalado",
+    ],
+    tipoEstructura: "Tinglado Metálico Instalado",
+    labelOffset: { x: -4, y: 20 },
   },
   {
     id: "cordoba",
