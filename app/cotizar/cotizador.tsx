@@ -206,7 +206,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     4500
   );
 
-  const doorsCount = Math.max(0, currentConfig.doorsCount || 0);
+  const doorsCount = Math.max(0, Number(currentConfig.doorsCount ?? currentConfig.puertasPeatonales ?? 0));
   const precioPuerta = 320000; // Puerta de acceso peatonal 0.90x2.05m con marco reforzado y cerradura
 
   const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
@@ -402,7 +402,7 @@ export function Cotizador({
       paredDer: config.wallRight ? "1" : "0",
       paredFrente: config.wallFront ? "1" : "0",
       paredFondo: config.wallBack ? "1" : "0",
-      puertas: String(config.doorsCount || 0),
+      puertas: String(Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))),
       porton: config.gate ? "1" : "0",
       portonTrasero: config.gateBack ? "1" : "0",
       ...(etapaMontaje > 0 ? { etapa: String(etapaMontaje) } : {}),
@@ -473,9 +473,16 @@ export function Cotizador({
     })
   }
 
-  const [config, setConfig] = useState<ShedConfig>(
-    guardado ? { ...DEFAULT_CONFIG, ...guardado } : DEFAULT_CONFIG,
-  )
+  const [config, setConfig] = useState<ShedConfig>(() => {
+    const base = guardado ? { ...DEFAULT_CONFIG, ...guardado } : DEFAULT_CONFIG
+    const doors = Math.max(0, Number(guardado?.doorsCount ?? guardado?.puertasPeatonales ?? guardado?.doors ?? 0))
+    return {
+      ...base,
+      doorsCount: doors,
+      puertasPeatonales: doors,
+      doors: doors,
+    }
+  })
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
@@ -583,7 +590,8 @@ export function Cotizador({
       const storedWallRight = localStorage.getItem('sanser_wall_right') === '1'
       const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
-      const storedDoors = Math.max(0, parseInt(localStorage.getItem('sanser_doors_count') || '0', 10) || 0)
+      const rawStoredDoors = localStorage.getItem('sanser_doors_count')
+      const storedDoors = rawStoredDoors !== null ? Math.max(0, parseInt(rawStoredDoors, 10) || 0) : 0
       const storedGate = localStorage.getItem('sanser_gate') === '1'
       const storedGateBack = localStorage.getItem('sanser_gate_back') === '1'
       if (storedAncho && storedLargo && storedAlto) {
@@ -597,7 +605,9 @@ export function Cotizador({
           wallFront: storedWallFront,
           wallBack: storedWallBack,
           walls: storedWallLeft || storedWallRight,
-          doorsCount: isNaN(storedDoors) ? 0 : storedDoors,
+          doorsCount: storedDoors,
+          puertasPeatonales: storedDoors,
+          doors: storedDoors,
           gate: storedGate,
           gateBack: storedGateBack,
         }))
@@ -1337,7 +1347,7 @@ export function Cotizador({
       : ""
 
     const { supTotalCerramientos } = getSuperficies(config)
-    const doorsCount = config.doorsCount || 0
+    const doorsCount = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
 
     const desgloseItems = items
       .filter(i => (i.price * i.quantity > 0) || !i.description.includes("Transporte"))
@@ -1795,19 +1805,27 @@ export function Cotizador({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setConfig({ ...config, doorsCount: Math.max(0, (config.doorsCount || 0) - 1) })}
-                      disabled={!config.doorsCount || config.doorsCount <= 0}
+                      onClick={() => {
+                        const currentVal = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
+                        const nextVal = Math.max(0, currentVal - 1)
+                        setConfig({ ...config, doorsCount: nextVal, puertasPeatonales: nextVal, doors: nextVal })
+                      }}
+                      disabled={Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0)) <= 0}
                       className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                       title="Quitar puerta"
                     >
                       -
                     </button>
                     <span className="w-8 text-center font-mono font-bold text-sm text-foreground">
-                      {config.doorsCount || 0}
+                      {Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))}
                     </span>
                     <button
                       type="button"
-                      onClick={() => setConfig({ ...config, doorsCount: Math.min(10, (config.doorsCount || 0) + 1) })}
+                      onClick={() => {
+                        const currentVal = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
+                        const nextVal = Math.min(10, currentVal + 1)
+                        setConfig({ ...config, doorsCount: nextVal, puertasPeatonales: nextVal, doors: nextVal })
+                      }}
                       className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted transition-colors cursor-pointer"
                       title="Agregar puerta"
                     >

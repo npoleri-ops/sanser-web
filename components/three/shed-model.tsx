@@ -672,7 +672,7 @@ function useBuilt(config: ShedConfig): Built {
     }
 
     const doors: Built["doors"] = []
-    const numDoors = Number(config.doorsCount)
+    const numDoors = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0))
     if (!isNaN(numDoors) && numDoors > 0) {
       const cnt = Math.min(4, Math.floor(numDoors))
       for (let i = 0; i < cnt; i++) {
@@ -730,7 +730,7 @@ interface ShedModelProps {
 }
 
 export function ShedModel({ config, animated = false, showSlab = true, onCycle, etapaMontaje = 0 }: ShedModelProps) {
-  console.log("[DEBUG 3D] doorsCount recibido:", config.doorsCount)
+  console.log("[DEBUG 3D] doorsCount recibido:", config.doorsCount ?? config.puertasPeatonales ?? 0)
   // En modo secuencia (etapaMontaje > 0) la animación automática queda inhibida.
   const enSecuencia = etapaMontaje > 0
   const built = useBuilt(config)
@@ -980,7 +980,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
             <extrudeGeometry args={[flashShape, { depth: f.h, bevelEnabled: false }]} />
           </mesh>
         ))}
-        {visCierres && (Number(config.doorsCount) || 0) > 0 && built.doors && built.doors.length > 0 && built.doors.map((d, i) => (
+        {visCierres && Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0)) > 0 && built.doors && built.doors.length > 0 && built.doors.map((d, i) => (
           <group key={`door_${i}`} position={d.pos} rotation={d.rot}>
             {/* Marco de puerta */}
             <mesh position={[0, 1.05, 0]} material={mats.columns}>

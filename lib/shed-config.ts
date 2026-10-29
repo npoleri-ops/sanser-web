@@ -19,6 +19,8 @@ export interface ShedConfig {
   wallFront?: boolean // cerramiento frontal / tímpano
   wallBack?: boolean // cerramiento trasero / tímpano
   doorsCount?: number // cantidad de puertas de acceso peatonal
+  puertasPeatonales?: number // alias compatibilidad
+  doors?: number // alias compatibilidad
   gate: boolean // portón frontal
   gateBack: boolean // portón trasero
   centralColumns?: boolean // columnas intermedias de apoyo (1 agua)
@@ -39,10 +41,14 @@ export const DEFAULT_CONFIG: ShedConfig = {
   wallFront: false,
   wallBack: false,
   doorsCount: 0,
+  puertasPeatonales: 0,
+  doors: 0,
   gate: false,
   gateBack: false,
   centralColumns: false,
 }
+
+export const DEFAULT_SHED_CONFIG = DEFAULT_CONFIG
 
 export const LIMITS = {
   width: { min: 8, max: 50, step: 1 },
@@ -228,7 +234,7 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   const hasRight = Boolean(config.wallRight || legacyWalls)
   const hasFront = Boolean(config.wallFront)
   const hasBack  = Boolean(config.wallBack  || legacyWalls)
-  const hasDoors = (config.doorsCount ?? 0) > 0
+  const hasDoors = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0)) > 0
   const hasGate  = Boolean(config.gate)
   const hasGateBack = Boolean(config.gateBack)
 
@@ -356,7 +362,7 @@ export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
     config.wallLeft || config.wallRight || config.wallFront || config.wallBack || legacyWalls
   )
   const hasPorton = Boolean(config.gate || config.gateBack)
-  const hasPuertas = (config.doorsCount ?? 0) > 0
+  const hasPuertas = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0)) > 0
   const hasAberturas = hasPorton || hasPuertas
 
   // Tipología base
