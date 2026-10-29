@@ -4,12 +4,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye, ListOrdered, RotateCcw, ChevronUp, ChevronDown } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -344,7 +344,7 @@ export function Cotizador({
 }) {
   // Un presupuesto reabierto trae su configuración e ítems ya ajustados a mano.
   const guardado = (leadInicial?.quote_config ?? null) as
-    | (ShedConfig & { items?: QuoteItem[]; materials?: string })
+    | (ShedConfig & { items?: QuoteItem[]; materials?: string; pasosPersonalizados?: PasoMontaje[] })
     | null
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
   const [pdfCompartido, setPdfCompartido] = useState<{
@@ -547,7 +547,85 @@ export function Cotizador({
   const [guardandoCrm, setGuardandoCrm] = useState(false)
   const [mensajeCrm, setMensajeCrm] = useState<string | null>(null)
   const [etapaMontaje, setEtapaMontaje] = useState(0)
-  const pasosMontaje = getGuiaMontaje(config)
+
+  // Pasos de montaje (personalizados a mano o autogenerados según la estructura 3D)
+  const [pasosMontaje, setPasosMontaje] = useState<PasoMontaje[]>(() => {
+    if (guardado?.pasosPersonalizados && Array.isArray(guardado.pasosPersonalizados) && guardado.pasosPersonalizados.length > 0) {
+      return guardado.pasosPersonalizados
+    }
+    return getGuiaMontaje(config)
+  })
+
+  // Indica si el usuario editó a mano para no sobreescribir automáticamente al mover medidas
+  const [pasosEditadosManualmente, setPasosEditadosManualmente] = useState(() => {
+    return Boolean(guardado?.pasosPersonalizados && guardado.pasosPersonalizados.length > 0)
+  })
+
+  // Sincronizar pasos con la estructura 3D solo si no han sido personalizados a mano
+  useEffect(() => {
+    if (!pasosEditadosManualmente) {
+      setPasosMontaje(getGuiaMontaje(config))
+    }
+  }, [config, pasosEditadosManualmente])
+
+  // Evitar que la etapa quede desfasada si se eliminan pasos
+  useEffect(() => {
+    if (etapaMontaje > pasosMontaje.length) {
+      setEtapaMontaje(0)
+    }
+  }, [pasosMontaje.length, etapaMontaje])
+
+  const CATEGORIAS_PASO = ["Civil", "Estructura", "Cubierta", "Cerramientos", "Aberturas", "Terminaciones", "Otros"]
+
+  const actualizarPaso = (index: number, campo: keyof PasoMontaje, valor: any) => {
+    setPasosEditadosManualmente(true)
+    setPasosMontaje(prev => {
+      const copy = [...prev]
+      copy[index] = { ...copy[index], [campo]: valor }
+      return copy
+    })
+  }
+
+  const eliminarPaso = (index: number) => {
+    setPasosEditadosManualmente(true)
+    setPasosMontaje(prev => {
+      const filtered = prev.filter((_, i) => i !== index)
+      return filtered.map((p, i) => ({ ...p, paso: i + 1 }))
+    })
+  }
+
+  const agregarNuevoPaso = () => {
+    setPasosEditadosManualmente(true)
+    setPasosMontaje(prev => [
+      ...prev,
+      {
+        paso: prev.length + 1,
+        titulo: "Nueva etapa de montaje",
+        descripcion: "Procedimiento técnico, fijaciones y verificaciones correspondientes a esta etapa.",
+        categoria: "Estructura",
+      },
+    ])
+  }
+
+  const moverPaso = (index: number, direccion: "up" | "down") => {
+    const targetIndex = direccion === "up" ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= pasosMontaje.length) return
+    setPasosEditadosManualmente(true)
+    setPasosMontaje(prev => {
+      const copy = [...prev]
+      const temp = copy[index]
+      copy[index] = copy[targetIndex]
+      copy[targetIndex] = temp
+      return copy.map((p, i) => ({ ...p, paso: i + 1 }))
+    })
+  }
+
+  const restablecerPasos = () => {
+    if (confirm("¿Restablecer los pasos según la configuración 3D actual? Se descartarán las modificaciones manuales.")) {
+      setPasosEditadosManualmente(false)
+      setPasosMontaje(getGuiaMontaje(config))
+    }
+  }
 
   const copiarLinkVideo = async () => {
     if (!activeVideoSrc) return
@@ -1149,6 +1227,101 @@ export function Cotizador({
         W2 / 2, footerY + 10, { align: 'center' }
       )
 
+      // ═════════════════════════════════════════════════════════
+      // 7. SECUENCIA Y GUÍA TÉCNICA DE MONTAJE (Anexo Página 2)
+      // ═════════════════════════════════════════════════════════
+      if (pasosMontaje && pasosMontaje.length > 0) {
+        doc.addPage()
+        const ySec = 25
+
+        // Banda superior institucional en página 2
+        doc.setFillColor(...C.oscuro)
+        doc.rect(0, 0, W2, 16, 'F')
+        doc.setFillColor(...C.naranja)
+        doc.rect(0, 14, W2, 2, 'F')
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(...C.naranja)
+        doc.text('ANEXO TÉCNICO: GUÍA Y SECUENCIA DE MONTAJE', 10, 10.5)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.setTextColor(200, 205, 215)
+        doc.text(
+          numero ? `Nº Presupuesto: ${numero}` : 'BORRADOR — Sujeto a confirmación',
+          W2 - 10, 10.5, { align: 'right' }
+        )
+
+        const pasosRows = pasosMontaje.map((p, idx) => [
+          String(p.paso ?? idx + 1),
+          p.titulo || `Paso ${idx + 1}`,
+          p.categoria || 'Estructura',
+          p.descripcion || '',
+        ])
+
+        autoTable(doc, {
+          startY: ySec,
+          head: [['#', 'ETAPA / TRABAJO', 'RUBRO', 'DESCRIPCIÓN TÉCNICA DEL PROCEDIMIENTO']],
+          body: pasosRows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: C.oscuro,
+            textColor: C.blanco,
+            fontStyle: 'bold',
+            fontSize: 8,
+            cellPadding: 2.8,
+          },
+          bodyStyles: {
+            fontSize: 7.5,
+            textColor: C.texto,
+            cellPadding: 2.5,
+          },
+          alternateRowStyles: { fillColor: C.grisClaro },
+          columnStyles: {
+            0: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 46, fontStyle: 'bold' },
+            2: { cellWidth: 26, halign: 'center' },
+            3: { cellWidth: 'auto' },
+          },
+          margin: { left: 10, right: 10 },
+        })
+
+        const finalSecY = (doc as DocWithAutoTable).lastAutoTable.finalY + 6
+        if (finalSecY < H2 - 20) {
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(6.5)
+          doc.setTextColor(...C.grisTexto)
+          doc.text(
+            '* La secuencia de armado es técnica y orientativa. Procedimientos y fijaciones sujetos a verificación de suelo y condiciones de obra.',
+            10,
+            finalSecY
+          )
+        }
+
+        // Pie de página en página 2
+        const footerY2 = H2 - 14
+        doc.setDrawColor(...C.grisBorde)
+        doc.setLineWidth(0.3)
+        doc.line(10, footerY2, W2 - 10, footerY2)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(...C.grisTexto)
+        doc.text(
+          numero
+            ? 'Presupuesto válido por 7 días. Precios sujetos a variación de materiales.'
+            : 'Borrador interno — no válido como presupuesto hasta su confirmación.',
+          W2 / 2, footerY2 + 5, { align: 'center' }
+        )
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...C.naranja)
+        doc.text(
+          'SANSER Metalúrgica — Estructuras de acero que aguantan.',
+          W2 / 2, footerY2 + 10, { align: 'center' }
+        )
+      }
+
       const safeTitle = (title || 'Presupuesto').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '')
       doc.save(`${numero ? numero + '_' : 'BORRADOR_'}SANSER_${safeTitle}.pdf`)
 
@@ -1178,7 +1351,7 @@ export function Cotizador({
     cuit: cuit || null,
     quoteTitle: title,
     quoteTotal: total,
-    quoteConfig: { ...config, items, materials },
+    quoteConfig: { ...config, items, materials, pasosPersonalizados: pasosMontaje },
   })
 
   /** Deja el presupuesto guardado como borrador y devuelve su id. */
@@ -1578,6 +1751,169 @@ export function Cotizador({
             </p>
           )}
         </div>
+
+        {/* Módulo de Secuencia de Montaje y Armado (Modo Interno) */}
+        {interno && (
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <ListOrdered className="size-5 text-primary" />
+                  <h2 className="text-base font-bold text-foreground">
+                    Secuencia de Montaje y Armado
+                  </h2>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    {pasosMontaje.length} etapas
+                  </span>
+                  {pasosEditadosManualmente && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      Personalizado
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Modificá textos técnicos, agregá o eliminá pasos. Se reflejan en el visor 3D, enlace interactivo y en el anexo del presupuesto.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  onClick={restablecerPasos}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  title="Restablecer pasos automáticamente según la estructura 3D actual"
+                >
+                  <RotateCcw className="size-3.5" />
+                  Restablecer
+                </Button>
+                <Button
+                  type="button"
+                  onClick={agregarNuevoPaso}
+                  size="sm"
+                  className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  <Plus className="size-3.5" />
+                  Nuevo Paso
+                </Button>
+              </div>
+            </div>
+
+            {/* Lista de pasos editables */}
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              {pasosMontaje.map((p, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-lg border border-border bg-background/60 hover:bg-background/90 transition-all space-y-2.5 relative group"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Botón de número de paso: activa la vista en 3D */}
+                      <button
+                        type="button"
+                        onClick={() => setEtapaMontaje(idx + 1)}
+                        title={`Ver etapa ${idx + 1} en el visor 3D`}
+                        className={`size-7 rounded-md font-mono font-bold text-xs flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                          etapaMontaje === idx + 1
+                            ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/40"
+                            : "bg-muted text-muted-foreground hover:bg-primary/20 hover:text-primary"
+                        }`}
+                      >
+                        {p.paso ?? idx + 1}
+                      </button>
+
+                      {/* Input de Título del Paso */}
+                      <input
+                        type="text"
+                        value={p.titulo}
+                        onChange={e => actualizarPaso(idx, "titulo", e.target.value)}
+                        placeholder="Título del paso de montaje"
+                        className="flex-1 bg-transparent border-b border-border/80 focus:border-primary pb-0.5 text-sm font-semibold text-foreground focus:outline-none min-w-[200px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      {/* Selector de Rubro / Categoría */}
+                      <select
+                        value={p.categoria}
+                        onChange={e => actualizarPaso(idx, "categoria", e.target.value)}
+                        className="bg-background border border-input rounded px-2 py-1 text-xs text-foreground font-medium focus:outline-none focus:border-primary cursor-pointer"
+                      >
+                        {CATEGORIAS_PASO.map(cat => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Mover Arriba */}
+                      <button
+                        type="button"
+                        onClick={() => moverPaso(idx, "up")}
+                        disabled={idx === 0}
+                        title="Subir paso"
+                        className="size-7 rounded border border-border/60 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <ChevronUp className="size-3.5" />
+                      </button>
+
+                      {/* Mover Abajo */}
+                      <button
+                        type="button"
+                        onClick={() => moverPaso(idx, "down")}
+                        disabled={idx === pasosMontaje.length - 1}
+                        title="Bajar paso"
+                        className="size-7 rounded border border-border/60 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </button>
+
+                      {/* Eliminar Paso */}
+                      <button
+                        type="button"
+                        onClick={() => eliminarPaso(idx)}
+                        title="Eliminar este paso"
+                        className="size-7 rounded border border-border/60 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-muted-foreground hover:text-red-500 cursor-pointer transition-colors"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Textarea de Descripción Técnica */}
+                  <div>
+                    <textarea
+                      value={p.descripcion}
+                      onChange={e => actualizarPaso(idx, "descripcion", e.target.value)}
+                      placeholder="Descripción detallada de la ejecución técnica de esta etapa..."
+                      rows={2}
+                      className="w-full bg-background/50 border border-input rounded-md p-2 text-xs text-foreground/90 focus:outline-none focus:border-primary resize-y leading-relaxed"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {pasosMontaje.length === 0 && (
+                <div className="text-center py-6 border border-dashed border-border rounded-lg space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    No hay pasos en la secuencia. Podés agregar pasos manuales o restablecer los pasos automáticos.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={restablecerPasos}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1"
+                  >
+                    <RotateCcw className="size-3" />
+                    Restablecer Pasos
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Panel Form */}
