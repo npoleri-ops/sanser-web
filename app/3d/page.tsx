@@ -42,7 +42,7 @@ function parseShedConfig(params: Record<string, string | undefined>) {
   const paredDer = params.paredDer === "1" || (paredes && params.paredDer !== "0")
   const paredFrente = params.paredFrente === "1"
   const paredFondo = params.paredFondo === "1"
-  const puertas = parseInt(params.puertas ?? "0", 10) || 0
+  const puertas = Math.max(0, parseInt(params.puertas ?? "0", 10) || 0)
   const porton = params.porton === "1"
   const portonTrasero = params.portonTrasero === "1"
 

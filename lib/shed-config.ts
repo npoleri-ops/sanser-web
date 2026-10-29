@@ -228,7 +228,7 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   const hasRight = Boolean(config.wallRight || legacyWalls)
   const hasFront = Boolean(config.wallFront)
   const hasBack  = Boolean(config.wallBack  || legacyWalls)
-  const hasDoors = Boolean(config.doorsCount && config.doorsCount > 0)
+  const hasDoors = (config.doorsCount ?? 0) > 0
   const hasGate  = Boolean(config.gate)
   const hasGateBack = Boolean(config.gateBack)
 
@@ -356,7 +356,7 @@ export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
     config.wallLeft || config.wallRight || config.wallFront || config.wallBack || legacyWalls
   )
   const hasPorton = Boolean(config.gate || config.gateBack)
-  const hasPuertas = Boolean(config.doorsCount && config.doorsCount > 0)
+  const hasPuertas = (config.doorsCount ?? 0) > 0
   const hasAberturas = hasPorton || hasPuertas
 
   // Tipología base

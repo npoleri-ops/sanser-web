@@ -672,8 +672,8 @@ function useBuilt(config: ShedConfig): Built {
     }
 
     const doors: Built["doors"] = []
-    if (config.doorsCount && config.doorsCount > 0) {
-      const cnt = Math.min(4, config.doorsCount)
+    if ((config.doorsCount ?? 0) > 0) {
+      const cnt = Math.min(4, config.doorsCount ?? 0)
       for (let i = 0; i < cnt; i++) {
         if (i === 0) {
           const posX = Math.min(wallX - 1.2, W * 0.35)

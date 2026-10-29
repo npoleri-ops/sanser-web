@@ -583,7 +583,7 @@ export function Cotizador({
       const storedWallRight = localStorage.getItem('sanser_wall_right') === '1'
       const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
-      const storedDoors = parseInt(localStorage.getItem('sanser_doors_count') || '0', 10)
+      const storedDoors = Math.max(0, parseInt(localStorage.getItem('sanser_doors_count') || '0', 10) || 0)
       const storedGate = localStorage.getItem('sanser_gate') === '1'
       const storedGateBack = localStorage.getItem('sanser_gate_back') === '1'
       if (storedAncho && storedLargo && storedAlto) {
@@ -597,7 +597,7 @@ export function Cotizador({
           wallFront: storedWallFront,
           wallBack: storedWallBack,
           walls: storedWallLeft || storedWallRight,
-          doorsCount: storedDoors,
+          doorsCount: isNaN(storedDoors) ? 0 : storedDoors,
           gate: storedGate,
           gateBack: storedGateBack,
         }))
