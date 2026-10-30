@@ -243,14 +243,14 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   const pasos: PasoMontaje[] = [
     {
       paso: 1,
-      titulo: "Replanteo, Cimentación y Anclajes",
-      descripcion: `Marcar los ejes de los pórticos cada ~5 m en los ${length} m de largo. Excavar y hormigonar ${numPorticos * 2} zapatas aisladas con placas base metálicas y bulones de anclaje embebidos. Nivelar con láser antes del fraguado.`,
+      titulo: "Replanteo y Pozos de Cimentación",
+      descripcion: "Marcar los ejes de los pórticos cada ~5 m a lo largo de la nave. Excavación de pozos/zapatas aisladas para el empotramiento directo de las columnas (o preparación para placas base si existe platea). Nivelación previa al hormigonado.",
       categoria: "Civil",
     },
     {
       paso: 2,
       titulo: "Montaje de Columnas Reticuladas",
-      descripcion: `Izar, aplomar y abulonar ${columnas} columna${columnas !== 1 ? "s" : ""} sobre las placas base de anclaje${isVarillas ? " en reticulado liviano (Varilla Ø12/8)" : " en perfiles C 120×50"}. Altura libre: ${height} m. Apuntalar provisionalmente.`,
+      descripcion: "Izar, aplomar y posicionar las columnas reticuladas en perfil C (con +1 m de prolongación estructural para enterrar en zapata de hormigón, o abulonado sobre placa base si aplica). Apuntalar provisoriamente.",
       categoria: "Estructura",
     },
     {
@@ -262,7 +262,7 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
     {
       paso: 4,
       titulo: "Colocación de Correas de Techo",
-      descripcion: `Instalar ${correas} líneas de correas C 80×40 galvanizadas a lo largo de toda la cubierta, espaciadas ~1.6 m sobre las cabreadas, asegurando la rigidez longitudinal del galpón.`,
+      descripcion: "Instalar líneas de correas en perfil C a lo largo de toda la cubierta, espaciadas a ~1.0 m sobre las cabreadas, asegurando la rigidez longitudinal del galpón y el apoyo óptimo de las chapas.",
       categoria: "Estructura",
     },
     {
