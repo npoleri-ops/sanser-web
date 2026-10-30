@@ -4,12 +4,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye, ListOrdered, RotateCcw, ChevronUp, ChevronDown } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye, ListOrdered, RotateCcw, ChevronUp, ChevronDown, Package, Boxes, ClipboardList } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -25,6 +25,229 @@ export interface QuoteItem {
   quantity: number;
   price: number;
 }
+
+export interface MaterialDespachoItem {
+  id: string
+  descripcion: string
+  unidad: string
+  cantidad: number
+  notas?: string
+}
+
+export function generarMaterialesDespacho(config: ShedConfig): MaterialDespachoItem[] {
+  const ancho = config.width || 0
+  const largo = config.length || 0
+  const altoLibre = config.height || 5
+  const isUnAgua = config.type === "shed" || config.type === "shed_varillas"
+  const isVarillas = config.type === "gable_varillas" || config.type === "shed_varillas"
+
+  const computo = computeMateriales(config)
+  const numPorticos = computo.frames
+  const numColumnas = computo.columnas
+  const numCabreadas = computo.cabreadas
+
+  const factorColumna = (altoLibre + 1) / 6
+
+  // Perfiles 120
+  const barras120 = isVarillas ? 0 : Math.ceil(isUnAgua
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1))
+    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2))
+  )
+
+  // Perfiles 80 Negro
+  const barras80Negro = isVarillas ? 0 : Math.ceil(isUnAgua
+    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33))
+    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
+  )
+
+  // Correas 80 Galv
+  const lineasCorreas = Math.ceil(ancho / 1) + 1
+  const barras80Galv = Math.ceil((lineasCorreas * largo) / 12)
+
+  // Hierro Ángulo
+  const barrasAngulo = isUnAgua ? 1 : 2
+
+  // Chapas
+  const totalMetrosChapa = Math.ceil(Math.ceil(ancho / 1.0) * largo * 1.06)
+
+  // Bulones y arandelas
+  const bulonesJuegos = (isUnAgua ? (numPorticos * 8) : (numPorticos * 12)) + 2
+  const arandelaKg = Math.max(3, Math.ceil((ancho * largo) / 60))
+  const factorTornillos = isUnAgua ? 3.5 : 4.0
+  const tornillosCajas = Math.max(2, Math.ceil((ancho * largo * factorTornillos) / 100))
+  const pinturaBaldes = Math.max(2, Math.ceil((ancho * largo) / 90))
+  const aguarrasBaldes = Math.max(1, Math.ceil(pinturaBaldes / 2))
+
+  const sheetLabel = SHEET_LABEL[config.sheet] || "Cincalum T-110 (Cal. 25)"
+  const colorLabel = config.colorChapa === "negro" ? "Negro Mate" : "Cincalum"
+
+  const items: MaterialDespachoItem[] = [
+    {
+      id: "mat-col",
+      descripcion: `Columnas reticuladas estructurales (${altoLibre}m de altura libre)`,
+      unidad: "unid",
+      cantidad: numColumnas,
+      notas: "Perfiles conformados con placas base",
+    },
+    {
+      id: "mat-cab",
+      descripcion: `Cabreadas reticuladas maestras (${ancho}m de luz)`,
+      unidad: "unid",
+      cantidad: numCabreadas,
+      notas: isUnAgua ? "Pendiente a un agua" : "Pendiente a dos aguas",
+    },
+  ]
+
+  if (!isVarillas) {
+    if (barras120 > 0) {
+      items.push({
+        id: "mat-p120",
+        descripcion: "Perfiles C 120×50×1,6mm conformados en frío",
+        unidad: "barra",
+        cantidad: barras120,
+        notas: "Barras estructurales para cordones",
+      })
+    }
+    if (barras80Negro > 0) {
+      items.push({
+        id: "mat-p80n",
+        descripcion: "Perfiles C 80×40×1,6mm conformados en frío",
+        unidad: "barra",
+        cantidad: barras80Negro,
+        notas: "Diagonales y celosías de pórticos",
+      })
+    }
+  } else {
+    const lengthPerCabreada = isUnAgua ? ancho : (ancho / Math.cos(12 * Math.PI / 180))
+    const totalMetrosVar12 = (numCabreadas * lengthPerCabreada * 2) + (numColumnas * altoLibre * 4)
+    const totalMetrosVar8 = (numCabreadas * lengthPerCabreada * 2.5) + (numColumnas * altoLibre * 4 * 1.5)
+    items.push({
+      id: "mat-var12",
+      descripcion: "Varilla conformada de acero Ø12mm (cordones)",
+      unidad: "barra",
+      cantidad: Math.ceil(totalMetrosVar12 / 12),
+      notas: "Barras de 12m para reticulado",
+    })
+    items.push({
+      id: "mat-var8",
+      descripcion: "Varilla conformada de acero Ø8mm (celosías en zigzag)",
+      unidad: "barra",
+      cantidad: Math.ceil(totalMetrosVar8 / 12),
+      notas: "Barras de 12m para reticulado",
+    })
+  }
+
+  items.push({
+    id: "mat-correas",
+    descripcion: "Correas de techo perfiles C 80×40×1,6mm galvanizadas",
+    unidad: "barra",
+    cantidad: barras80Galv,
+    notas: "Líneas de apoyo sobre cabreadas cada 1m",
+  })
+
+  if (barrasAngulo > 0) {
+    items.push({
+      id: "mat-angulo",
+      descripcion: "Hierro ángulo de arriostramiento y crucetas de viento",
+      unidad: "barra",
+      cantidad: barrasAngulo,
+      notas: "Rigidización longitudinal",
+    })
+  }
+
+  items.push({
+    id: "mat-chapa-techo",
+    descripcion: `Chapa de cubierta ${sheetLabel} (Color ${colorLabel})`,
+    unidad: "m",
+    cantidad: totalMetrosChapa,
+    notas: `Para techo (${computo.superficieTecho} m² aprox.)`,
+  })
+
+  const { supTotalCerramientos } = getSuperficies(config)
+  if (supTotalCerramientos > 0) {
+    items.push({
+      id: "mat-chapa-pared",
+      descripcion: `Chapa para cerramientos laterales y tímpanos (${sheetLabel})`,
+      unidad: "m²",
+      cantidad: supTotalCerramientos,
+      notas: "Cerramientos perimetrales configurados",
+    })
+  }
+
+  items.push({
+    id: "mat-bulones",
+    descripcion: "Bulones con tuerca autofrenante y arandela de alta resistencia",
+    unidad: "juego",
+    cantidad: bulonesJuegos,
+    notas: "Unión cabreada-columna y anclajes",
+  })
+
+  items.push({
+    id: "mat-tornillos",
+    descripcion: "Tornillos autoperforantes con arandela de neoprene vulcanizada",
+    unidad: "caja",
+    cantidad: tornillosCajas,
+    notas: "Fijación chapa a correas",
+  })
+
+  items.push({
+    id: "mat-arandelas",
+    descripcion: "Arandelas de goma vulcanizada para estanqueidad",
+    unidad: "kg",
+    cantidad: arandelaKg,
+    notas: "Sellado hidrófugo de cubierta",
+  })
+
+  items.push({
+    id: "mat-pintura",
+    descripcion: "Pintura convertidor de óxido 3 en 1 para estructura",
+    unidad: "balde 4L",
+    cantidad: pinturaBaldes,
+    notas: "Protección anticorrosiva de fábrica",
+  })
+
+  items.push({
+    id: "mat-aguarras",
+    descripcion: "Aguarrás mineral diluyente y limpieza",
+    unidad: "balde 4L",
+    cantidad: aguarrasBaldes,
+    notas: "Diluyente técnico",
+  })
+
+  const doorsCount = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
+  if (doorsCount > 0) {
+    items.push({
+      id: "mat-puerta",
+      descripcion: "Puerta de acceso peatonal (0.90 × 2.05m con marco y cerradura)",
+      unidad: "unid",
+      cantidad: doorsCount,
+      notas: "Hoja metálica reforzada",
+    })
+  }
+
+  if (config.gate) {
+    items.push({
+      id: "mat-porton-frontal",
+      descripcion: "Portón vehicular frontal con guías y herrajes",
+      unidad: "unid",
+      cantidad: 1,
+      notas: "Acceso principal",
+    })
+  }
+
+  if (config.gateBack) {
+    items.push({
+      id: "mat-porton-trasero",
+      descripcion: "Portón vehicular trasero con guías y herrajes",
+      unidad: "unid",
+      cantidad: 1,
+      notas: "Acceso fondo / pasante",
+    })
+  }
+
+  return items
+}
+
 
 const ConfigScene = dynamic(
   () => import("@/components/three/config-scene").then((m) => ({ default: m.ConfigScene })),
@@ -344,7 +567,12 @@ export function Cotizador({
 }) {
   // Un presupuesto reabierto trae su configuración e ítems ya ajustados a mano.
   const guardado = (leadInicial?.quote_config ?? null) as
-    | (ShedConfig & { items?: QuoteItem[]; materials?: string; pasosPersonalizados?: PasoMontaje[] })
+    | (ShedConfig & {
+        items?: QuoteItem[]
+        materials?: string
+        pasosPersonalizados?: PasoMontaje[]
+        materialesDespacho?: MaterialDespachoItem[]
+      })
     | null
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
   const [pdfCompartido, setPdfCompartido] = useState<{
@@ -626,6 +854,60 @@ export function Cotizador({
       setPasosMontaje(getGuiaMontaje(config))
     }
   }
+
+  // Lista de materiales para despacho (remito editable)
+  const [materialesDespacho, setMaterialesDespacho] = useState<MaterialDespachoItem[]>(() => {
+    if (guardado?.materialesDespacho && Array.isArray(guardado.materialesDespacho) && guardado.materialesDespacho.length > 0) {
+      return guardado.materialesDespacho
+    }
+    return generarMaterialesDespacho(config)
+  })
+
+  const [materialesEditadosManualmente, setMaterialesEditadosManualmente] = useState(() => {
+    return Boolean(guardado?.materialesDespacho && guardado.materialesDespacho.length > 0)
+  })
+
+  useEffect(() => {
+    if (!materialesEditadosManualmente) {
+      setMaterialesDespacho(generarMaterialesDespacho(config))
+    }
+  }, [config, materialesEditadosManualmente])
+
+  const actualizarMaterial = (index: number, campo: keyof MaterialDespachoItem, valor: any) => {
+    setMaterialesEditadosManualmente(true)
+    setMaterialesDespacho(prev => {
+      const copy = [...prev]
+      copy[index] = { ...copy[index], [campo]: valor }
+      return copy
+    })
+  }
+
+  const eliminarMaterial = (index: number) => {
+    setMaterialesEditadosManualmente(true)
+    setMaterialesDespacho(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const agregarMaterialManual = () => {
+    setMaterialesEditadosManualmente(true)
+    setMaterialesDespacho(prev => [
+      ...prev,
+      {
+        id: `custom-${Date.now()}`,
+        descripcion: "1 tacho de pintura negro mate de 4L para retoques de traslado",
+        unidad: "unid",
+        cantidad: 1,
+        notas: "Material adicional de despacho",
+      },
+    ])
+  }
+
+  const restablecerMateriales = () => {
+    if (confirm("¿Restablecer la lista de materiales según la configuración actual? Se descartarán las modificaciones manuales.")) {
+      setMaterialesEditadosManualmente(false)
+      setMaterialesDespacho(generarMaterialesDespacho(config))
+    }
+  }
+
 
   const copiarLinkVideo = async () => {
     if (!activeVideoSrc) return
@@ -1228,13 +1510,16 @@ export function Cotizador({
       )
 
       // ═════════════════════════════════════════════════════════
-      // 7. SECUENCIA Y GUÍA TÉCNICA DE MONTAJE (Anexo Página 2)
+      // 7. ANEXO TÉCNICO: CÓMPUTO DE MATERIALES Y SECUENCIA DE MONTAJE
       // ═════════════════════════════════════════════════════════
-      if (pasosMontaje && pasosMontaje.length > 0) {
-        doc.addPage()
-        const ySec = 25
+      const hayMateriales = materialesDespacho && materialesDespacho.length > 0
+      const hayPasos = pasosMontaje && pasosMontaje.length > 0
 
-        // Banda superior institucional en página 2
+      if (hayMateriales || hayPasos) {
+        doc.addPage()
+        let ySec = 25
+
+        // Banda superior institucional en página anexo
         doc.setFillColor(...C.oscuro)
         doc.rect(0, 0, W2, 16, 'F')
         doc.setFillColor(...C.naranja)
@@ -1243,7 +1528,7 @@ export function Cotizador({
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
         doc.setTextColor(...C.naranja)
-        doc.text('ANEXO TÉCNICO: GUÍA Y SECUENCIA DE MONTAJE', 10, 10.5)
+        doc.text('ANEXO TÉCNICO: CÓMPUTO DE MATERIALES Y REMITO DE DESPACHO', 10, 10.5)
 
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(7.5)
@@ -1253,39 +1538,108 @@ export function Cotizador({
           W2 - 10, 10.5, { align: 'right' }
         )
 
-        const pasosRows = pasosMontaje.map((p, idx) => [
-          String(p.paso ?? idx + 1),
-          p.titulo || `Paso ${idx + 1}`,
-          p.categoria || 'Estructura',
-          p.descripcion || '',
-        ])
+        // Tabla 1: Cómputo de Materiales a Entregar
+        if (hayMateriales) {
+          const matRows = materialesDespacho.map((m, idx) => [
+            String(idx + 1),
+            m.descripcion,
+            String(m.cantidad),
+            m.unidad,
+            m.notas || '—',
+          ])
 
-        autoTable(doc, {
-          startY: ySec,
-          head: [['#', 'ETAPA / TRABAJO', 'RUBRO', 'DESCRIPCIÓN TÉCNICA DEL PROCEDIMIENTO']],
-          body: pasosRows,
-          theme: 'grid',
-          headStyles: {
-            fillColor: C.oscuro,
-            textColor: C.blanco,
-            fontStyle: 'bold',
-            fontSize: 8,
-            cellPadding: 2.8,
-          },
-          bodyStyles: {
-            fontSize: 7.5,
-            textColor: C.texto,
-            cellPadding: 2.5,
-          },
-          alternateRowStyles: { fillColor: C.grisClaro },
-          columnStyles: {
-            0: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
-            1: { cellWidth: 46, fontStyle: 'bold' },
-            2: { cellWidth: 26, halign: 'center' },
-            3: { cellWidth: 'auto' },
-          },
-          margin: { left: 10, right: 10 },
-        })
+          autoTable(doc, {
+            startY: ySec,
+            head: [['#', 'MATERIALES A ENTREGAR / REMITO DE DESPACHO', 'CANT.', 'UNIDAD', 'OBSERVACIONES / DESTINO']],
+            body: matRows,
+            theme: 'grid',
+            headStyles: {
+              fillColor: C.oscuro,
+              textColor: C.blanco,
+              fontStyle: 'bold',
+              fontSize: 8,
+              cellPadding: 2.5,
+            },
+            bodyStyles: {
+              fontSize: 7.5,
+              textColor: C.texto,
+              cellPadding: 2.2,
+            },
+            alternateRowStyles: { fillColor: C.grisClaro },
+            columnStyles: {
+              0: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 'auto' },
+              2: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+              3: { cellWidth: 18, halign: 'center' },
+              4: { cellWidth: 50 },
+            },
+            margin: { left: 10, right: 10 },
+          })
+
+          ySec = (doc as DocWithAutoTable).lastAutoTable.finalY + 9
+        }
+
+        // Tabla 2: Secuencia y Guía Técnica de Montaje
+        if (hayPasos) {
+          if (ySec > H2 - 70) {
+            doc.addPage()
+            ySec = 22
+            doc.setFillColor(...C.oscuro)
+            doc.rect(0, 0, W2, 14, 'F')
+            doc.setFillColor(...C.naranja)
+            doc.rect(0, 12, W2, 2, 'F')
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(9)
+            doc.setTextColor(...C.naranja)
+            doc.text('ANEXO TÉCNICO: GUÍA Y SECUENCIA DE MONTAJE', 10, 9)
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(7)
+            doc.setTextColor(200, 205, 215)
+            doc.text(numero ? `Nº ${numero}` : 'BORRADOR', W2 - 10, 9, { align: 'right' })
+          } else {
+            doc.setFillColor(...C.naranja)
+            doc.rect(10, ySec - 2, 3, 4, 'F')
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(9)
+            doc.setTextColor(...C.naranja)
+            doc.text('SECUENCIA Y GUÍA TÉCNICA DE MONTAJE RECOMENDADA', 16, ySec + 1)
+            ySec += 5
+          }
+
+          const pasosRows = pasosMontaje.map((p, idx) => [
+            String(p.paso ?? idx + 1),
+            p.titulo || `Paso ${idx + 1}`,
+            p.categoria || 'Estructura',
+            p.descripcion || '',
+          ])
+
+          autoTable(doc, {
+            startY: ySec,
+            head: [['#', 'ETAPA / TRABAJO', 'RUBRO', 'DESCRIPCIÓN TÉCNICA DEL PROCEDIMIENTO']],
+            body: pasosRows,
+            theme: 'grid',
+            headStyles: {
+              fillColor: C.oscuro,
+              textColor: C.blanco,
+              fontStyle: 'bold',
+              fontSize: 8,
+              cellPadding: 2.5,
+            },
+            bodyStyles: {
+              fontSize: 7.5,
+              textColor: C.texto,
+              cellPadding: 2.2,
+            },
+            alternateRowStyles: { fillColor: C.grisClaro },
+            columnStyles: {
+              0: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 46, fontStyle: 'bold' },
+              2: { cellWidth: 26, halign: 'center' },
+              3: { cellWidth: 'auto' },
+            },
+            margin: { left: 10, right: 10 },
+          })
+        }
 
         const finalSecY = (doc as DocWithAutoTable).lastAutoTable.finalY + 6
         if (finalSecY < H2 - 20) {
@@ -1293,13 +1647,13 @@ export function Cotizador({
           doc.setFontSize(6.5)
           doc.setTextColor(...C.grisTexto)
           doc.text(
-            '* La secuencia de armado es técnica y orientativa. Procedimientos y fijaciones sujetos a verificación de suelo y condiciones de obra.',
+            '* La secuencia de armado y el cómputo de materiales corresponden a especificaciones estándar de SANSER Metalúrgica.',
             10,
             finalSecY
           )
         }
 
-        // Pie de página en página 2
+        // Pie de página en página de anexo
         const footerY2 = H2 - 14
         doc.setDrawColor(...C.grisBorde)
         doc.setLineWidth(0.3)
@@ -1351,7 +1705,7 @@ export function Cotizador({
     cuit: cuit || null,
     quoteTitle: title,
     quoteTotal: total,
-    quoteConfig: { ...config, items, materials, pasosPersonalizados: pasosMontaje },
+    quoteConfig: { ...config, items, materials, pasosPersonalizados: pasosMontaje, materialesDespacho },
   })
 
   /** Deja el presupuesto guardado como borrador y devuelve su id. */
@@ -1751,6 +2105,156 @@ export function Cotizador({
             </p>
           )}
         </div>
+
+
+        {/* Módulo de Lista de Materiales para Despacho (Modo Interno Editable) */}
+        {interno && (
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Package className="size-5 text-primary" />
+                  <h2 className="text-base font-bold text-foreground">
+                    Lista de Materiales para Despacho
+                  </h2>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    {materialesDespacho.length} ítems
+                  </span>
+                  {materialesEditadosManualmente && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      Personalizado
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cómputo detallado de materiales a entregar (remito de despacho). Podés editar cantidades, agregar insumos adicionales o quitar filas.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  onClick={restablecerMateriales}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  title="Restablecer lista según el cálculo automático del tinglado"
+                >
+                  <RotateCcw className="size-3.5" />
+                  Restablecer
+                </Button>
+                <Button
+                  type="button"
+                  onClick={agregarMaterialManual}
+                  size="sm"
+                  className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  <Plus className="size-3.5" />
+                  Agregar Ítem
+                </Button>
+              </div>
+            </div>
+
+            {/* Encabezado de columnas */}
+            <div className="hidden sm:grid grid-cols-[36px_1fr_90px_100px_1fr_36px] gap-2 px-3 text-[10px] font-bold uppercase text-muted-foreground">
+              <span className="text-center">#</span>
+              <span>Descripción del material</span>
+              <span className="text-center">Cant.</span>
+              <span className="text-center">Unidad</span>
+              <span>Observaciones / Destino</span>
+              <span></span>
+            </div>
+
+            {/* Filas editables de materiales */}
+            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+              {materialesDespacho.map((m, idx) => (
+                <div
+                  key={m.id || idx}
+                  className="p-2.5 rounded-lg border border-border bg-background/60 hover:bg-background/90 transition-all flex flex-col sm:grid sm:grid-cols-[36px_1fr_90px_100px_1fr_36px] items-center gap-2"
+                >
+                  <span className="text-xs font-mono font-bold text-muted-foreground text-center hidden sm:inline">
+                    {idx + 1}
+                  </span>
+
+                  {/* Descripción */}
+                  <div className="w-full">
+                    <input
+                      type="text"
+                      value={m.descripcion}
+                      onChange={e => actualizarMaterial(idx, "descripcion", e.target.value)}
+                      placeholder="Descripción del material"
+                      className="w-full bg-transparent border-b border-border/80 focus:border-primary pb-0.5 text-xs font-semibold text-foreground focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Cantidad */}
+                  <div className="w-full flex items-center gap-1 sm:justify-center">
+                    <span className="text-[10px] text-muted-foreground sm:hidden font-bold">Cant:</span>
+                    <input
+                      type="number"
+                      value={m.cantidad}
+                      onChange={e => actualizarMaterial(idx, "cantidad", parseFloat(e.target.value) || 0)}
+                      className="w-full bg-background border border-input rounded px-2 py-1 text-xs text-center font-bold text-primary focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  {/* Unidad */}
+                  <div className="w-full flex items-center gap-1 sm:justify-center">
+                    <span className="text-[10px] text-muted-foreground sm:hidden font-bold">Unidad:</span>
+                    <input
+                      type="text"
+                      value={m.unidad}
+                      onChange={e => actualizarMaterial(idx, "unidad", e.target.value)}
+                      placeholder="unid, m, barra..."
+                      className="w-full bg-background border border-input rounded px-2 py-1 text-xs text-center text-foreground font-medium focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  {/* Observaciones */}
+                  <div className="w-full">
+                    <input
+                      type="text"
+                      value={m.notas || ""}
+                      onChange={e => actualizarMaterial(idx, "notas", e.target.value)}
+                      placeholder="Observaciones / Destino técnico"
+                      className="w-full bg-transparent border-b border-border/60 focus:border-primary pb-0.5 text-xs text-muted-foreground focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Eliminar fila */}
+                  <div className="self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => eliminarMaterial(idx)}
+                      title="Eliminar este material"
+                      className="size-7 rounded border border-border/60 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-muted-foreground hover:text-red-500 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {materialesDespacho.length === 0 && (
+                <div className="text-center py-6 border border-dashed border-border rounded-lg space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    No hay materiales en la lista de despacho. Podés agregar ítems manuales o restablecer el cálculo automático.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={restablecerMateriales}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1"
+                  >
+                    <RotateCcw className="size-3" />
+                    Restablecer Materiales
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Módulo de Secuencia de Montaje y Armado (Modo Interno) */}
         {interno && (
@@ -2530,6 +3034,93 @@ export function Cotizador({
                 </p>
               )}
             </div>
+
+
+            {/* Vista para el cliente: Cómputo de Materiales a Entregar */}
+            {!interno && materialesDespacho && materialesDespacho.length > 0 && (
+              <div className="pt-5 border-t border-border space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      <Boxes className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Materiales a Entregar (Remito)
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Cómputo de piezas, chapas y bulonería incluidos para tu tinglado
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20">
+                    {materialesDespacho.length} ítems
+                  </span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-lg border border-border bg-background/50 p-2.5 pr-2">
+                  {materialesDespacho.map((m, idx) => (
+                    <div
+                      key={m.id || idx}
+                      className="flex items-center justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] font-mono text-muted-foreground w-4 text-center">
+                          {idx + 1}
+                        </span>
+                        <span className="font-medium text-foreground truncate" title={m.descripcion}>
+                          {m.descripcion}
+                        </span>
+                      </div>
+                      <span className="shrink-0 font-mono font-bold text-primary text-[11px]">
+                        {m.cantidad} {m.unidad}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Vista para el cliente: Secuencia de Pasos Recomendados */}
+            {!interno && pasosMontaje && pasosMontaje.length > 0 && (
+              <div className="pt-4 border-t border-border space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      <ClipboardList className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Secuencia de Montaje Recomendada
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Pasos técnicos sugeridos para la instalación en obra
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20">
+                    {pasosMontaje.length} etapas
+                  </span>
+                </div>
+
+                <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-lg border border-border bg-background/50 p-2.5 pr-2">
+                  {pasosMontaje.map((p, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                    >
+                      <span className="size-5 rounded bg-primary/10 text-primary font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        {p.paso ?? idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground text-[11px]">{p.titulo}</p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">{p.descripcion}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Módulo de Video Explicativo de Montaje (solo visible si el archivo mp4 existe en el servidor) */}
             {videoDisponible && activeVideoSrc && activeFilename ? (
