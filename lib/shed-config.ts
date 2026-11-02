@@ -77,8 +77,8 @@ export const TYPE_LABEL: Record<ShedType, string> = {
   gable: "A 2 Aguas (Triangular)",
   gable_portico: "A 2 Aguas (Pórtico Reticulado)",
   shed: "A 1 Agua",
-  gable_varillas: "2 Aguas - Reticulado Liviano (Varilla Ø12/8)",
-  shed_varillas: "1 Agua - Reticulado Liviano (Varilla Ø12/8)",
+  gable_varillas: "2 Aguas - Reticulado Liviano (Varilla Ø16/12)",
+  shed_varillas: "1 Agua - Reticulado Liviano (Varilla Ø16/12)",
 }
 
 // Roof pitch (approx) used both for geometry and area math

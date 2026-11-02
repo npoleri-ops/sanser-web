@@ -116,8 +116,8 @@ function varillaColumn(
   bottomY: number, topY: number,
   size: number,          // side length of the square section (0.25 – 0.30)
   panels: number,
-  chordT: number,        // Ø12 visual thickness
-  webT: number           // Ø8 visual thickness
+  chordT: number,        // Ø16 visual thickness
+  webT: number           // Ø12 visual thickness
 ): Seg[] {
   const segs: Seg[] = []
   const h = size / 2
@@ -260,10 +260,10 @@ function useBuilt(config: ShedConfig): Built {
 
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
 
-    // ── Varillas: espesores visibles que representan Ø12 y Ø8 ──
-    // Se solicitan varillas redondas de radio 0.012 (diámetro 0.024) y 0.008 (diámetro 0.016).
-    const varChordT = 0.024   // cordón Ø12 (24mm diámetro)
-    const varWebT   = 0.016   // diagonal Ø8 (16mm diámetro)
+    // ── Varillas: espesores visibles que representan Ø16 y Ø12 ──
+    // Varillas redondas: cordones exteriores Ø16 y diagonales interiores Ø12
+    const varChordT = 0.030   // cordón Ø16 (30mm visual)
+    const varWebT   = 0.022   // diagonal Ø12 (22mm visual)
     const colSection = 0.30   // sección cuadrada de columna (30 cm)
     const varTrussH  = 0.30   // sección cuadrada de viga cajón (30 cm)
 

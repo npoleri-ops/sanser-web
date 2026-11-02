@@ -141,6 +141,7 @@ const INITIAL_PRICES = {
   aguarras: 0,
   manoDeObra: 0,
   flete: 0,
+  varilla16: 0,
   varilla12: 0,
   varilla8: 0,
 }
@@ -206,9 +207,9 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
   );
 
-  // Varillas Ø12 y Ø8 (Barras de 12m)
+  // Varillas Ø16 y Ø12 (Barras de 12m)
+  let barrasVarilla16 = 0;
   let barrasVarilla12 = 0;
-  let barrasVarilla8 = 0;
   if (isVarillas) {
     const lengthPerCabreada = isUnAgua ? ancho : (ancho / Math.cos(12 * Math.PI / 180));
     const metrosCordonesCabreada = lengthPerCabreada * 2;
@@ -217,11 +218,11 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     const metrosCordonesColumna = altoLibre * 4;
     const metrosZigzagColumna = altoLibre * 4 * 1.5;
 
-    const totalMetrosVar12 = (numCabreadas * metrosCordonesCabreada) + (numColumnas * metrosCordonesColumna);
-    const totalMetrosVar8 = (numCabreadas * metrosZigzagCabreada) + (numColumnas * metrosZigzagColumna);
+    const totalMetrosVar16 = (numCabreadas * metrosCordonesCabreada) + (numColumnas * metrosCordonesColumna);
+    const totalMetrosVar12 = (numCabreadas * metrosZigzagCabreada) + (numColumnas * metrosZigzagColumna);
 
+    barrasVarilla16 = Math.ceil(totalMetrosVar16 / 12);
     barrasVarilla12 = Math.ceil(totalMetrosVar12 / 12);
-    barrasVarilla8 = Math.ceil(totalMetrosVar8 / 12);
   }
 
   // Correas 80 Galv (Barras)
@@ -261,8 +262,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const pTornillo = currentPrices.tornillos || 15000;
   const pPintura = currentPrices.pintura || 50000;
   const pAguarras = currentPrices.aguarras || 30000;
+  const pVarilla16 = (currentPrices as any).varilla16 || 22000;
   const pVarilla12 = currentPrices.varilla12 || 12000;
-  const pVarilla8 = currentPrices.varilla8 || 5500;
 
   const subtotalMateriales =
     (barras120 * p120) +
@@ -275,8 +276,8 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     (tornillosCajas * pTornillo) +
     (pinturaBaldes * pPintura) +
     (aguarrasBaldes * pAguarras) +
-    (barrasVarilla12 * pVarilla12) +
-    (barrasVarilla8 * pVarilla8);
+    (barrasVarilla16 * pVarilla16) +
+    (barrasVarilla12 * pVarilla12);
 
   const superficie = ancho * largo;
   const subtotalManoObra = Math.round(superficie * 11000);
@@ -385,7 +386,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   });
 
   let nuevoDetalle = isVarillas
-    ? `Estructura de reticulado liviano en Varilla Conformada Ø12 (cordones) y Ø8 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
+    ? `Estructura de reticulado liviano en Varilla Conformada Ø16 (cordones) y Ø12 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
     : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
   const partesCerramiento: string[] = [];
@@ -925,6 +926,7 @@ export function Cotizador({
         else if (textMatch.includes('aguarrás') || textMatch.includes('aguarras')) newPrices.aguarras = p
         else if (textMatch.includes('mano de obra') || textMatch.includes('armado')) newPrices.manoDeObra = p
         else if (textMatch.includes('flete') || textMatch.includes('logistica')) newPrices.flete = p
+        else if (textMatch.includes('varilla') && textMatch.includes('16')) (newPrices as any).varilla16 = p
         else if (textMatch.includes('varilla') && textMatch.includes('12')) newPrices.varilla12 = p
         else if (textMatch.includes('varilla') && textMatch.includes('8')) newPrices.varilla8 = p
       })
@@ -2149,24 +2151,11 @@ export function Cotizador({
         {interno && (
           <div className="bg-card border border-border p-5 rounded-xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <ListOrdered className="size-5 text-primary" />
-                  <h2 className="text-base font-bold text-foreground">
-                    Secuencia de Montaje y Armado
-                  </h2>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                    {pasosMontaje.length} etapas
-                  </span>
-                  {pasosEditadosManualmente && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      Personalizado
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Modificá textos técnicos, agregá o eliminá pasos. Se reflejan en el visor 3D, enlace interactivo y en el anexo del presupuesto.
-                </p>
+              <div className="flex items-center gap-2">
+                <ListOrdered className="size-5 text-primary" />
+                <h2 className="text-base font-bold text-foreground">
+                  Secuencia de Montaje y Armado
+                </h2>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -2981,9 +2970,6 @@ export function Cotizador({
                       </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20">
-                    {pasosMontaje.length} etapas
-                  </span>
                 </div>
 
                 <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-lg border border-border bg-background/50 p-2.5 pr-2">
