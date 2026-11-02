@@ -1880,20 +1880,6 @@ export function Cotizador({
                 : "Elegí las medidas, mirá tu estructura en 3D y descargá el presupuesto en PDF al instante."}
             </p>
           </div>
-          {interno && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={guardarEnCRM}
-                disabled={guardandoCrm}
-                className="gap-1.5 text-xs font-medium"
-              >
-                {guardandoCrm ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                Guardar en CRM
-              </Button>
-            </div>
-          )}
         </div>
         {interno && mensajeCrm && (
           <div className="text-xs text-primary bg-primary/10 border border-primary/20 rounded-md px-3 py-2 animate-in fade-in">
@@ -3078,81 +3064,88 @@ export function Cotizador({
         )}
 
         {interno ? (
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-end pt-4">
-            <Button
-              onClick={guardarEnCRM}
-              variant="outline"
-              disabled={guardandoCrm}
-              className="gap-2"
-            >
-              {guardandoCrm ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
-              {leadToken ? "Actualizar en CRM" : "Guardar en CRM"}
-            </Button>
-
-            <Button
-              onClick={copiarEnlaceInteractivo}
-              variant="outline"
-              disabled={guardandoCrm}
-              className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-              title="Copiar enlace cliente para explorar 3D interactivo y secuencia de montaje"
-            >
-              {enlaceCopiado ? <CheckCircle2 className="size-4" /> : <Share2 className="size-4" />}
-              {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D)"}
-            </Button>
-
-            <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col gap-4 border-t border-border pt-4 lg:flex-row lg:items-start lg:justify-between">
+            {/* Acciones secundarias / utilidades */}
+            <div className="flex flex-wrap gap-3">
               <Button
-                onClick={sendToWhatsApp}
+                onClick={guardarEnCRM}
                 variant="outline"
-                disabled={faltanDatosCliente || !numeroPresupuesto}
-                className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400 w-full sm:w-auto"
+                disabled={guardandoCrm}
+                className="gap-2"
               >
-                <Send className="size-4" /> Enviar al cliente
+                {guardandoCrm ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {leadToken ? "Actualizar en CRM" : "Guardar en CRM"}
               </Button>
-              <span className="text-[10px] text-muted-foreground">
-                {numeroPresupuesto
-                  ? "(El mensaje incluye el enlace al PDF)"
-                  : "(Confirmá el presupuesto para poder enviarlo)"}
-              </span>
+
+              <Button
+                onClick={copiarEnlaceInteractivo}
+                variant="outline"
+                disabled={guardandoCrm}
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                title="Copiar enlace cliente para explorar 3D interactivo y secuencia de montaje"
+              >
+                {enlaceCopiado ? <CheckCircle2 className="size-4" /> : <Share2 className="size-4" />}
+                {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D)"}
+              </Button>
+
+              <Button
+                onClick={descargarBorrador}
+                variant="outline"
+                disabled={isGenerating || faltanDatosCliente}
+                className="gap-2"
+              >
+                <Download className="size-4" />
+                {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
+              </Button>
             </div>
 
-            <Button
-              onClick={descargarBorrador}
-              variant="outline"
-              disabled={isGenerating || faltanDatosCliente}
-              className="gap-2"
-            >
-              <Download className="size-4" />
-              {numeroPresupuesto ? "Descargar PDF" : "Descargar borrador"}
-            </Button>
+            {/* Cierre comercial: confirmar, enviar y compartir */}
+            <div className="flex flex-col gap-2 lg:items-end">
+              <div className="flex flex-wrap gap-3 lg:justify-end">
+                <Button
+                  onClick={confirmarPresupuesto}
+                  disabled={isGenerating || faltanDatosCliente || Boolean(numeroPresupuesto)}
+                  className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {isGenerating ? (
+                    <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  {numeroPresupuesto ? `Confirmado ${numeroPresupuesto}` : "Confirmar presupuesto"}
+                </Button>
 
-            <Button
-              id="btn-compartir-3d-whatsapp"
-              onClick={copiarLink3D}
-              variant="outline"
-              className="gap-2 border-emerald-600 text-emerald-400 hover:bg-emerald-600/10 hover:text-emerald-300"
-              title="Copia el link del visor 3D interactivo para compartir por WhatsApp"
-            >
-              {link3DCopied ? (
-                <CheckCircle2 className="size-4" />
-              ) : (
-                <Share2 className="size-4" />
-              )}
-              {link3DCopied ? "¡Link copiado!" : "Compartir 3D por WhatsApp"}
-            </Button>
+                <Button
+                  onClick={sendToWhatsApp}
+                  variant="outline"
+                  disabled={faltanDatosCliente || !numeroPresupuesto}
+                  className="gap-2 border-green-600 text-green-500 hover:bg-green-600/10 hover:text-green-400"
+                >
+                  <Send className="size-4" /> Enviar al cliente
+                </Button>
 
-            <Button
-              onClick={confirmarPresupuesto}
-              disabled={isGenerating || faltanDatosCliente || Boolean(numeroPresupuesto)}
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {isGenerating ? (
-                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <CheckCircle2 className="size-4" />
-              )}
-              {numeroPresupuesto ? `Confirmado ${numeroPresupuesto}` : "Confirmar presupuesto"}
-            </Button>
+                <Button
+                  id="btn-compartir-3d-whatsapp"
+                  onClick={copiarLink3D}
+                  variant="outline"
+                  disabled={!numeroPresupuesto}
+                  className="gap-2 border-emerald-600 text-emerald-400 hover:bg-emerald-600/10 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Copia el link del visor 3D interactivo para compartir por WhatsApp"
+                >
+                  {link3DCopied ? (
+                    <CheckCircle2 className="size-4" />
+                  ) : (
+                    <Share2 className="size-4" />
+                  )}
+                  {link3DCopied ? "¡Link copiado!" : "Compartir 3D por WhatsApp"}
+                </Button>
+              </div>
+              <span className="text-[10px] text-muted-foreground lg:text-right">
+                {numeroPresupuesto
+                  ? "(El envío incluye el enlace al PDF confirmado)"
+                  : "(Confirmá el presupuesto para habilitar el envío y el 3D)"}
+              </span>
+            </div>
           </div>
         ) : pedidoEnviado ? (
           <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-6 text-center">
