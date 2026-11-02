@@ -39,213 +39,79 @@ export function generarMaterialesDespacho(config: ShedConfig): MaterialDespachoI
   const largo = config.length || 0
   const altoLibre = config.height || 5
   const isUnAgua = config.type === "shed" || config.type === "shed_varillas"
-  const isVarillas = config.type === "gable_varillas" || config.type === "shed_varillas"
 
   const computo = computeMateriales(config)
   const numPorticos = computo.frames
   const numColumnas = computo.columnas
   const numCabreadas = computo.cabreadas
 
-  const factorColumna = (altoLibre + 1) / 6
-
-  // Perfiles 120
-  const barras120 = isVarillas ? 0 : Math.ceil(isUnAgua
-    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1))
-    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2))
-  )
-
-  // Perfiles 80 Negro
-  const barras80Negro = isVarillas ? 0 : Math.ceil(isUnAgua
-    ? ((numColumnas * 1 * factorColumna) + (numCabreadas * 1.33))
-    : ((numColumnas * 1 * factorColumna) + (numCabreadas * 2.33))
-  )
-
-  // Correas 80 Galv
+  // Correas de techo C 80x40 galvanizadas
   const lineasCorreas = Math.ceil(ancho / 1) + 1
   const barras80Galv = Math.ceil((lineasCorreas * largo) / 12)
 
-  // Hierro Ángulo
-  const barrasAngulo = isUnAgua ? 1 : 2
-
-  // Chapas
+  // Chapa de cubierta
   const totalMetrosChapa = Math.ceil(Math.ceil(ancho / 1.0) * largo * 1.06)
 
-  // Bulones y arandelas
+  // Bulones y fijaciones
   const bulonesJuegos = (isUnAgua ? (numPorticos * 8) : (numPorticos * 12)) + 2
   const arandelaKg = Math.max(3, Math.ceil((ancho * largo) / 60))
   const factorTornillos = isUnAgua ? 3.5 : 4.0
   const tornillosCajas = Math.max(2, Math.ceil((ancho * largo * factorTornillos) / 100))
-  const pinturaBaldes = Math.max(2, Math.ceil((ancho * largo) / 90))
-  const aguarrasBaldes = Math.max(1, Math.ceil(pinturaBaldes / 2))
 
   const sheetLabel = SHEET_LABEL[config.sheet] || "Cincalum T-110 (Cal. 25)"
   const colorLabel = config.colorChapa === "negro" ? "Negro Mate" : "Cincalum"
 
-  const items: MaterialDespachoItem[] = [
+  return [
     {
       id: "mat-col",
-      descripcion: `Columnas reticuladas estructurales (${altoLibre}m de altura libre)`,
+      descripcion: `Columnas reticuladas (${altoLibre}m de altura libre)`,
       unidad: "unid",
       cantidad: numColumnas,
-      notas: "Perfiles conformados con placas base",
+      notas: "Perfiles conformados para anclaje",
     },
     {
       id: "mat-cab",
-      descripcion: `Cabreadas reticuladas maestras (${ancho}m de luz)`,
+      descripcion: `Cabreadas reticuladas (${ancho}m de luz)`,
       unidad: "unid",
       cantidad: numCabreadas,
       notas: isUnAgua ? "Pendiente a un agua" : "Pendiente a dos aguas",
     },
+    {
+      id: "mat-correas",
+      descripcion: "Correas de techo perfiles C 80×40 galvanizadas",
+      unidad: "barra",
+      cantidad: barras80Galv,
+      notas: "Líneas de apoyo longitudinales",
+    },
+    {
+      id: "mat-chapa-techo",
+      descripcion: `Chapa de cubierta ${sheetLabel} (Color ${colorLabel})`,
+      unidad: "m",
+      cantidad: totalMetrosChapa,
+      notas: `Superficie cubierta (${computo.superficieTecho} m² aprox.)`,
+    },
+    {
+      id: "mat-bulones",
+      descripcion: "Bulones con tuerca autofrenante y arandelas de alta resistencia",
+      unidad: "juego",
+      cantidad: bulonesJuegos,
+      notas: "Fijación y unión estructural",
+    },
+    {
+      id: "mat-tornillos",
+      descripcion: "Tornillos autoperforantes con arandela de neoprene vulcanizada",
+      unidad: "caja",
+      cantidad: tornillosCajas,
+      notas: "Fijación chapa a correas",
+    },
+    {
+      id: "mat-arandelas",
+      descripcion: "Arandelas de goma vulcanizada para estanqueidad",
+      unidad: "kg",
+      cantidad: arandelaKg,
+      notas: "Sellado hidrófugo de cubierta",
+    },
   ]
-
-  if (!isVarillas) {
-    if (barras120 > 0) {
-      items.push({
-        id: "mat-p120",
-        descripcion: "Perfiles C 120×50×1,6mm conformados en frío",
-        unidad: "barra",
-        cantidad: barras120,
-        notas: "Barras estructurales para cordones",
-      })
-    }
-    if (barras80Negro > 0) {
-      items.push({
-        id: "mat-p80n",
-        descripcion: "Perfiles C 80×40×1,6mm conformados en frío",
-        unidad: "barra",
-        cantidad: barras80Negro,
-        notas: "Diagonales y celosías de pórticos",
-      })
-    }
-  } else {
-    const lengthPerCabreada = isUnAgua ? ancho : (ancho / Math.cos(12 * Math.PI / 180))
-    const totalMetrosVar12 = (numCabreadas * lengthPerCabreada * 2) + (numColumnas * altoLibre * 4)
-    const totalMetrosVar8 = (numCabreadas * lengthPerCabreada * 2.5) + (numColumnas * altoLibre * 4 * 1.5)
-    items.push({
-      id: "mat-var12",
-      descripcion: "Varilla conformada de acero Ø12mm (cordones)",
-      unidad: "barra",
-      cantidad: Math.ceil(totalMetrosVar12 / 12),
-      notas: "Barras de 12m para reticulado",
-    })
-    items.push({
-      id: "mat-var8",
-      descripcion: "Varilla conformada de acero Ø8mm (celosías en zigzag)",
-      unidad: "barra",
-      cantidad: Math.ceil(totalMetrosVar8 / 12),
-      notas: "Barras de 12m para reticulado",
-    })
-  }
-
-  items.push({
-    id: "mat-correas",
-    descripcion: "Correas de techo perfiles C 80×40×1,6mm galvanizadas",
-    unidad: "barra",
-    cantidad: barras80Galv,
-    notas: "Líneas de apoyo sobre cabreadas cada 1m",
-  })
-
-  if (barrasAngulo > 0) {
-    items.push({
-      id: "mat-angulo",
-      descripcion: "Hierro ángulo de arriostramiento y crucetas de viento",
-      unidad: "barra",
-      cantidad: barrasAngulo,
-      notas: "Rigidización longitudinal",
-    })
-  }
-
-  items.push({
-    id: "mat-chapa-techo",
-    descripcion: `Chapa de cubierta ${sheetLabel} (Color ${colorLabel})`,
-    unidad: "m",
-    cantidad: totalMetrosChapa,
-    notas: `Para techo (${computo.superficieTecho} m² aprox.)`,
-  })
-
-  const { supTotalCerramientos } = getSuperficies(config)
-  if (supTotalCerramientos > 0) {
-    items.push({
-      id: "mat-chapa-pared",
-      descripcion: `Chapa para cerramientos laterales y tímpanos (${sheetLabel})`,
-      unidad: "m²",
-      cantidad: supTotalCerramientos,
-      notas: "Cerramientos perimetrales configurados",
-    })
-  }
-
-  items.push({
-    id: "mat-bulones",
-    descripcion: "Bulones con tuerca autofrenante y arandela de alta resistencia",
-    unidad: "juego",
-    cantidad: bulonesJuegos,
-    notas: "Unión cabreada-columna y anclajes",
-  })
-
-  items.push({
-    id: "mat-tornillos",
-    descripcion: "Tornillos autoperforantes con arandela de neoprene vulcanizada",
-    unidad: "caja",
-    cantidad: tornillosCajas,
-    notas: "Fijación chapa a correas",
-  })
-
-  items.push({
-    id: "mat-arandelas",
-    descripcion: "Arandelas de goma vulcanizada para estanqueidad",
-    unidad: "kg",
-    cantidad: arandelaKg,
-    notas: "Sellado hidrófugo de cubierta",
-  })
-
-  items.push({
-    id: "mat-pintura",
-    descripcion: "Pintura convertidor de óxido 3 en 1 para estructura",
-    unidad: "balde 4L",
-    cantidad: pinturaBaldes,
-    notas: "Protección anticorrosiva de fábrica",
-  })
-
-  items.push({
-    id: "mat-aguarras",
-    descripcion: "Aguarrás mineral diluyente y limpieza",
-    unidad: "balde 4L",
-    cantidad: aguarrasBaldes,
-    notas: "Diluyente técnico",
-  })
-
-  const doorsCount = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
-  if (doorsCount > 0) {
-    items.push({
-      id: "mat-puerta",
-      descripcion: "Puerta de acceso peatonal (0.90 × 2.05m con marco y cerradura)",
-      unidad: "unid",
-      cantidad: doorsCount,
-      notas: "Hoja metálica reforzada",
-    })
-  }
-
-  if (config.gate) {
-    items.push({
-      id: "mat-porton-frontal",
-      descripcion: "Portón vehicular frontal con guías y herrajes",
-      unidad: "unid",
-      cantidad: 1,
-      notas: "Acceso principal",
-    })
-  }
-
-  if (config.gateBack) {
-    items.push({
-      id: "mat-porton-trasero",
-      descripcion: "Portón vehicular trasero con guías y herrajes",
-      unidad: "unid",
-      cantidad: 1,
-      notas: "Acceso fondo / pasante",
-    })
-  }
-
-  return items
 }
 
 
@@ -902,10 +768,10 @@ export function Cotizador({
       ...prev,
       {
         id: `custom-${Date.now()}`,
-        descripcion: "1 tacho de pintura negro mate de 4L para retoques de traslado",
+        descripcion: "Material adicional",
         unidad: "unid",
         cantidad: 1,
-        notas: "Material adicional de despacho",
+        notas: "",
       },
     ])
   }
@@ -1562,7 +1428,7 @@ export function Cotizador({
 
           autoTable(doc, {
             startY: ySec,
-            head: [['#', 'MATERIALES A ENTREGAR / REMITO DE DESPACHO', 'CANT.', 'UNIDAD', 'OBSERVACIONES / DESTINO']],
+            head: [['#', 'LISTA DE MATERIALES', 'CANT.', 'UNIDAD', 'OBSERVACIONES / DESTINO']],
             body: matRows,
             theme: 'grid',
             headStyles: {
@@ -2123,24 +1989,11 @@ export function Cotizador({
         {interno && (
           <div className="bg-card border border-border p-5 rounded-xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <Package className="size-5 text-primary" />
-                  <h2 className="text-base font-bold text-foreground">
-                    Lista de Materiales para Despacho
-                  </h2>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                    {materialesDespacho.length} ítems
-                  </span>
-                  {materialesEditadosManualmente && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      Personalizado
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Cómputo detallado de materiales a entregar (remito de despacho). Podés editar cantidades, agregar insumos adicionales o quitar filas.
-                </p>
+              <div className="flex items-center gap-2">
+                <Package className="size-5 text-primary" />
+                <h2 className="text-base font-bold text-foreground">
+                  Lista de materiales
+                </h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -3082,16 +2935,10 @@ export function Cotizador({
                     </div>
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Materiales a Entregar (Remito)
+                        Lista de materiales
                       </h3>
-                      <p className="text-[11px] text-muted-foreground">
-                        Cómputo de piezas, chapas y bulonería incluidos para tu tinglado
-                      </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20">
-                    {materialesDespacho.length} ítems
-                  </span>
                 </div>
 
                 <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-lg border border-border bg-background/50 p-2.5 pr-2">
