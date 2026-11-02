@@ -531,12 +531,18 @@ function useBuilt(config: ShedConfig): Built {
     roof.push([v(-outX, topFn(-outX) - 0.15, -outL), v(-outX, topFn(-outX) - 0.15, outL), chordT])
     roof.push([v(outX, topFn(outX) - 0.15, -outL), v(outX, topFn(outX) - 0.15, outL), chordT])
     // cross bracing on side walls (first bay each side)
+    const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
+    const hasLeftWall = Boolean(config.wallLeft || legacyWalls)
+    const hasRightWall = Boolean(config.wallRight || legacyWalls)
+    const hasFrontWall = Boolean(config.wallFront)
+    const hasBackWall = Boolean(config.wallBack || (legacyWalls && !config.gateBack))
+
     if (framesZ.length >= 2) {
       const z0 = framesZ[0]
       const z1 = framesZ[1]
       // Move to inner flange if walls are present so they don't clip through the exterior cladding
-      const bracingLeftX = config.walls ? -halfW + colDepth/2 : -halfW
-      const bracingRightX = config.walls ? halfW - colDepth/2 : halfW
+      const bracingLeftX = hasLeftWall ? -halfW + colDepth/2 : -halfW
+      const bracingRightX = hasRightWall ? halfW - colDepth/2 : halfW
 
       roof.push([v(bracingLeftX, 0.5, z0), v(bracingLeftX, eaveL, z1), webT])
       roof.push([v(bracingLeftX, eaveL, z0), v(bracingLeftX, 0.5, z1), webT])
@@ -544,41 +550,52 @@ function useBuilt(config: ShedConfig): Built {
       roof.push([v(bracingRightX, eaveR, z0), v(bracingRightX, 0.5, z1), webT])
     }
 
+    // Dimensiones estructurales máximas para posicionar los cerramientos 100% por fuera
+    const isVarillasType = type === "gable_varillas" || type === "shed_varillas"
+    const maxFrameZ = halfL + (isVarillasType ? (varTrussH / 2 + varChordT) : (chordT / 2 + 0.08))
+
+    // Offset exterior limpio para que columnas, cabreadas y celosías nunca atraviesen las chapas
+    const wallOffset = 0.16
+    const wallThickness = 0.05
+    const cornerOverlap = 0.06
+    const wallVerticalOverlap = 0.12
+    const wallX = outX + wallOffset
+    const wallZ = Math.max(outL + wallOffset, maxFrameZ + 0.08)
+
+    // Aleros de cubierta: el techo vuela naturalmente sobre los cerramientos
+    const roofOverhang = 0.16
+    const roofX = wallX + roofOverhang
+    const roofL = wallZ + roofOverhang
+
     // Roof sheeting panels
     const roofOffset = 0.18
     const panels: Built["panels"] = []
     if (type === "gable" || type === "gable_portico" || type === "gable_varillas") {
-      const slopeLen = outX / Math.cos(pitch)
-      const centerHeight = topFn(outX / 2)
+      const slopeLen = roofX / Math.cos(pitch)
+      const centerHeight = topFn(roofX / 2)
       panels.push({
-        pos: [-outX / 2, centerHeight + roofOffset, 0],
+        pos: [-roofX / 2, centerHeight + roofOffset, 0],
         rot: [0, 0, pitch],
         w: slopeLen,
-        l: 2 * outL,
+        l: 2 * roofL,
       })
       panels.push({
-        pos: [outX / 2, centerHeight + roofOffset, 0],
+        pos: [roofX / 2, centerHeight + roofOffset, 0],
         rot: [0, 0, -pitch],
         w: slopeLen,
-        l: 2 * outL,
+        l: 2 * roofL,
       })
     } else {
-      const slopeLen = (2 * outX) / Math.cos(shedSlope)
+      const slopeLen = (2 * roofX) / Math.cos(shedSlope)
       const centerHeight = topFn(0)
       panels.push({
         pos: [0, centerHeight + roofOffset, 0],
         rot: [0, 0, shedSlope],
         w: slopeLen,
-        l: 2 * outL,
+        l: 2 * roofL,
       })
     }
 
-    // Wall cladding shapes with geometric offset to prevent Z-fighting
-    const wallOffset = 0.08 // Increased to 0.08m
-    const cornerOverlap = 0.05 // Extra width to seal corners perfectly
-    const wallVerticalOverlap = 0.22 // Increased extra height to reach the roof panels perfectly
-    const wallX = outX + wallOffset
-    const wallZ = outL + wallOffset
     const walls: Built["walls"] = []
 
     const makeRect = (w: number, h: number) => {
@@ -596,27 +613,24 @@ function useBuilt(config: ShedConfig): Built {
       // Extend X slightly to seal corners
       shape.moveTo(xStart - cornerOverlap, 0)
       shape.lineTo(xEnd + cornerOverlap, 0)
-      const segments = 20
+      const segments = 24
       for (let i = 0; i <= segments; i++) {
         const u = 1 - (i / segments)
         const x = THREE.MathUtils.lerp(xStart - cornerOverlap, xEnd + cornerOverlap, u)
-        shape.lineTo(x, topFn(x) + wallVerticalOverlap)
+        shape.lineTo(x, Math.max(H, topFn(x)) + wallVerticalOverlap)
       }
       shape.closePath()
       return shape
     }
 
-    const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
-    const hasLeftWall = Boolean(config.wallLeft || legacyWalls)
-    const hasRightWall = Boolean(config.wallRight || legacyWalls)
-    const hasFrontWall = Boolean(config.wallFront)
-    const hasBackWall = Boolean(config.wallBack || (legacyWalls && !config.gateBack))
+    const leftWallH = Math.max(H, topFn(-outX))
+    const rightWallH = type === "shed" || type === "shed_varillas" ? topFn(outX) : Math.max(H, topFn(outX))
 
     if (hasLeftWall) {
-      walls.push({ pos: [-wallX, 0, 0], rot: [0, -Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2, topFn(-wallX)) })
+      walls.push({ pos: [-wallX, 0, 0], rot: [0, -Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2 + wallThickness * 2, leftWallH) })
     }
     if (hasRightWall) {
-      walls.push({ pos: [wallX, 0, 0], rot: [0, Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2, topFn(wallX)) })
+      walls.push({ pos: [wallX, 0, 0], rot: [0, Math.PI / 2, 0], shape: makeRect(2 * wallZ + cornerOverlap * 2 + wallThickness * 2, rightWallH) })
     }
     
     const gateW = Math.min(6, W * 0.4)
@@ -626,11 +640,11 @@ function useBuilt(config: ShedConfig): Built {
     const headerShape = new THREE.Shape()
     headerShape.moveTo(-gateW / 2, gateH)
     headerShape.lineTo(gateW / 2, gateH)
-    const segments = 10
+    const segments = 12
     for (let i = 0; i <= segments; i++) {
       const u = 1 - (i / segments)
       const x = THREE.MathUtils.lerp(-gateW / 2, gateW / 2, u)
-      headerShape.lineTo(x, topFn(x) + wallVerticalOverlap)
+      headerShape.lineTo(x, Math.max(H, topFn(x)) + wallVerticalOverlap)
     }
     headerShape.closePath()
     
@@ -651,24 +665,24 @@ function useBuilt(config: ShedConfig): Built {
     
     if (hasBackWall) {
       if (config.gateBack) {
-        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
-        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
-        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: headerShape })
+        walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
+        walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
+        walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: headerShape })
       } else {
-        walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
+        walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
       }
     } else if (config.gateBack) {
       // Back Gate Side panels + Header
-      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
-      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
-      walls.push({ pos: [0, 0, -wallZ], rot: [0, 0, 0], shape: headerShape })
+      walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
+      walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
+      walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: headerShape })
     }
 
     if (hasLeftWall || hasRightWall || hasFrontWall || hasBackWall || config.gate || config.gateBack) {
-      flashings.push({ pos: [-wallX, 0, wallZ], rotZ: 0, h: topFn(-wallX) + wallVerticalOverlap })
-      flashings.push({ pos: [-wallX, 0, -wallZ], rotZ: -Math.PI / 2, h: topFn(-wallX) + wallVerticalOverlap })
-      flashings.push({ pos: [wallX, 0, -wallZ], rotZ: Math.PI, h: topFn(wallX) + wallVerticalOverlap })
-      flashings.push({ pos: [wallX, 0, wallZ], rotZ: Math.PI / 2, h: topFn(wallX) + wallVerticalOverlap })
+      flashings.push({ pos: [-wallX, 0, wallZ], rotZ: 0, h: leftWallH + wallVerticalOverlap })
+      flashings.push({ pos: [-wallX, 0, -wallZ - wallThickness], rotZ: -Math.PI / 2, h: leftWallH + wallVerticalOverlap })
+      flashings.push({ pos: [wallX, 0, -wallZ - wallThickness], rotZ: Math.PI, h: rightWallH + wallVerticalOverlap })
+      flashings.push({ pos: [wallX, 0, wallZ], rotZ: Math.PI / 2, h: rightWallH + wallVerticalOverlap })
     }
 
     const doors: Built["doors"] = []
@@ -678,14 +692,14 @@ function useBuilt(config: ShedConfig): Built {
       for (let i = 0; i < cnt; i++) {
         if (i === 0) {
           const posX = Math.min(wallX - 1.2, W * 0.35)
-          doors.push({ pos: [posX, 0, wallZ + 0.03], rot: [0, 0, 0] })
+          doors.push({ pos: [posX, 0, wallZ + wallThickness + 0.02], rot: [0, 0, 0] })
         } else if (i === 1) {
-          doors.push({ pos: [-wallX - 0.03, 0, wallZ - 2.5], rot: [0, -Math.PI / 2, 0] })
+          doors.push({ pos: [-wallX - wallThickness - 0.02, 0, wallZ - 2.5], rot: [0, -Math.PI / 2, 0] })
         } else if (i === 2) {
-          doors.push({ pos: [wallX + 0.03, 0, wallZ - 2.5], rot: [0, Math.PI / 2, 0] })
+          doors.push({ pos: [wallX + wallThickness + 0.02, 0, wallZ - 2.5], rot: [0, Math.PI / 2, 0] })
         } else if (i === 3) {
           const posX = Math.max(-wallX + 1.2, -W * 0.35)
-          doors.push({ pos: [posX, 0, -wallZ - 0.03], rot: [0, Math.PI, 0] })
+          doors.push({ pos: [posX, 0, -wallZ - wallThickness - 0.02], rot: [0, Math.PI, 0] })
         }
       }
     }

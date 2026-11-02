@@ -572,6 +572,7 @@ export function Cotizador({
         materials?: string
         pasosPersonalizados?: PasoMontaje[]
         materialesDespacho?: MaterialDespachoItem[]
+        incluirMaterialesEnPDF?: boolean
       })
     | null
   const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"))
@@ -854,6 +855,14 @@ export function Cotizador({
       setPasosMontaje(getGuiaMontaje(config))
     }
   }
+
+  // Control para adjuntar o excluir la Lista de Materiales en el PDF generado
+  const [incluirMaterialesEnPDF, setIncluirMaterialesEnPDF] = useState<boolean>(() => {
+    if (guardado?.incluirMaterialesEnPDF !== undefined) {
+      return Boolean(guardado.incluirMaterialesEnPDF)
+    }
+    return true
+  })
 
   // Lista de materiales para despacho (remito editable)
   const [materialesDespacho, setMaterialesDespacho] = useState<MaterialDespachoItem[]>(() => {
@@ -1512,8 +1521,8 @@ export function Cotizador({
       // ═════════════════════════════════════════════════════════
       // 7. ANEXO TÉCNICO: CÓMPUTO DE MATERIALES Y SECUENCIA DE MONTAJE
       // ═════════════════════════════════════════════════════════
-      const hayMateriales = materialesDespacho && materialesDespacho.length > 0
-      const hayPasos = pasosMontaje && pasosMontaje.length > 0
+      const hayMateriales = Boolean(incluirMaterialesEnPDF && materialesDespacho && materialesDespacho.length > 0)
+      const hayPasos = Boolean(pasosMontaje && pasosMontaje.length > 0)
 
       if (hayMateriales || hayPasos) {
         doc.addPage()
@@ -1528,7 +1537,10 @@ export function Cotizador({
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
         doc.setTextColor(...C.naranja)
-        doc.text('ANEXO TÉCNICO: CÓMPUTO DE MATERIALES Y REMITO DE DESPACHO', 10, 10.5)
+        const tituloAnexo = hayMateriales
+          ? 'ANEXO TÉCNICO: CÓMPUTO DE MATERIALES Y REMITO DE DESPACHO'
+          : 'ANEXO TÉCNICO: GUÍA Y SECUENCIA DE MONTAJE'
+        doc.text(tituloAnexo, 10, 10.5)
 
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(7.5)
@@ -1538,7 +1550,7 @@ export function Cotizador({
           W2 - 10, 10.5, { align: 'right' }
         )
 
-        // Tabla 1: Cómputo de Materiales a Entregar
+        // Tabla 1: Cómputo de Materiales a Entregar (si está activo el control)
         if (hayMateriales) {
           const matRows = materialesDespacho.map((m, idx) => [
             String(idx + 1),
@@ -1579,9 +1591,9 @@ export function Cotizador({
           ySec = (doc as DocWithAutoTable).lastAutoTable.finalY + 9
         }
 
-        // Tabla 2: Secuencia y Guía Técnica de Montaje
+        // Tabla 2: Secuencia y Guía Técnica de Montaje (se mantiene siempre visible)
         if (hayPasos) {
-          if (ySec > H2 - 70) {
+          if (hayMateriales && ySec > H2 - 70) {
             doc.addPage()
             ySec = 22
             doc.setFillColor(...C.oscuro)
@@ -1596,7 +1608,7 @@ export function Cotizador({
             doc.setFontSize(7)
             doc.setTextColor(200, 205, 215)
             doc.text(numero ? `Nº ${numero}` : 'BORRADOR', W2 - 10, 9, { align: 'right' })
-          } else {
+          } else if (hayMateriales) {
             doc.setFillColor(...C.naranja)
             doc.rect(10, ySec - 2, 3, 4, 'F')
             doc.setFont('helvetica', 'bold')
@@ -1705,7 +1717,7 @@ export function Cotizador({
     cuit: cuit || null,
     quoteTitle: title,
     quoteTotal: total,
-    quoteConfig: { ...config, items, materials, pasosPersonalizados: pasosMontaje, materialesDespacho },
+    quoteConfig: { ...config, items, materials, pasosPersonalizados: pasosMontaje, materialesDespacho, incluirMaterialesEnPDF },
   })
 
   /** Deja el presupuesto guardado como borrador y devuelve su id. */
@@ -2131,7 +2143,31 @@ export function Cotizador({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* Switch de inclusión de Lista de Materiales en el PDF */}
+                <button
+                  type="button"
+                  onClick={() => setIncluirMaterialesEnPDF(!incluirMaterialesEnPDF)}
+                  title={incluirMaterialesEnPDF ? "La Lista de Materiales se adjuntará en el PDF final" : "La Lista de Materiales NO se incluirá en el PDF (solo secuencia técnica)"}
+                  className={cn(
+                    "inline-flex items-center gap-2 h-8 px-2.5 rounded-md border text-xs font-semibold transition-all cursor-pointer select-none",
+                    incluirMaterialesEnPDF
+                      ? "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
+                      : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className={cn(
+                    "w-6 h-3.5 rounded-full transition-colors relative p-0.5 shrink-0",
+                    incluirMaterialesEnPDF ? "bg-primary" : "bg-muted-foreground/30"
+                  )}>
+                    <div className={cn(
+                      "w-2.5 h-2.5 rounded-full bg-white transition-transform shadow-xs",
+                      incluirMaterialesEnPDF ? "translate-x-2.5" : "translate-x-0"
+                    )} />
+                  </div>
+                  <span>{incluirMaterialesEnPDF ? "Incluir en PDF: Sí" : "Incluir en PDF: No"}</span>
+                </button>
+
                 <Button
                   type="button"
                   onClick={restablecerMateriales}
@@ -3037,7 +3073,7 @@ export function Cotizador({
 
 
             {/* Vista para el cliente: Cómputo de Materiales a Entregar */}
-            {!interno && materialesDespacho && materialesDespacho.length > 0 && (
+            {!interno && incluirMaterialesEnPDF && materialesDespacho && materialesDespacho.length > 0 && (
               <div className="pt-5 border-t border-border space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
