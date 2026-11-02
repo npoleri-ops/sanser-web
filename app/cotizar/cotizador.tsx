@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, Link as LinkIcon, Eye, ListOrdered, RotateCcw, ChevronUp, ChevronDown, Package, Boxes, ClipboardList } from "lucide-react"
+import { Plus, Trash2, Download, Send, Image as ImageIcon, FileText, RefreshCw, CheckCircle2, Share2, Camera, X, Video, Copy, Save, ListOrdered, RotateCcw, ChevronUp, ChevronDown, Package, Boxes, ClipboardList } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
@@ -1890,18 +1890,7 @@ export function Cotizador({
                 className="gap-1.5 text-xs font-medium"
               >
                 {guardandoCrm ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                {leadToken ? "Guardar en CRM" : "Guardar en CRM"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={copiarEnlaceInteractivo}
-                disabled={guardandoCrm}
-                className="gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary/10"
-                title="Copia el enlace único para que el cliente vea este galpón en 3D interactivo con video y secuencia"
-              >
-                {enlaceCopiado ? <CheckCircle2 className="size-3.5" /> : <Share2 className="size-3.5" />}
-                {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente"}
+                Guardar en CRM
               </Button>
             </div>
           )}
@@ -1918,7 +1907,7 @@ export function Cotizador({
             <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
               {interno ? "Vista Previa 3D" : "Tu estructura en 3D — giralo con el mouse"}
             </div>
-            {/* Botones overlay: Capturar + Compartir */}
+            {/* Botón overlay: Capturar vista para el PDF */}
             {interno && (
               <div className="absolute top-4 right-4 z-20 flex gap-2">
                 <Button
@@ -1932,17 +1921,6 @@ export function Cotizador({
                 >
                   <Camera className="size-3.5" />
                   Capturar vista{capturas3D.length > 0 ? ` (${capturas3D.length}/3)` : ""}
-                </Button>
-                <Button
-                  id="btn-copiar-link-3d-header"
-                  size="sm"
-                  onClick={copiarLink3D}
-                  variant="outline"
-                  title="Copiar link del visor 3D interactivo para compartir por WhatsApp"
-                  className="gap-2 bg-black/60 hover:bg-black/80 text-white border-white/20 backdrop-blur-sm text-xs shadow-md cursor-pointer"
-                >
-                  <Share2 className="size-3.5" />
-                  {link3DCopied ? "¡Link copiado!" : "Copiar Link 3D"}
                 </Button>
               </div>
             )}
@@ -3019,7 +2997,7 @@ export function Cotizador({
             )}
 
             {/* Módulo de Video Explicativo de Montaje (solo visible si el archivo mp4 existe en el servidor) */}
-            {videoDisponible && activeVideoSrc && activeFilename ? (
+            {videoDisponible && activeVideoSrc && activeFilename && (
               <div className="pt-5 border-t border-border space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -3089,30 +3067,6 @@ export function Cotizador({
                     )}
                     <span>{videoLinkCopied ? "¡Enlace copiado!" : "Copiar enlace del video"}</span>
                   </button>
-                </div>
-              </div>
-            ) : (
-              /* Prioridad 100% al Visor 3D Interactivo y Copiar Link 3D cuando no hay archivo mp4 */
-              <div className="pt-4 border-t border-border">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-primary/20 bg-primary/5">
-                  <div className="space-y-0.5">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                      <Eye className="size-3.5 text-primary" /> Visor 3D y Secuencia de Montaje
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Explorá las dimensiones reales, componentes y el montaje paso a paso directamente en el modelo 3D interactivo.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={copiarLink3D}
-                    className="shrink-0 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                  >
-                    <Share2 className="size-3.5" />
-                    {link3DCopied ? "¡Link 3D copiado!" : "Copiar Link 3D"}
-                  </Button>
                 </div>
               </div>
             )}
