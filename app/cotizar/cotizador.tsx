@@ -647,6 +647,16 @@ export function Cotizador({
   // Pasos de montaje (personalizados a mano o autogenerados según la estructura 3D)
   const [pasosMontaje, setPasosMontaje] = useState<PasoMontaje[]>(() => {
     if (guardado?.pasosPersonalizados && Array.isArray(guardado.pasosPersonalizados) && guardado.pasosPersonalizados.length > 0) {
+      // Si la estructura es de varillas pero los pasos guardados aún mencionan perfil C o 12/8 antiguo, regenerar automáticamente
+      const isVar = config.type.includes("varilla")
+      const tieneTextoObsoleto = guardado.pasosPersonalizados.some(p =>
+        (isVar && p.descripcion?.toLowerCase().includes("perfil c")) ||
+        p.titulo?.includes("12/8") ||
+        p.descripcion?.includes("12/8")
+      )
+      if (tieneTextoObsoleto) {
+        return getGuiaMontaje(config)
+      }
       return guardado.pasosPersonalizados
     }
     return getGuiaMontaje(config)
@@ -654,7 +664,17 @@ export function Cotizador({
 
   // Indica si el usuario editó a mano para no sobreescribir automáticamente al mover medidas
   const [pasosEditadosManualmente, setPasosEditadosManualmente] = useState(() => {
-    return Boolean(guardado?.pasosPersonalizados && guardado.pasosPersonalizados.length > 0)
+    if (guardado?.pasosPersonalizados && Array.isArray(guardado.pasosPersonalizados) && guardado.pasosPersonalizados.length > 0) {
+      const isVar = config.type.includes("varilla")
+      const tieneTextoObsoleto = guardado.pasosPersonalizados.some(p =>
+        (isVar && p.descripcion?.toLowerCase().includes("perfil c")) ||
+        p.titulo?.includes("12/8") ||
+        p.descripcion?.includes("12/8")
+      )
+      if (tieneTextoObsoleto) return false
+      return true
+    }
+    return false
   })
 
   // Sincronizar pasos con la estructura 3D dinámicamente según la tipología
