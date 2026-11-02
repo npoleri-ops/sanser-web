@@ -250,13 +250,17 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
     {
       paso: 2,
       titulo: "Montaje de Columnas Reticuladas",
-      descripcion: "Izar, aplomar y posicionar las columnas reticuladas en perfil C (con +1 m de prolongación estructural para enterrar en zapata de hormigón, o abulonado sobre placa base si aplica). Apuntalar provisoriamente.",
+      descripcion: isVarillas
+        ? "Izar, aplomar y posicionar las columnas reticuladas de varillas (cordones de Ø16 mm y diagonales de Ø12 mm, con +1 m de prolongación estructural para enterrar en zapata de hormigón, o abulonado sobre placa base si aplica). Apuntalar provisoriamente."
+        : "Izar, aplomar y posicionar las columnas reticuladas en perfil C (con +1 m de prolongación estructural para enterrar en zapata de hormigón, o abulonado sobre placa base si aplica). Apuntalar provisoriamente.",
       categoria: "Estructura",
     },
     {
       paso: 3,
       titulo: `Izado de Cabreadas — ${tipoLabel}`,
-      descripcion: `Montar los ${numPorticos} pórticos transversales de cabreadas sobre las columnas${isUnAgua ? " (inclinación 8°)" : " (pendiente 12°)"}. Colocar arriostramientos laterales y cruces de San Andrés para rigidizar la estructura en 3D.`,
+      descripcion: isVarillas
+        ? `Montar los ${numPorticos} pórticos transversales de cabreadas reticuladas de varillas (cordones de Ø16 mm y diagonales de Ø12 mm) sobre las columnas${isUnAgua ? " (inclinación 8°)" : " (pendiente 12°)"}. Colocar arriostramientos laterales y jabalcones para rigidizar la estructura en 3D.`
+        : `Montar los ${numPorticos} pórticos transversales de cabreadas en perfil C sobre las columnas${isUnAgua ? " (inclinación 8°)" : " (pendiente 12°)"}. Colocar arriostramientos laterales y cruces de San Andrés para rigidizar la estructura en 3D.`,
       categoria: "Estructura",
     },
     {

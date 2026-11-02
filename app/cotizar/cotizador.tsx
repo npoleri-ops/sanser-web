@@ -657,8 +657,15 @@ export function Cotizador({
     return Boolean(guardado?.pasosPersonalizados && guardado.pasosPersonalizados.length > 0)
   })
 
-  // Sincronizar pasos con la estructura 3D solo si no han sido personalizados a mano
+  // Sincronizar pasos con la estructura 3D dinámicamente según la tipología
+  const prevTipoRef = useRef(config.type)
   useEffect(() => {
+    if (prevTipoRef.current !== config.type) {
+      prevTipoRef.current = config.type
+      setPasosMontaje(getGuiaMontaje(config))
+      setPasosEditadosManualmente(false)
+      return
+    }
     if (!pasosEditadosManualmente) {
       setPasosMontaje(getGuiaMontaje(config))
     }
