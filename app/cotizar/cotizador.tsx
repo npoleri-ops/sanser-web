@@ -387,7 +387,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
 
   let nuevoDetalle = isVarillas
     ? `Estructura de reticulado liviano en Varilla Conformada Ø16 (cordones) y Ø12 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
-    : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm conformados en frío / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
+    : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
   const partesCerramiento: string[] = [];
   if (hasLeft && hasRight) partesCerramiento.push(`laterales ambos lados (${supLateral * 2} m²)`);
