@@ -57,6 +57,8 @@ export interface Lead {
   confirmed_at: string | null
   /** Token del PDF guardado, si el presupuesto se generó desde el cotizador. */
   pdf_token?: string | null
+  /** Tamaño real del archivo; 0 o null significa que todavía no hay PDF generado. */
+  pdf_size_bytes?: number | null
   /** Cuántos registros hay en total con este mismo teléfono. */
   phone_count?: number
 }

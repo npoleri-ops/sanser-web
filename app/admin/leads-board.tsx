@@ -618,6 +618,9 @@ function LeadDetail({
   const [saving, setSaving] = useState(false)
   const [enlaceCopiado, setEnlaceCopiado] = useState(false)
   const [enlaceInteractivoCopiado, setEnlaceInteractivoCopiado] = useState(false)
+  // Sólo mostramos los accesos cuando hay un archivo real: los leads recién
+  // creados tienen token pero un PDF de 0 bytes que la API no puede servir.
+  const pdfToken = (lead.pdf_size_bytes ?? 0) > 0 ? lead.pdf_token : null
 
   return (
     <div
@@ -709,12 +712,12 @@ function LeadDetail({
             </Field>
           )}
 
-          {lead.pdf_token && (
+          {pdfToken && (
             <>
               <Field label="PDF del presupuesto">
                 <div className="flex flex-wrap items-center gap-2">
                   <a
-                    href={`/api/presupuesto/${lead.pdf_token}`}
+                    href={`/api/presupuesto/${pdfToken}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-primary hover:underline"
@@ -724,7 +727,7 @@ function LeadDetail({
                   <button
                     onClick={() => {
                       navigator.clipboard?.writeText(
-                        `${window.location.origin}/api/presupuesto/${lead.pdf_token}`,
+                        `${window.location.origin}/api/presupuesto/${pdfToken}`,
                       )
                       setEnlaceCopiado(true)
                       setTimeout(() => setEnlaceCopiado(false), 2000)
@@ -739,7 +742,7 @@ function LeadDetail({
               <Field label="Enlace interactivo (3D / Montaje)">
                 <div className="flex flex-wrap items-center gap-2">
                   <a
-                    href={`/cotizar?token=${lead.pdf_token}`}
+                    href={`/cotizar?token=${pdfToken}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm font-medium"
@@ -749,7 +752,7 @@ function LeadDetail({
                   <button
                     onClick={() => {
                       navigator.clipboard?.writeText(
-                        `${window.location.origin}/cotizar?token=${lead.pdf_token}`,
+                        `${window.location.origin}/cotizar?token=${pdfToken}`,
                       )
                       setEnlaceInteractivoCopiado(true)
                       setTimeout(() => setEnlaceInteractivoCopiado(false), 2000)

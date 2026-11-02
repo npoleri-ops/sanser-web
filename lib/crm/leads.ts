@@ -406,6 +406,7 @@ export async function listLeads(
   const rows = await query<Lead & { total_count: string }>(
     `SELECT leads.*,
             pdfs.token AS pdf_token,
+            pdfs.size_bytes AS pdf_size_bytes,
             (SELECT count(*)::int FROM leads otros
               WHERE otros.phone_key IS NOT NULL
                 AND otros.phone_key = leads.phone_key

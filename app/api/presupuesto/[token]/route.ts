@@ -16,7 +16,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   }
 
   const pdf = await getPdfByToken(token)
-  if (!pdf) return new NextResponse("No encontrado", { status: 404 })
+  // Un token puede existir antes de que se compile el PDF (fila de 0 bytes).
+  // No servimos un archivo vacío: mejor un 404 limpio que un PDF roto.
+  if (!pdf || pdf.content.length === 0) {
+    return new NextResponse("No encontrado", { status: 404 })
+  }
 
   return new NextResponse(new Uint8Array(pdf.content), {
     headers: {
