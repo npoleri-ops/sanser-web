@@ -639,7 +639,6 @@ export function Cotizador({
   const [leadToken, setLeadToken] = useState<string | null>(
     leadInicial?.pdf_token ?? tokenPublico ?? null,
   )
-  const [enlaceCopiado, setEnlaceCopiado] = useState(false)
   const [guardandoCrm, setGuardandoCrm] = useState(false)
   const [mensajeCrm, setMensajeCrm] = useState<string | null>(null)
   const [etapaMontaje, setEtapaMontaje] = useState(0)
@@ -1647,41 +1646,6 @@ export function Cotizador({
       setMensajeCrm("Error al guardar en el CRM.")
     } finally {
       setGuardandoCrm(false)
-    }
-  }
-
-  const copiarEnlaceInteractivo = async () => {
-    let token = leadToken
-    if (!token) {
-      if (!clientName.trim() && !phone.trim()) {
-        alert("Completá el nombre o teléfono del cliente antes de generar el enlace interactivo.")
-        return
-      }
-      setGuardandoCrm(true)
-      try {
-        const registrado = await registrarLead(datosDelPresupuesto())
-        if (registrado?.token || registrado?.pdfToken) {
-          token = registrado.token || registrado.pdfToken || null
-          setLeadToken(token)
-          if (registrado.leadId) setLeadId(registrado.leadId)
-        }
-      } finally {
-        setGuardandoCrm(false)
-      }
-    }
-
-    if (!token) {
-      await copiarLink3D()
-      return
-    }
-
-    const url = `${window.location.origin}/cotizar?token=${token}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setEnlaceCopiado(true)
-      setTimeout(() => setEnlaceCopiado(false), 3000)
-    } catch {
-      window.open(url, "_blank")
     }
   }
 
@@ -3075,17 +3039,6 @@ export function Cotizador({
               >
                 {guardandoCrm ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {leadToken ? "Actualizar en CRM" : "Guardar en CRM"}
-              </Button>
-
-              <Button
-                onClick={copiarEnlaceInteractivo}
-                variant="outline"
-                disabled={guardandoCrm}
-                className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-                title="Copiar enlace cliente para explorar 3D interactivo y secuencia de montaje"
-              >
-                {enlaceCopiado ? <CheckCircle2 className="size-4" /> : <Share2 className="size-4" />}
-                {enlaceCopiado ? "¡Enlace copiado!" : "Copiar Enlace Cliente (3D)"}
               </Button>
 
               <Button
