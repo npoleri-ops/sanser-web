@@ -348,7 +348,7 @@ function useBuilt(config: ShedConfig): Built {
     // ═══════════════════════════════════════════════════════════════════════
     for (const z of framesZ) {
       if (type === "gable_varillas") {
-        // ══ 2 AGUAS – RETICULADO LIVIANO (VIGA CAJÓN) ══
+        // ══ 2 AGUAS – VARILLA Ø16/12 (VIGA CAJÓN) ══
         // Dos vigas reticuladas cajón inclinadas, de columna izq a cumbrera
         // y de cumbrera a columna der.
 
@@ -452,7 +452,7 @@ function useBuilt(config: ShedConfig): Built {
         }
 
       } else if (type === "shed_varillas") {
-        // ══ 1 AGUA – RETICULADO LIVIANO (VIGA CAJÓN) ══
+        // ══ 1 AGUA – VARILLA Ø16/12 (VIGA CAJÓN) ══
         trusses.push(...createBoxTruss(-outX, outX, topFn, varTrussH, varTrussH, z, varChordT, varWebT))
 
         // Jabalcones en ambas columnas

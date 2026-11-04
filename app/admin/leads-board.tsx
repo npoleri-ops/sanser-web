@@ -946,7 +946,7 @@ function NewLeadForm({
                 <input
                   value={quoteTitle}
                   onChange={e => setQuoteTitle(e.target.value)}
-                  placeholder="Ej: TINGLADO 12X25 A 2 AGUAS"
+                  placeholder="Ej: TINGLADO 12X25 2 AGUAS TRIANGULAR"
                   className={inputClass}
                 />
               </Campo>
