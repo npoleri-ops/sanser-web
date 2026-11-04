@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Columns3, FileText, Layers, MessageCircle, SquareStack, Triangle, AlignJustify } from "lucide-react"
 import {
+  buildQuoteTitle,
   buildWhatsAppMessage,
   computeMateriales,
   SHEET_LABEL,
@@ -54,7 +55,7 @@ export function QuoteCard({ config }: { config: ShedConfig }) {
           name: name.trim(),
           phone: phone.trim(),
           email: email.trim(),
-          quoteTitle: `Tinglado ${config.width}x${config.length}`,
+          quoteTitle: buildQuoteTitle(config),
           quoteConfig: config,
           sourcePath: window.location.pathname,
         }),

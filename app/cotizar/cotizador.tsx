@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, buildQuoteTitle, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -299,8 +299,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const doorsCount = Math.max(0, Number(currentConfig.doorsCount ?? currentConfig.puertasPeatonales ?? 0));
   const precioPuerta = 320000; // Puerta de acceso peatonal 0.90x2.05m con marco reforzado y cerradura
 
-  const typeStr = TYPE_LABEL[currentConfig.type] ? TYPE_LABEL[currentConfig.type].toUpperCase() : "A UN AGUA";
-  const nuevoTitulo = `TINGLADO ${ancho}X${largo} ${typeStr}`;
+  const nuevoTitulo = buildQuoteTitle(currentConfig);
   const sheetLabel = SHEET_LABEL[currentConfig.sheet] || "Cincalum T-110";
 
   const nuevosItems: QuoteItem[] = [
@@ -386,7 +385,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   });
 
   let nuevoDetalle = isVarillas
-    ? `Estructura de reticulado liviano en Varilla Conformada Ø16 (cordones) y Ø12 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
+    ? `Estructura de varilla conformada Ø16 (cordones) y Ø12 (diagonales en zigzag) / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería y tornillos autoperforantes / Pintura con convertidor de óxido.`
     : `Estructura reforzada en perfiles C 120x50x1,6mm y 80x40x1,6mm / Correas de techo galvanizadas C 80x40 cada 1m / Cubierta: ${SHEET_LABEL[currentConfig.sheet]} / Bulonería de alta resistencia y tornillos autoperforantes con arandela de neoprene / Pintura con convertidor de óxido.`;
 
   const partesCerramiento: string[] = [];
@@ -459,7 +458,7 @@ export function Cotizador({
   const [phone, setPhone] = useState(leadInicial?.phone ?? "")
   const [email, setEmail] = useState(leadInicial?.email ?? "")
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
-  const [title, setTitle] = useState(leadInicial?.quote_title ?? "TINGLADO 10X20 A UN AGUA")
+  const [title, setTitle] = useState(leadInicial?.quote_title ?? buildQuoteTitle(DEFAULT_CONFIG))
   const [materials, setMaterials] = useState(
     guardado?.materials ??
     "Perfiles C 120x50x1,6mm / Perfiles C 80x40x1,6mm galvanizados para correas / Cubierta: Cincalum T-110 (Cal. 25) / Tornillos",

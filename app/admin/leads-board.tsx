@@ -35,6 +35,7 @@ import {
   type LeadStatus,
   type Cliente,
 } from "@/lib/crm/types"
+import { TYPE_LABEL, type ShedType } from "@/lib/shed-config"
 
 const KIND_ICON: Record<LeadKind, typeof FileText> = {
   contacto: MessageCircle,
@@ -621,6 +622,12 @@ function LeadDetail({
   // Sólo mostramos los accesos cuando hay un archivo real: los leads recién
   // creados tienen token pero un PDF de 0 bytes que la API no puede servir.
   const pdfToken = (lead.pdf_size_bytes ?? 0) > 0 ? lead.pdf_token : null
+  // La configuración guarda la clave técnica (`gable`, `shed_varillas`, etc.);
+  // en la ficha mostramos siempre la nomenclatura comercial vigente.
+  const tipoGuardado =
+    typeof lead.quote_config?.type === "string" && lead.quote_config.type in TYPE_LABEL
+      ? TYPE_LABEL[lead.quote_config.type as ShedType]
+      : null
 
   return (
     <div
@@ -660,6 +667,7 @@ function LeadDetail({
           {lead.kind === "presupuesto" && (
             <>
               <Field label="Presupuesto">{lead.quote_title || "—"}</Field>
+              {tipoGuardado && <Field label="Tipología">{tipoGuardado}</Field>}
               <Field label="Total">
                 {lead.quote_total ? money.format(Number(lead.quote_total)) : "—"}
               </Field>

@@ -74,11 +74,20 @@ export const SHEET_LABEL: Record<SheetType, string> = {
 }
 
 export const TYPE_LABEL: Record<ShedType, string> = {
-  gable: "A 2 Aguas (Triangular)",
-  gable_portico: "A 2 Aguas (Pórtico Reticulado)",
-  shed: "A 1 Agua",
-  gable_varillas: "2 Aguas - Reticulado Liviano (Varilla Ø16/12)",
-  shed_varillas: "1 Agua - Reticulado Liviano (Varilla Ø16/12)",
+  gable: "2 Aguas Triangular",
+  gable_portico: "2 Aguas Rectangular",
+  shed: "1 Agua Triangular",
+  gable_varillas: "2 Aguas",
+  shed_varillas: "1 Agua",
+}
+
+/**
+ * Título comercial uniforme para presupuestos y registros del CRM.
+ * Centralizarlo evita que el configurador, el cotizador y el CRM guarden
+ * variantes distintas del nombre de la tipología.
+ */
+export function buildQuoteTitle(config: Pick<ShedConfig, "type" | "width" | "length">): string {
+  return `TINGLADO ${config.width}X${config.length} ${TYPE_LABEL[config.type].toUpperCase()}`
 }
 
 // Roof pitch (approx) used both for geometry and area math
@@ -377,14 +386,12 @@ export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
 
   // Tipología base
   let baseSlug = "2-aguas"
-  let baseLabel = "A 2 Aguas"
   if (isUnAgua) {
     baseSlug = "1-agua"
-    baseLabel = "A 1 Agua"
   } else if (isPortico) {
     baseSlug = "2-aguas-portico"
-    baseLabel = "A 2 Aguas Pórtico"
   }
+  const baseLabel = TYPE_LABEL[type] ?? "Tinglado"
 
   const fallbackFilename = isUnAgua ? "1-agua.mp4" : "2-aguas.mp4"
   const fallbackSrc = `/videos/montaje/${fallbackFilename}`
