@@ -34,10 +34,12 @@ function Segmented<T extends string>({
   value,
   options,
   onChange,
+  preserveCase = false,
 }: {
   value: T
   options: { value: T; label: string }[]
   onChange: (v: T) => void
+  preserveCase?: boolean
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -46,7 +48,8 @@ function Segmented<T extends string>({
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "rounded-sm border px-3 py-2.5 text-left font-mono text-xs uppercase tracking-wider transition-colors",
+            "rounded-sm border px-3 py-2.5 text-left font-mono text-xs tracking-wider transition-colors",
+            preserveCase ? "normal-case" : "uppercase",
             value === o.value
               ? "border-[#F97316] bg-[#F97316]/15 text-[#F97316]"
               : "border-border bg-secondary/40 text-muted-foreground hover:border-[#F97316]/40 hover:text-foreground",
@@ -267,6 +270,7 @@ export function Controls({ config, update, updateMany }: Props) {
         <Segmented<ShedType>
           value={config.type}
           onChange={(v) => update("type", v)}
+          preserveCase
           options={[
             { value: "gable", label: TYPE_LABEL.gable },
             { value: "gable_portico", label: TYPE_LABEL.gable_portico },

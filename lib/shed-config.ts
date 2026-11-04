@@ -74,11 +74,11 @@ export const SHEET_LABEL: Record<SheetType, string> = {
 }
 
 export const TYPE_LABEL: Record<ShedType, string> = {
-  gable: "2 Aguas Triangular",
-  gable_portico: "2 Aguas Rectangular",
-  shed: "1 Agua Triangular",
-  gable_varillas: "2 Aguas",
-  shed_varillas: "1 Agua",
+  gable: "2 Aguas (Triangular Perfil C)",
+  gable_portico: "2 Aguas (Rectangular Perfil C)",
+  shed: "1 Agua (Triangular Perfil C)",
+  gable_varillas: "2 Aguas (Varilla Ø16/12)",
+  shed_varillas: "1 Agua (Varilla Ø16/12)",
 }
 
 /**
@@ -87,7 +87,7 @@ export const TYPE_LABEL: Record<ShedType, string> = {
  * variantes distintas del nombre de la tipología.
  */
 export function buildQuoteTitle(config: Pick<ShedConfig, "type" | "width" | "length">): string {
-  return `TINGLADO ${config.width}X${config.length} ${TYPE_LABEL[config.type].toUpperCase()}`
+  return `TINGLADO ${config.width}X${config.length} ${TYPE_LABEL[config.type]}`
 }
 
 // Roof pitch (approx) used both for geometry and area math

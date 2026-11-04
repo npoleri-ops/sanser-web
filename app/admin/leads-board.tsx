@@ -53,6 +53,14 @@ const STATUS_STYLE: Record<LeadStatus, string> = {
 
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" })
 
+/** Nomenclatura comercial vigente a partir de la clave técnica guardada. */
+function tipologiaDeLead(lead: Lead): string | null {
+  const tipo = lead.quote_config?.type
+  return typeof tipo === "string" && tipo in TYPE_LABEL
+    ? TYPE_LABEL[tipo as ShedType]
+    : null
+}
+
 /**
  * Misma regla que la columna generada de Postgres: sólo dígitos y los últimos
  * diez. Si las dos se separan, el contador diría una cosa y el filtro otra.
@@ -446,6 +454,7 @@ export function LeadsBoard({
             <tbody>
               {leads.map(lead => {
                 const Icon = KIND_ICON[lead.kind]
+                const tipologia = tipologiaDeLead(lead)
                 return (
                   <tr
                     key={lead.id}
@@ -504,6 +513,11 @@ export function LeadsBoard({
                           {lead.quote_total && (
                             <span className="ml-2 font-mono text-primary">
                               {money.format(Number(lead.quote_total))}
+                            </span>
+                          )}
+                          {tipologia && !lead.quote_title?.includes(tipologia) && (
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {tipologia}
                             </span>
                           )}
                         </span>
@@ -624,10 +638,7 @@ function LeadDetail({
   const pdfToken = (lead.pdf_size_bytes ?? 0) > 0 ? lead.pdf_token : null
   // La configuración guarda la clave técnica (`gable`, `shed_varillas`, etc.);
   // en la ficha mostramos siempre la nomenclatura comercial vigente.
-  const tipoGuardado =
-    typeof lead.quote_config?.type === "string" && lead.quote_config.type in TYPE_LABEL
-      ? TYPE_LABEL[lead.quote_config.type as ShedType]
-      : null
+  const tipoGuardado = tipologiaDeLead(lead)
 
   return (
     <div
@@ -946,7 +957,7 @@ function NewLeadForm({
                 <input
                   value={quoteTitle}
                   onChange={e => setQuoteTitle(e.target.value)}
-                  placeholder="Ej: TINGLADO 12X25 2 AGUAS TRIANGULAR"
+                  placeholder="Ej: TINGLADO 12X25 2 Aguas (Triangular Perfil C)"
                   className={inputClass}
                 />
               </Campo>
