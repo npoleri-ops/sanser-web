@@ -5,8 +5,10 @@ import Link from "next/link"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   AlarmClock,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Download,
   Eye,
   FileDown,
@@ -35,7 +37,7 @@ import {
   type LeadStatus,
   type Cliente,
 } from "@/lib/crm/types"
-import { TYPE_LABEL, type ShedType } from "@/lib/shed-config"
+import { COLOR_LABEL, TYPE_LABEL, type RoofColor, type ShedType } from "@/lib/shed-config"
 
 const KIND_ICON: Record<LeadKind, typeof FileText> = {
   contacto: MessageCircle,
@@ -59,6 +61,160 @@ function tipologiaDeLead(lead: Lead): string | null {
   return typeof tipo === "string" && tipo in TYPE_LABEL
     ? TYPE_LABEL[tipo as ShedType]
     : null
+}
+
+/** Los valores del configurador pueden venir como número o como texto. */
+function numeroDeConfig(valor: unknown): number | null {
+  const n =
+    typeof valor === "number"
+      ? valor
+      : Number(String(valor ?? "").replace(",", "."))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function medidaDeConfig(n: number): string {
+  return String(n).replace(".", ",")
+}
+
+/**
+ * Arma el texto que se pega en WhatsApp para recalcular un tinglado.
+ *
+ * La configuración guardada mezcla la forma actual (`wallLeft`, `wallRight`…)
+ * con la vieja (`walls` como único flag de cerramientos laterales), así que se
+ * normaliza igual que en el cotizador antes de mostrarla.
+ */
+function resumenParaCalculo(lead: Lead): string | null {
+  const config = lead.quote_config
+  if (!config) return null
+
+  const tipoGuardado = config.type
+  const tipologia =
+    typeof tipoGuardado === "string" && tipoGuardado in TYPE_LABEL
+      ? TYPE_LABEL[tipoGuardado as ShedType]
+      : lead.quote_title || "—"
+
+  const ancho = numeroDeConfig(config.width)
+  const largo = numeroDeConfig(config.length)
+  const alto = numeroDeConfig(config.height)
+  const medidas =
+    ancho !== null && largo !== null && alto !== null
+      ? `${medidaDeConfig(ancho)} × ${medidaDeConfig(largo)} × ${medidaDeConfig(alto)} m (Ancho × Largo × Alto libre)`
+      : "—"
+
+  const colorGuardado = config.colorChapa ?? config.color
+  const color =
+    typeof colorGuardado === "string" && colorGuardado in COLOR_LABEL
+      ? COLOR_LABEL[colorGuardado as RoofColor]
+      : "—"
+
+  // `walls` era el único flag de cerramientos laterales en las configuraciones
+  // viejas: vale por ambos lados sólo cuando no hay datos por lado.
+  const lateralesViejos = Boolean(
+    config.walls && !config.wallLeft && !config.wallRight,
+  )
+  const lateralIzquierdo = Boolean(config.wallLeft || lateralesViejos)
+  const lateralDerecho = Boolean(config.wallRight || lateralesViejos)
+  const frente = Boolean(config.wallFront)
+  const fondo = Boolean(config.wallBack)
+  const puertasRaw = Number(
+    config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0,
+  )
+  const puertas = Number.isFinite(puertasRaw)
+    ? Math.max(0, Math.trunc(puertasRaw))
+    : 0
+
+  const cerrado = (valor: boolean) => (valor ? "Cerrado" : "Abierto")
+
+  return [
+    "*RESUMEN PARA CÁLCULO*",
+    `Cliente: ${lead.name?.trim() || "Sin nombre"}`,
+    `Teléfono: ${lead.phone?.trim() || "—"}`,
+    `Tipología: ${tipologia}`,
+    `Medidas: ${medidas}`,
+    `Color de chapa: ${color}`,
+    "",
+    "*Cerramientos:*",
+    `• Lateral izquierdo: ${cerrado(lateralIzquierdo)}`,
+    `• Lateral derecho: ${cerrado(lateralDerecho)}`,
+    `• Frente: ${cerrado(frente)}`,
+    `• Fondo: ${cerrado(fondo)}`,
+    "",
+    "*Puertas y portones:*",
+    `• Puertas peatonales: ${puertas}`,
+    `• Portón frontal: ${config.gate ? 1 : 0}`,
+    `• Portón trasero: ${config.gateBack ? 1 : 0}`,
+  ].join("\n")
+}
+
+/** Copia con fallback para navegadores que no habilitan la API moderna. */
+async function copiarAlPortapapeles(texto: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texto)
+    return true
+  } catch {
+    const area = document.createElement("textarea")
+    area.value = texto
+    area.setAttribute("readonly", "")
+    area.style.position = "fixed"
+    area.style.opacity = "0"
+    document.body.appendChild(area)
+    area.select()
+    const copiado = document.execCommand("copy")
+    document.body.removeChild(area)
+    return copiado
+  }
+}
+
+function CopiarFicha({
+  lead,
+  iconOnly = false,
+  className,
+}: {
+  lead: Lead
+  iconOnly?: boolean
+  className?: string
+}) {
+  const [copiado, setCopiado] = useState(false)
+  const resumen = resumenParaCalculo(lead)
+
+  if (!resumen) return null
+
+  async function copiar(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation()
+    if (!resumen) return
+    const ok = await copiarAlPortapapeles(resumen)
+    if (!ok) return
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={copiar}
+        title={copiado ? "Ficha copiada" : "Copiar ficha para cálculo"}
+        aria-label={copiado ? "Ficha copiada" : "Copiar ficha para cálculo"}
+        className={`${className ?? ""} ${copiado ? "text-emerald-400" : "text-muted-foreground"}`}
+      >
+        {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={copiar}
+      title="Copiar resumen para cálculo"
+      className={`${className ?? ""} ${copiado ? "text-emerald-400" : ""}`}
+    >
+      {copiado ? <Check /> : <Copy />}
+      {copiado ? "Ficha copiada" : "Copiar ficha"}
+    </Button>
+  )
 }
 
 /**
@@ -449,6 +605,9 @@ export function LeadsBoard({
                 <th className="px-4 py-3 font-semibold">Detalle</th>
                 <th className="px-4 py-3 font-semibold">Origen</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
+                <th className="w-12 px-2 py-3">
+                  <span className="sr-only">Ficha</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -543,6 +702,9 @@ export function LeadsBoard({
                       >
                         {STATUS_LABEL[lead.status]}
                       </span>
+                    </td>
+                    <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
+                      <CopiarFicha lead={lead} iconOnly />
                     </td>
                   </tr>
                 )
@@ -650,12 +812,15 @@ function LeadDetail({
         className="h-full w-full max-w-md overflow-y-auto border-l border-border bg-card p-6"
       >
         <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-primary">{KIND_LABEL[lead.kind]}</p>
             <h2 className="text-xl font-bold">{lead.name || "Sin nombre"}</h2>
             <p className="text-sm text-muted-foreground">{formatDate(lead.created_at)}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>Cerrar</Button>
+          <div className="flex shrink-0 items-center gap-1">
+            <CopiarFicha lead={lead} />
+            <Button variant="ghost" size="sm" onClick={onClose}>Cerrar</Button>
+          </div>
         </div>
 
         <dl className="space-y-3 text-sm">
