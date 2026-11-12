@@ -37,7 +37,14 @@ import {
   type LeadStatus,
   type Cliente,
 } from "@/lib/crm/types"
-import { COLOR_LABEL, TYPE_LABEL, type RoofColor, type ShedType } from "@/lib/shed-config"
+import {
+  COLOR_LABEL,
+  LATERAL_LABEL,
+  TYPE_LABEL,
+  getLateral,
+  type RoofColor,
+  type ShedType,
+} from "@/lib/shed-config"
 
 const KIND_ICON: Record<LeadKind, typeof FileText> = {
   contacto: MessageCircle,
@@ -107,13 +114,10 @@ function resumenParaCalculo(lead: Lead): string | null {
       ? COLOR_LABEL[colorGuardado as RoofColor]
       : "—"
 
-  // `walls` era el único flag de cerramientos laterales en las configuraciones
-  // viejas: vale por ambos lados sólo cuando no hay datos por lado.
-  const lateralesViejos = Boolean(
-    config.walls && !config.wallLeft && !config.wallRight,
-  )
-  const lateralIzquierdo = Boolean(config.wallLeft || lateralesViejos)
-  const lateralDerecho = Boolean(config.wallRight || lateralesViejos)
+  // `getLateral` normaliza el formato nuevo (`lateralIzquierdo`/`lateralDerecho`)
+  // y el viejo (`wallLeft`/`wallRight`/`walls`).
+  const lateralIzquierdo = getLateral(config, "izquierdo")
+  const lateralDerecho = getLateral(config, "derecho")
   const frente = Boolean(config.wallFront)
   const fondo = Boolean(config.wallBack)
   const puertasRaw = Number(
@@ -133,9 +137,9 @@ function resumenParaCalculo(lead: Lead): string | null {
     `Medidas: ${medidas}`,
     `Color de chapa: ${color}`,
     "",
-    "*Cerramientos:*",
-    `• Lateral izquierdo: ${cerrado(lateralIzquierdo)}`,
-    `• Lateral derecho: ${cerrado(lateralDerecho)}`,
+    "*Laterales y cerramientos:*",
+    `• Lateral izquierdo: ${LATERAL_LABEL[lateralIzquierdo]}`,
+    `• Lateral derecho: ${LATERAL_LABEL[lateralDerecho]}`,
     `• Frente: ${cerrado(frente)}`,
     `• Fondo: ${cerrado(fondo)}`,
     "",

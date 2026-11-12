@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Visor3D } from "./visor-3d"
-import type { ShedType, SheetType, RoofColor } from "@/lib/shed-config"
+import type { ShedType, SheetType, RoofColor, LateralType } from "@/lib/shed-config"
 import { DEFAULT_CONFIG } from "@/lib/shed-config"
 
 export const metadata: Metadata = {
@@ -43,6 +43,22 @@ function parseShedConfig(params: Record<string, string | undefined>) {
   const paredFrente = params.paredFrente === "1"
   const paredFondo = params.paredFondo === "1"
 
+  // `lateralIzq` / `lateralDer` son el formato nuevo. Si no vienen, se conserva
+  // la compatibilidad con los links viejos que sólo traían `paredIzq`/`paredDer`.
+  const VALID_LATERALES: LateralType[] = ["abierto", "chapa", "muro"]
+  const parseLateral = (raw: string | undefined, legacy: boolean): LateralType => {
+    if (raw && VALID_LATERALES.includes(raw as LateralType)) return raw as LateralType
+    return legacy ? "chapa" : "abierto"
+  }
+  const lateralIzquierdo = parseLateral(
+    params.lateralIzq ?? params.lateralIzquierdo,
+    paredIzq,
+  )
+  const lateralDerecho = parseLateral(
+    params.lateralDer ?? params.lateralDerecho,
+    paredDer,
+  )
+
   // Mapear explícitamente: params.puertas, params.puerta, params.doors, params.doorsCount
   const rawPuertas = params.puertas ?? params.puerta ?? params.doors ?? params.doorsCount
   const parsedPuertas = rawPuertas !== undefined && rawPuertas !== null ? parseInt(String(rawPuertas), 10) : 0
@@ -59,9 +75,11 @@ function parseShedConfig(params: Record<string, string | undefined>) {
     height: Math.min(20, Math.max(2, alto)),
     sheet: chapa,
     color,
-    walls: paredes || paredIzq || paredDer,
-    wallLeft: paredIzq,
-    wallRight: paredDer,
+    lateralIzquierdo,
+    lateralDerecho,
+    walls: lateralIzquierdo === "chapa" || lateralDerecho === "chapa",
+    wallLeft: lateralIzquierdo === "chapa",
+    wallRight: lateralDerecho === "chapa",
     wallFront: paredFrente,
     wallBack: paredFondo,
     doorsCount: puertas,

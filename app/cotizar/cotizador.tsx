@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, buildQuoteTitle, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales, getDoorsCount, withDoorsCount } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, buildQuoteTitle, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales, getDoorsCount, withDoorsCount, getLateral, withLateral, LATERAL_LABEL, LATERAL_DESCRIPTION, LATERAL_SHORT_LABEL, type LateralType } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -167,8 +167,10 @@ export const getSuperficies = (c: ShedConfig) => {
   const supGable = Math.round((ancho * alto) + ((ancho * flecha) / 2));
 
   const legacyWalls = Boolean(c.walls && !c.wallLeft && !c.wallRight);
-  const hasLeft = Boolean(c.wallLeft || legacyWalls);
-  const hasRight = Boolean(c.wallRight || legacyWalls);
+  const lateralIzquierdo = getLateral(c, "izquierdo");
+  const lateralDerecho = getLateral(c, "derecho");
+  const hasLeft = lateralIzquierdo === "chapa";
+  const hasRight = lateralDerecho === "chapa";
   const hasFront = Boolean(c.wallFront);
   const hasBack = Boolean(c.wallBack || legacyWalls);
 
@@ -178,7 +180,17 @@ export const getSuperficies = (c: ShedConfig) => {
     (hasFront ? supGable : 0) +
     (hasBack ? supGable : 0);
 
-  return { supLateral, supGable, supTotalCerramientos, hasLeft, hasRight, hasFront, hasBack };
+  return {
+    supLateral,
+    supGable,
+    supTotalCerramientos,
+    hasLeft,
+    hasRight,
+    hasFront,
+    hasBack,
+    lateralIzquierdo,
+    lateralDerecho,
+  };
 }
 
 // Cálculo puro: sólo depende de sus argumentos, por eso vive fuera del componente.
@@ -286,7 +298,17 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
   const subtotalTingladoCompleto = subtotalMateriales + subtotalManoObra + subtotalPintor;
 
   // ── CERRAMIENTOS Y ABERTURAS ───────────────────────────────
-  const { supLateral, supGable, supTotalCerramientos, hasLeft, hasRight, hasFront, hasBack } = getSuperficies(currentConfig);
+  const {
+    supLateral,
+    supGable,
+    supTotalCerramientos,
+    hasLeft,
+    hasRight,
+    hasFront,
+    hasBack,
+    lateralIzquierdo,
+    lateralDerecho,
+  } = getSuperficies(currentConfig);
 
   // Costo por m² de cerramiento completo (chapas, correas C 80x40 galvanizadas, tornillos y mano de obra de montaje)
   const costoM2Cerramiento = Math.round(
@@ -401,6 +423,13 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     nuevoDetalle += ` / Cerramientos en chapa ${sheetLabel} sobre correas C 80x40 galvanizadas (${partesCerramiento.join(", ")}, total: ${supTotalCerramientos} m²).`;
   }
 
+  const murosLaterales: string[] = [];
+  if (lateralIzquierdo === "muro") murosLaterales.push("izquierdo");
+  if (lateralDerecho === "muro") murosLaterales.push("derecho");
+  if (murosLaterales.length > 0) {
+    nuevoDetalle += ` / Apoya sobre muro existente en lateral ${murosLaterales.join(" y ")} (sin columnas metálicas ni chapa).`;
+  }
+
   if (doorsCount > 0) {
     nuevoDetalle += ` / Incluye ${doorsCount} puerta(s) de acceso peatonal (0.90x2.05m) con marco metálico y cerradura.`;
   }
@@ -485,6 +514,8 @@ export function Cotizador({
    * en los parámetros de búsqueda y lo copia al portapapeles.
    */
   const copiarLink3D = async () => {
+    const lateralIzquierdo = getLateral(config, "izquierdo")
+    const lateralDerecho = getLateral(config, "derecho")
     const params = new URLSearchParams({
       tipo: config.type,
       ancho: String(config.width),
@@ -492,9 +523,11 @@ export function Cotizador({
       alto: String(config.height),
       chapa: config.sheet,
       color: config.colorChapa ?? config.color ?? "cincalum",
-      paredes: (config.wallLeft || config.wallRight || config.walls) ? "1" : "0",
-      paredIzq: config.wallLeft ? "1" : "0",
-      paredDer: config.wallRight ? "1" : "0",
+      paredes: (lateralIzquierdo === "chapa" || lateralDerecho === "chapa") ? "1" : "0",
+      paredIzq: lateralIzquierdo === "chapa" ? "1" : "0",
+      paredDer: lateralDerecho === "chapa" ? "1" : "0",
+      lateralIzq: lateralIzquierdo,
+      lateralDer: lateralDerecho,
       paredFrente: config.wallFront ? "1" : "0",
       paredFondo: config.wallBack ? "1" : "0",
       puertas: String(getDoorsCount(config)),
@@ -577,7 +610,14 @@ export function Cotizador({
     const base = guardado ? { ...DEFAULT_CONFIG, ...guardado } : { ...DEFAULT_CONFIG }
     const doors = esLeadDelConfiguradorPublico ? 0 : getDoorsCount(base)
     const color = (guardado?.colorChapa ?? guardado?.color ?? DEFAULT_CONFIG.color ?? "cincalum") as RoofColor
-    return withDoorsCount({ ...base, color, colorChapa: color }, doors)
+    // Normaliza los laterales guardados con el formato viejo (wallLeft/wallRight)
+    // y deja sincronizados los booleanos que usa el cómputo.
+    const conLaterales = withLateral(
+      withLateral(base, "izquierdo", getLateral(base, "izquierdo")),
+      "derecho",
+      getLateral(base, "derecho"),
+    )
+    return withDoorsCount({ ...conLaterales, color, colorChapa: color }, doors)
   })
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
@@ -852,6 +892,22 @@ export function Cotizador({
       const storedWallRight = localStorage.getItem('sanser_wall_right') === '1'
       const storedWallFront = localStorage.getItem('sanser_wall_front') === '1'
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
+      const lateralIzquierdo = getLateral(
+        {
+          lateralIzquierdo: localStorage.getItem('sanser_lateral_left'),
+          wallLeft: storedWallLeft,
+          wallRight: storedWallRight,
+        },
+        "izquierdo",
+      )
+      const lateralDerecho = getLateral(
+        {
+          lateralDerecho: localStorage.getItem('sanser_lateral_right'),
+          wallLeft: storedWallLeft,
+          wallRight: storedWallRight,
+        },
+        "derecho",
+      )
       const storedColor = localStorage.getItem('sanser_color_chapa') as RoofColor | null
       const validColor: RoofColor = (storedColor === "cincalum" || storedColor === "negro") ? storedColor : "cincalum"
       // Las puertas peatonales no se persisten: una cotización nueva siempre
@@ -865,11 +921,13 @@ export function Cotizador({
           width: parseFloat(storedAncho) || 15,
           length: parseFloat(storedLargo) || 20,
           height: parseFloat(storedAlto) || 5,
-          wallLeft: storedWallLeft,
-          wallRight: storedWallRight,
+          lateralIzquierdo,
+          lateralDerecho,
+          wallLeft: lateralIzquierdo === "chapa",
+          wallRight: lateralDerecho === "chapa",
           wallFront: storedWallFront,
           wallBack: storedWallBack,
-          walls: storedWallLeft || storedWallRight,
+          walls: lateralIzquierdo === "chapa" || lateralDerecho === "chapa",
           doorsCount: 0,
           puertasPeatonales: 0,
           doors: 0,
@@ -889,11 +947,15 @@ export function Cotizador({
   useEffect(() => {
     if (!hydrated) return
     try {
+      const lateralIzquierdo = getLateral(config, "izquierdo")
+      const lateralDerecho = getLateral(config, "derecho")
       localStorage.setItem('sanser_ancho', config.width.toString())
       localStorage.setItem('sanser_largo', config.length.toString())
       localStorage.setItem('sanser_alto', config.height.toString())
-      localStorage.setItem('sanser_wall_left', config.wallLeft ? '1' : '0')
-      localStorage.setItem('sanser_wall_right', config.wallRight ? '1' : '0')
+      localStorage.setItem('sanser_lateral_left', lateralIzquierdo)
+      localStorage.setItem('sanser_lateral_right', lateralDerecho)
+      localStorage.setItem('sanser_wall_left', lateralIzquierdo === 'chapa' ? '1' : '0')
+      localStorage.setItem('sanser_wall_right', lateralDerecho === 'chapa' ? '1' : '0')
       localStorage.setItem('sanser_wall_front', config.wallFront ? '1' : '0')
       localStorage.setItem('sanser_wall_back', config.wallBack ? '1' : '0')
       localStorage.setItem('sanser_gate', config.gate ? '1' : '0')
@@ -902,7 +964,7 @@ export function Cotizador({
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.color, config.colorChapa, config.gate, config.gateBack])
+  }, [hydrated, config.width, config.length, config.height, config.lateralIzquierdo, config.lateralDerecho, config.wallFront, config.wallBack, config.color, config.colorChapa, config.gate, config.gateBack])
 
   const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
@@ -1798,17 +1860,22 @@ export function Cotizador({
     window.open(`${destino}?text=${encodedMessage}`, '_blank')
   }
 
-  const { supLateral, supGable, supTotalCerramientos } = getSuperficies(config)
+  const {
+    supLateral,
+    supGable,
+    supTotalCerramientos,
+    lateralIzquierdo,
+    lateralDerecho,
+  } = getSuperficies(config)
+
+  const ambosLateralesConChapa =
+    lateralIzquierdo === "chapa" && lateralDerecho === "chapa"
 
   const toggleAmbosLaterales = () => {
-    const ambosActivos = Boolean(config.wallLeft && config.wallRight)
-    const nuevo = !ambosActivos
-    setConfig(prev => ({
-      ...prev,
-      wallLeft: nuevo,
-      wallRight: nuevo,
-      walls: nuevo,
-    }))
+    const nuevo: LateralType = ambosLateralesConChapa ? "abierto" : "chapa"
+    setConfig(prev =>
+      withLateral(withLateral(prev, "izquierdo", nuevo), "derecho", nuevo),
+    )
   }
 
   return (
@@ -2390,60 +2457,69 @@ export function Cotizador({
                     onClick={toggleAmbosLaterales}
                     className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
                   >
-                    {config.wallLeft && config.wallRight ? "Desmarcar ambos" : "Marcar ambos"}
+                    {ambosLateralesConChapa ? "Abrir ambos" : "Chapa en ambos"}
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Lateral Izquierdo */}
-                  <label
-                    htmlFor="wall-left"
-                    className={cn(
-                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallLeft
-                        ? "bg-primary/10 border-primary shadow-sm"
-                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground">Lat. Izquierdo</span>
-                      <input
-                        id="wall-left"
-                        type="checkbox"
-                        checked={!!config.wallLeft}
-                        onChange={e => setConfig({ ...config, wallLeft: e.target.checked, walls: e.target.checked || !!config.wallRight })}
-                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
-                      />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {([
+                    { side: "izquierdo", label: "Lat. Izquierdo", value: lateralIzquierdo },
+                    { side: "derecho", label: "Lat. Derecho", value: lateralDerecho },
+                  ] as const).map(({ side, label, value }) => (
+                    <div
+                      key={side}
+                      className={cn(
+                        "flex flex-col gap-2 p-3 rounded-lg border transition-all",
+                        value === "chapa"
+                          ? "bg-primary/10 border-primary shadow-sm"
+                          : value === "muro"
+                            ? "bg-stone-500/10 border-stone-500/40"
+                            : "bg-background/60 border-input"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-foreground">{label}</span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                            value === "chapa"
+                              ? "bg-primary/15 text-primary"
+                              : value === "muro"
+                                ? "bg-stone-500/15 text-stone-600 dark:text-stone-300"
+                                : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {LATERAL_LABEL[value]}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["abierto", "chapa", "muro"] as const).map(option => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setConfig(prev => withLateral(prev, side, option))}
+                            className={cn(
+                              "rounded border px-1.5 py-1.5 text-[10px] font-semibold transition-colors cursor-pointer",
+                              value === option
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-background text-muted-foreground hover:bg-muted"
+                            )}
+                          >
+                            {LATERAL_SHORT_LABEL[option]}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {value === "chapa" ? (
+                          <>Superficie: <strong className="text-foreground">{supLateral} m²</strong></>
+                        ) : value === "muro" ? (
+                          LATERAL_DESCRIPTION.muro
+                        ) : (
+                          LATERAL_DESCRIPTION.abierto
+                        )}
+                      </span>
                     </div>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      Superficie: <strong className="text-foreground">{supLateral} m²</strong>
-                    </span>
-                  </label>
-
-                  {/* Lateral Derecho */}
-                  <label
-                    htmlFor="wall-right"
-                    className={cn(
-                      "flex flex-col gap-1 p-3 rounded-lg border transition-all cursor-pointer select-none",
-                      config.wallRight
-                        ? "bg-primary/10 border-primary shadow-sm"
-                        : "bg-background/60 border-input hover:border-primary/40 hover:bg-muted/40"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground">Lat. Derecho</span>
-                      <input
-                        id="wall-right"
-                        type="checkbox"
-                        checked={!!config.wallRight}
-                        onChange={e => setConfig({ ...config, wallRight: e.target.checked, walls: !!config.wallLeft || e.target.checked })}
-                        className="size-4 rounded border-input text-primary focus:ring-primary accent-[#F97316]"
-                      />
-                    </div>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      Superficie: <strong className="text-foreground">{supLateral} m²</strong>
-                    </span>
-                  </label>
+                  ))}
                 </div>
               </div>
 

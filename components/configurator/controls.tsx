@@ -5,9 +5,15 @@ import { cn } from "@/lib/utils"
 import {
   COLOR_HEX,
   COLOR_LABEL,
+  LATERAL_DESCRIPTION,
+  LATERAL_LABEL,
   LIMITS,
   SHEET_LABEL,
   TYPE_LABEL,
+  getLateral,
+  withLateral,
+  type LateralSide,
+  type LateralType,
   type RoofColor,
   type SheetType,
   type ShedConfig,
@@ -263,7 +269,71 @@ function Toggle({
   )
 }
 
+function LateralPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: LateralType
+  onChange: (v: LateralType) => void
+}) {
+  const options: { value: LateralType; label: string }[] = [
+    { value: "abierto", label: "Abierto" },
+    { value: "chapa", label: "Chapa" },
+    { value: "muro", label: "Muro" },
+  ]
+
+  return (
+    <div className="rounded-sm border border-border bg-secondary/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-sm text-foreground">{label}</span>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider",
+            value === "chapa"
+              ? "bg-[#F97316]/15 text-[#F97316]"
+              : value === "muro"
+                ? "bg-stone-500/20 text-stone-600 dark:text-stone-300"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          {LATERAL_LABEL[value]}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "rounded-sm border px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider transition-colors",
+              value === o.value
+                ? "border-[#F97316] bg-[#F97316]/15 text-[#F97316]"
+                : "border-border bg-background/40 text-muted-foreground hover:border-[#F97316]/40 hover:text-foreground",
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{LATERAL_DESCRIPTION[value]}</p>
+    </div>
+  )
+}
+
 export function Controls({ config, update, updateMany }: Props) {
+  const setLateral = (side: LateralSide, value: LateralType) => {
+    const next = withLateral(config, side, value)
+    updateMany({
+      lateralIzquierdo: next.lateralIzquierdo,
+      lateralDerecho: next.lateralDerecho,
+      wallLeft: next.wallLeft,
+      wallRight: next.wallRight,
+      walls: next.walls,
+    })
+  }
+
   return (
     <div className="space-y-7">
       <Group label="Tipología">
@@ -365,17 +435,15 @@ export function Controls({ config, update, updateMany }: Props) {
 
       <Group label="Cerramientos">
         <div className="space-y-2">
-          <Toggle
+          <LateralPicker
             label="Lateral Izquierdo"
-            desc="Chapa en el lateral izquierdo"
-            checked={Boolean(config.wallLeft)}
-            onChange={(v) => updateMany({ wallLeft: v, walls: v || Boolean(config.wallRight) })}
+            value={getLateral(config, "izquierdo")}
+            onChange={(v) => setLateral("izquierdo", v)}
           />
-          <Toggle
+          <LateralPicker
             label="Lateral Derecho"
-            desc="Chapa en el lateral derecho"
-            checked={Boolean(config.wallRight)}
-            onChange={(v) => updateMany({ wallRight: v, walls: Boolean(config.wallLeft) || v })}
+            value={getLateral(config, "derecho")}
+            onChange={(v) => setLateral("derecho", v)}
           />
           <Toggle
             label="Frente / Frontal"

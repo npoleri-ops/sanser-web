@@ -3,6 +3,8 @@ export type SheetType = "t101" | "sinusoidal"
 export type WallSheetType = "same" | "t101" | "sinusoidal"
 export type RoofColor = "cincalum" | "negro"
 export type EnvironmentType = "day" | "afternoon" | "night"
+export type LateralType = "abierto" | "chapa" | "muro"
+export type LateralSide = "izquierdo" | "derecho"
 
 export interface ShedConfig {
   type: ShedType
@@ -15,8 +17,10 @@ export interface ShedConfig {
   colorChapa?: "cincalum" | "negro"
   environment: EnvironmentType
   walls: boolean // cerramientos laterales (compatibilidad)
-  wallLeft?: boolean // cerramiento lateral izquierdo
-  wallRight?: boolean // cerramiento lateral derecho
+  wallLeft?: boolean // cerramiento lateral izquierdo (compatibilidad)
+  wallRight?: boolean // cerramiento lateral derecho (compatibilidad)
+  lateralIzquierdo?: LateralType // abierto / chapa / muro existente
+  lateralDerecho?: LateralType // abierto / chapa / muro existente
   wallFront?: boolean // cerramiento frontal / tímpano
   wallBack?: boolean // cerramiento trasero / tímpano
   doorsCount?: number // cantidad de puertas de acceso peatonal
@@ -40,6 +44,8 @@ export const DEFAULT_CONFIG: ShedConfig = {
   walls: false,
   wallLeft: false,
   wallRight: false,
+  lateralIzquierdo: "abierto",
+  lateralDerecho: "abierto",
   wallFront: false,
   wallBack: false,
   // Las puertas peatonales son opt-in: el configurador público no las ofrece,
@@ -50,6 +56,75 @@ export const DEFAULT_CONFIG: ShedConfig = {
   gate: false,
   gateBack: false,
   centralColumns: false,
+}
+
+export const LATERAL_LABEL: Record<LateralType, string> = {
+  abierto: "Abierto",
+  chapa: "Cerrado con chapa",
+  muro: "Muro existente",
+}
+
+export const LATERAL_DESCRIPTION: Record<LateralType, string> = {
+  abierto: "Con columnas metálicas",
+  chapa: "Cerrado con chapa y columnas metálicas",
+  muro: "Apoyo de techo sin columnas ni chapa",
+}
+
+export const LATERAL_SHORT_LABEL: Record<LateralType, string> = {
+  abierto: "Abierto",
+  chapa: "Chapa",
+  muro: "Muro",
+}
+
+export interface LateralConfig {
+  lateralIzquierdo?: unknown
+  lateralDerecho?: unknown
+  wallLeft?: unknown
+  wallRight?: unknown
+  walls?: unknown
+}
+
+/**
+ * Estado efectivo de un lateral.
+ *
+ * Las configuraciones nuevas guardan `lateralIzquierdo` / `lateralDerecho`.
+ * Las viejas sólo tenían los booleanos `wallLeft` / `wallRight` (o `walls`
+ * para ambos), que se interpretan como cerramiento con chapa.
+ */
+export function getLateral(
+  config: LateralConfig | null | undefined,
+  side: LateralSide,
+): LateralType {
+  const explicit = side === "izquierdo" ? config?.lateralIzquierdo : config?.lateralDerecho
+  if (explicit === "abierto" || explicit === "chapa" || explicit === "muro") {
+    return explicit
+  }
+
+  const wall = side === "izquierdo" ? config?.wallLeft : config?.wallRight
+  if (wall) return "chapa"
+  if (config?.walls && !config?.wallLeft && !config?.wallRight) return "chapa"
+  return "abierto"
+}
+
+/**
+ * Cambia un lateral y mantiene sincronizados los booleanos viejos: sólo el
+ * estado `chapa` cuenta como cerramiento para el cómputo y los planos.
+ */
+export function withLateral(
+  config: ShedConfig,
+  side: LateralSide,
+  value: LateralType,
+): ShedConfig {
+  const lateralIzquierdo = side === "izquierdo" ? value : getLateral(config, "izquierdo")
+  const lateralDerecho = side === "derecho" ? value : getLateral(config, "derecho")
+  return {
+    ...config,
+    lateralIzquierdo,
+    lateralDerecho,
+    wallLeft: lateralIzquierdo === "chapa",
+    wallRight: lateralDerecho === "chapa",
+    walls: lateralIzquierdo === "chapa" || lateralDerecho === "chapa",
+  }
 }
 
 /**
@@ -189,12 +264,25 @@ export function buildWhatsAppMessage(
   const { width, length, height, type, color, sheet } = config
   const computo = computeMateriales(config)
   const doorsCount = getDoorsCount(config)
+  const lateralIzquierdo = getLateral(config, "izquierdo")
+  const lateralDerecho = getLateral(config, "derecho")
 
   const extras: string[] = []
-  if (config.wallLeft && config.wallRight) extras.push("con cerramientos laterales en ambos lados")
-  else if (config.wallLeft) extras.push("con cerramiento lateral izquierdo")
-  else if (config.wallRight) extras.push("con cerramiento lateral derecho")
-  else if (config.walls) extras.push("con cerramientos laterales")
+  if (lateralIzquierdo === "chapa" && lateralDerecho === "chapa") {
+    extras.push("con cerramientos laterales en ambos lados")
+  } else if (lateralIzquierdo === "chapa") {
+    extras.push("con cerramiento lateral izquierdo")
+  } else if (lateralDerecho === "chapa") {
+    extras.push("con cerramiento lateral derecho")
+  }
+
+  if (lateralIzquierdo === "muro" && lateralDerecho === "muro") {
+    extras.push("apoyado sobre muros existentes en ambos laterales")
+  } else if (lateralIzquierdo === "muro") {
+    extras.push("apoyado sobre muro existente en el lateral izquierdo")
+  } else if (lateralDerecho === "muro") {
+    extras.push("apoyado sobre muro existente en el lateral derecho")
+  }
 
   if (config.wallFront && config.wallBack) extras.push("con cerramiento frente y fondo")
   else if (config.wallFront) extras.push("con cerramiento frontal")
@@ -224,8 +312,8 @@ export function buildWhatsAppMessage(
   msg += `- Tipología: ${TYPE_LABEL[type]}\n`
   msg += `- Dimensiones: ${width}m (Ancho) x ${length}m (Largo) x ${height}m (Altura libre)\n`
   msg += `- Cubierta: Chapa ${SHEET_LABEL[sheet]} (Color: ${COLOR_LABEL[color]})\n`
-  msg += `- Cerramiento Lat. Izquierdo: ${config.wallLeft ? "Sí" : (config.walls ? "Sí" : "No")}\n`
-  msg += `- Cerramiento Lat. Derecho: ${config.wallRight ? "Sí" : (config.walls ? "Sí" : "No")}\n`
+  msg += `- Lateral Izquierdo: ${LATERAL_LABEL[lateralIzquierdo]}\n`
+  msg += `- Lateral Derecho: ${LATERAL_LABEL[lateralDerecho]}\n`
   msg += `- Cerramiento Frontal: ${config.wallFront ? "Sí" : "No"}\n`
   msg += `- Cerramiento Trasero: ${config.wallBack ? "Sí" : "No"}\n`
   if (doorsCount > 0) {
@@ -273,8 +361,10 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   const { correas, columnas, superficieTecho } = computeMateriales(config)
 
   const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
-  const hasLeft  = Boolean(config.wallLeft  || legacyWalls)
-  const hasRight = Boolean(config.wallRight || legacyWalls)
+  const lateralIzquierdo = getLateral(config, "izquierdo")
+  const lateralDerecho = getLateral(config, "derecho")
+  const hasLeft  = lateralIzquierdo === "chapa"
+  const hasRight = lateralDerecho === "chapa"
   const hasFront = Boolean(config.wallFront)
   const hasBack  = Boolean(config.wallBack  || legacyWalls)
   const doorsCount = getDoorsCount(config)
@@ -411,7 +501,11 @@ export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
 
   const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
   const hasCerramientos = Boolean(
-    config.wallLeft || config.wallRight || config.wallFront || config.wallBack || legacyWalls
+    getLateral(config, "izquierdo") === "chapa" ||
+    getLateral(config, "derecho") === "chapa" ||
+    config.wallFront ||
+    config.wallBack ||
+    legacyWalls
   )
   const hasPorton = Boolean(config.gate || config.gateBack)
   const hasPuertas = getDoorsCount(config) > 0

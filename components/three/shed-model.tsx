@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react"
 import { useFrame } from "@react-three/fiber"
 import * as THREE from "three"
-import { COLOR_HEX, PITCH_DEG, type ShedConfig, computeMateriales } from "@/lib/shed-config"
+import { COLOR_HEX, PITCH_DEG, type ShedConfig, computeMateriales, getLateral } from "@/lib/shed-config"
 
 // Shared unit geometry -> every beam reuses it (scaled), keeping draw setup cheap.
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1)
@@ -240,6 +240,7 @@ interface Built {
   roof: Seg[] // purlins + bracing that reveal with roof
   panels: { pos: [number, number, number]; rot: [number, number, number]; w: number; l: number }[]
   walls: { pos: [number, number, number]; rot: [number, number, number]; shape: THREE.Shape }[]
+  muros: { pos: [number, number, number]; size: [number, number, number] }[]
   flanges: { pos: [number, number, number]; w: number; h: number; d: number }[]
   flashings: { pos: [number, number, number]; rotZ: number; h: number }[]
   doors?: { pos: [number, number, number]; rot: [number, number, number] }[]
@@ -259,6 +260,8 @@ function useBuilt(config: ShedConfig): Built {
     for (let i = 0; i < frames; i++) framesZ.push(THREE.MathUtils.lerp(-halfL, halfL, i / (frames - 1)))
 
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
+    const lateralIzquierdo = getLateral(config, "izquierdo")
+    const lateralDerecho = getLateral(config, "derecho")
 
     // ── Varillas: espesores visibles que representan Ø16 y Ø12 ──
     // Varillas redondas: cordones exteriores Ø16 y diagonales interiores Ø12
@@ -312,6 +315,10 @@ function useBuilt(config: ShedConfig): Built {
         sides.push([0, bottomFn(0)])
       }
       for (const [x, top] of sides) {
+        // Muro existente: ese lateral apoya sobre mampostería, sin columnas ni bases.
+        if (x < 0 && lateralIzquierdo === "muro") continue
+        if (x > 0 && lateralDerecho === "muro") continue
+
         let slantFn: ((x: number) => number) | undefined
         if (type === "gable_portico") {
           slantFn = bottomFn
@@ -532,8 +539,8 @@ function useBuilt(config: ShedConfig): Built {
     roof.push([v(outX, topFn(outX) - 0.15, -outL), v(outX, topFn(outX) - 0.15, outL), chordT])
     // cross bracing on side walls (first bay each side)
     const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
-    const hasLeftWall = Boolean(config.wallLeft || legacyWalls)
-    const hasRightWall = Boolean(config.wallRight || legacyWalls)
+    const hasLeftWall = lateralIzquierdo === "chapa"
+    const hasRightWall = lateralDerecho === "chapa"
     const hasFrontWall = Boolean(config.wallFront)
     const hasBackWall = Boolean(config.wallBack || (legacyWalls && !config.gateBack))
 
@@ -544,10 +551,15 @@ function useBuilt(config: ShedConfig): Built {
       const bracingLeftX = hasLeftWall ? -halfW + colDepth/2 : -halfW
       const bracingRightX = hasRightWall ? halfW - colDepth/2 : halfW
 
-      roof.push([v(bracingLeftX, 0.5, z0), v(bracingLeftX, eaveL, z1), webT])
-      roof.push([v(bracingLeftX, eaveL, z0), v(bracingLeftX, 0.5, z1), webT])
-      roof.push([v(bracingRightX, 0.5, z0), v(bracingRightX, eaveR, z1), webT])
-      roof.push([v(bracingRightX, eaveR, z0), v(bracingRightX, 0.5, z1), webT])
+      // Sobre un muro existente no hace falta arriostramiento lateral metálico.
+      if (lateralIzquierdo !== "muro") {
+        roof.push([v(bracingLeftX, 0.5, z0), v(bracingLeftX, eaveL, z1), webT])
+        roof.push([v(bracingLeftX, eaveL, z0), v(bracingLeftX, 0.5, z1), webT])
+      }
+      if (lateralDerecho !== "muro") {
+        roof.push([v(bracingRightX, 0.5, z0), v(bracingRightX, eaveR, z1), webT])
+        roof.push([v(bracingRightX, eaveR, z0), v(bracingRightX, 0.5, z1), webT])
+      }
     }
 
     // Dimensiones estructurales máximas para posicionar los cerramientos 100% por fuera
@@ -597,6 +609,24 @@ function useBuilt(config: ShedConfig): Built {
     }
 
     const walls: Built["walls"] = []
+    const muros: Built["muros"] = []
+
+    // Muro existente de mampostería: reemplaza a la columna y llega hasta el
+    // cordón inferior de la cabreada (altura libre real de apoyo del techo).
+    const muroThickness = isVarillas ? colSection : 0.4
+    const muroLargo = 2 * wallZ + wallThickness * 2
+    if (lateralIzquierdo === "muro") {
+      muros.push({
+        pos: [-halfW, eaveL / 2, 0],
+        size: [muroThickness, eaveL, muroLargo],
+      })
+    }
+    if (lateralDerecho === "muro") {
+      muros.push({
+        pos: [halfW, eaveR / 2, 0],
+        size: [muroThickness, eaveR, muroLargo],
+      })
+    }
 
     const makeRect = (w: number, h: number) => {
       const shape = new THREE.Shape()
@@ -694,9 +724,14 @@ function useBuilt(config: ShedConfig): Built {
           const posX = Math.min(wallX - 1.2, W * 0.35)
           doors.push({ pos: [posX, 0, wallZ + wallThickness + 0.02], rot: [0, 0, 0] })
         } else if (i === 1) {
-          doors.push({ pos: [-wallX - wallThickness - 0.02, 0, wallZ - 2.5], rot: [0, -Math.PI / 2, 0] })
+          // No hay puerta sobre un lateral de muro existente.
+          if (lateralIzquierdo !== "muro") {
+            doors.push({ pos: [-wallX - wallThickness - 0.02, 0, wallZ - 2.5], rot: [0, -Math.PI / 2, 0] })
+          }
         } else if (i === 2) {
-          doors.push({ pos: [wallX + wallThickness + 0.02, 0, wallZ - 2.5], rot: [0, Math.PI / 2, 0] })
+          if (lateralDerecho !== "muro") {
+            doors.push({ pos: [wallX + wallThickness + 0.02, 0, wallZ - 2.5], rot: [0, Math.PI / 2, 0] })
+          }
         } else if (i === 3) {
           const posX = Math.max(-wallX + 1.2, -W * 0.35)
           doors.push({ pos: [posX, 0, -wallZ - wallThickness - 0.02], rot: [0, Math.PI, 0] })
@@ -704,7 +739,7 @@ function useBuilt(config: ShedConfig): Built {
       }
     }
 
-    return { slab: { w: W, l: L }, bases, columns, trusses, roof, panels, walls, flanges, flashings, doors }
+    return { slab: { w: W, l: L }, bases, columns, trusses, roof, panels, walls, muros, flanges, flashings, doors }
   }, [config])
 }
 
@@ -759,7 +794,15 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
         transparent: animated,
         opacity: animated ? 0 : 1,
       })
-    return { bases: make(), columns: make(), trusses: make(), purlins: make() }
+    const makeMuro = () =>
+      new THREE.MeshStandardMaterial({
+        color: "#8f8d86",
+        metalness: 0.02,
+        roughness: 0.95,
+        transparent: animated,
+        opacity: animated ? 0 : 1,
+      })
+    return { bases: make(), columns: make(), trusses: make(), purlins: make(), muro: makeMuro() }
   }, [animated])
 
   const { roofMat, wallMat } = useMemo(() => {
@@ -887,6 +930,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
 
   const gBases = useRef<THREE.Group>(null)
   const gColumns = useRef<THREE.Group>(null)
+  const gMuros = useRef<THREE.Group>(null)
   const gTrusses = useRef<THREE.Group>(null)
   const gPurlins = useRef<THREE.Group>(null)
   const gCovering = useRef<THREE.Group>(null)
@@ -931,6 +975,7 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
     // Phase 1: Bases & Columns
     apply(gBases.current, mats.bases, 0, -1.5)
     apply(gColumns.current, mats.columns, 0.2, -3)
+    apply(gMuros.current, mats.muro, 0.2, -3)
     // Phase 2: Trusses (Cabreadas)
     apply(gTrusses.current, mats.trusses, 1, 6)
     // Phase 3: Purlins (Correas)
@@ -964,6 +1009,14 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
 
       <group ref={gColumns} visible={visColumnas}>
         <Beams segs={built.columns} material={mats.columns} />
+      </group>
+
+      <group ref={gMuros} visible={visColumnas}>
+        {built.muros.map((m, i) => (
+          <mesh key={`muro${i}`} position={m.pos} material={mats.muro} castShadow receiveShadow>
+            <boxGeometry args={m.size} />
+          </mesh>
+        ))}
       </group>
 
       <group ref={gTrusses} visible={visTrusses}>
