@@ -42,12 +42,43 @@ export const DEFAULT_CONFIG: ShedConfig = {
   wallRight: false,
   wallFront: false,
   wallBack: false,
+  // Las puertas peatonales son opt-in: el configurador público no las ofrece,
+  // así que toda cotización nueva arranca sin puertas.
   doorsCount: 0,
   puertasPeatonales: 0,
   doors: 0,
   gate: false,
   gateBack: false,
   centralColumns: false,
+}
+
+/**
+ * Cantidad de puertas peatonales normalizada.
+ *
+ * `doorsCount`, `puertasPeatonales` y `doors` conviven por compatibilidad con
+ * configuraciones viejas. Cualquier valor inválido, negativo o con decimales se
+ * descarta; el configurador público nunca debe aportar puertas por defecto.
+ */
+export function getDoorsCount(
+  config:
+    | Pick<ShedConfig, "doorsCount" | "puertasPeatonales" | "doors">
+    | null
+    | undefined,
+): number {
+  const raw = config?.doorsCount ?? config?.puertasPeatonales ?? config?.doors ?? 0
+  const count = Number(raw)
+  return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0
+}
+
+/** Devuelve la configuración con los tres alias de puertas sincronizados. */
+export function withDoorsCount(config: ShedConfig, count: number): ShedConfig {
+  const doors = getDoorsCount({ doorsCount: count })
+  return {
+    ...config,
+    doorsCount: doors,
+    puertasPeatonales: doors,
+    doors,
+  }
 }
 
 export const DEFAULT_SHED_CONFIG = DEFAULT_CONFIG
@@ -157,6 +188,7 @@ export function buildWhatsAppMessage(
 ): string {
   const { width, length, height, type, color, sheet } = config
   const computo = computeMateriales(config)
+  const doorsCount = getDoorsCount(config)
 
   const extras: string[] = []
   if (config.wallLeft && config.wallRight) extras.push("con cerramientos laterales en ambos lados")
@@ -168,8 +200,8 @@ export function buildWhatsAppMessage(
   else if (config.wallFront) extras.push("con cerramiento frontal")
   else if (config.wallBack) extras.push("con cerramiento trasero")
 
-  if (config.doorsCount && config.doorsCount > 0) {
-    extras.push(`con ${config.doorsCount} puerta(s) de acceso peatonal`)
+  if (doorsCount > 0) {
+    extras.push(`con ${doorsCount} puerta(s) de acceso peatonal`)
   }
 
   if (config.gate && config.gateBack) {
@@ -196,8 +228,8 @@ export function buildWhatsAppMessage(
   msg += `- Cerramiento Lat. Derecho: ${config.wallRight ? "Sí" : (config.walls ? "Sí" : "No")}\n`
   msg += `- Cerramiento Frontal: ${config.wallFront ? "Sí" : "No"}\n`
   msg += `- Cerramiento Trasero: ${config.wallBack ? "Sí" : "No"}\n`
-  if (config.doorsCount && config.doorsCount > 0) {
-    msg += `- Puertas de acceso: ${config.doorsCount} unid. (0.90x2.05m)\n`
+  if (doorsCount > 0) {
+    msg += `- Puertas de acceso: ${doorsCount} unid. (0.90x2.05m)\n`
   }
   msg += `- Portón frontal: ${config.gate ? "Sí" : "No"}\n`
   msg += `- Portón trasero: ${config.gateBack ? "Sí" : "No"}\n`
@@ -245,7 +277,8 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
   const hasRight = Boolean(config.wallRight || legacyWalls)
   const hasFront = Boolean(config.wallFront)
   const hasBack  = Boolean(config.wallBack  || legacyWalls)
-  const hasDoors = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0)) > 0
+  const doorsCount = getDoorsCount(config)
+  const hasDoors = doorsCount > 0
   const hasGate  = Boolean(config.gate)
   const hasGateBack = Boolean(config.gateBack)
 
@@ -339,7 +372,7 @@ export function getGuiaMontaje(config: ShedConfig): PasoMontaje[] {
 
   // Puertas peatonales
   if (hasDoors) {
-    const cnt = config.doorsCount!
+    const cnt = doorsCount
     pasos.push({
       paso: numeroPaso++,
       titulo: `Puerta${cnt > 1 ? "s" : ""} peatonal${cnt > 1 ? "es" : ""} (${cnt} unid.)`,
@@ -381,7 +414,7 @@ export function getMontajeVideo(config: ShedConfig): MontajeVideoInfo {
     config.wallLeft || config.wallRight || config.wallFront || config.wallBack || legacyWalls
   )
   const hasPorton = Boolean(config.gate || config.gateBack)
-  const hasPuertas = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0)) > 0
+  const hasPuertas = getDoorsCount(config) > 0
   const hasAberturas = hasPorton || hasPuertas
 
   // Tipología base

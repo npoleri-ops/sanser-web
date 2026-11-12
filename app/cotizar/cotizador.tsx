@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
-import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, buildQuoteTitle, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales } from "@/lib/shed-config"
+import { CONTACT, DEFAULT_CONFIG, TYPE_LABEL, SHEET_LABEL, buildQuoteTitle, ShedType, type ShedConfig, type RoofColor, type PasoMontaje, getGuiaMontaje, getMontajeVideo, computeMateriales, getDoorsCount, withDoorsCount } from "@/lib/shed-config"
 import { BarraSecuencia } from "@/components/three/barra-secuencia"
 import { registrarLead, trackLead } from "@/lib/crm/track"
 import { problemaDeContacto } from "@/lib/crm/contacto"
@@ -296,7 +296,7 @@ const calcularPresupuesto = (currentConfig: ShedConfig, currentPrices: Prices) =
     4500
   );
 
-  const doorsCount = Math.max(0, Number(currentConfig.doorsCount ?? currentConfig.puertasPeatonales ?? 0));
+  const doorsCount = getDoorsCount(currentConfig);
   const precioPuerta = 320000; // Puerta de acceso peatonal 0.90x2.05m con marco reforzado y cerradura
 
   const nuevoTitulo = buildQuoteTitle(currentConfig);
@@ -497,7 +497,7 @@ export function Cotizador({
       paredDer: config.wallRight ? "1" : "0",
       paredFrente: config.wallFront ? "1" : "0",
       paredFondo: config.wallBack ? "1" : "0",
-      puertas: String(Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))),
+      puertas: String(getDoorsCount(config)),
       porton: config.gate ? "1" : "0",
       portonTrasero: config.gateBack ? "1" : "0",
       ...(etapaMontaje > 0 ? { etapa: String(etapaMontaje) } : {}),
@@ -568,18 +568,16 @@ export function Cotizador({
     })
   }
 
+  // El configurador público no tiene selector de puertas peatonales. Si el lead
+  // viene de ahí (no tiene ítems guardados por el cotizador interno), cualquier
+  // valor residual de una configuración vieja se descarta y arranca en 0.
+  const esLeadDelConfiguradorPublico = Boolean(leadInicial) && !Array.isArray(guardado?.items)
+
   const [config, setConfig] = useState<ShedConfig>(() => {
-    const base = guardado ? { ...DEFAULT_CONFIG, ...guardado } : DEFAULT_CONFIG
-    const doors = Math.max(0, Number(guardado?.doorsCount ?? guardado?.puertasPeatonales ?? guardado?.doors ?? 0))
+    const base = guardado ? { ...DEFAULT_CONFIG, ...guardado } : { ...DEFAULT_CONFIG }
+    const doors = esLeadDelConfiguradorPublico ? 0 : getDoorsCount(base)
     const color = (guardado?.colorChapa ?? guardado?.color ?? DEFAULT_CONFIG.color ?? "cincalum") as RoofColor
-    return {
-      ...base,
-      color,
-      colorChapa: color,
-      doorsCount: doors,
-      puertasPeatonales: doors,
-      doors: doors,
-    }
+    return withDoorsCount({ ...base, color, colorChapa: color }, doors)
   })
   const [prices, setPrices] = useState(INITIAL_PRICES)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
@@ -856,8 +854,9 @@ export function Cotizador({
       const storedWallBack = localStorage.getItem('sanser_wall_back') === '1'
       const storedColor = localStorage.getItem('sanser_color_chapa') as RoofColor | null
       const validColor: RoofColor = (storedColor === "cincalum" || storedColor === "negro") ? storedColor : "cincalum"
-      const rawStoredDoors = localStorage.getItem('sanser_doors_count')
-      const storedDoors = rawStoredDoors !== null ? Math.max(0, parseInt(rawStoredDoors, 10) || 0) : 0
+      // Las puertas peatonales no se persisten: una cotización nueva siempre
+      // arranca en 0 y sólo se suman si el usuario interno las agrega a mano.
+      localStorage.removeItem('sanser_doors_count')
       const storedGate = localStorage.getItem('sanser_gate') === '1'
       const storedGateBack = localStorage.getItem('sanser_gate_back') === '1'
       if (storedAncho && storedLargo && storedAlto) {
@@ -871,9 +870,9 @@ export function Cotizador({
           wallFront: storedWallFront,
           wallBack: storedWallBack,
           walls: storedWallLeft || storedWallRight,
-          doorsCount: storedDoors,
-          puertasPeatonales: storedDoors,
-          doors: storedDoors,
+          doorsCount: 0,
+          puertasPeatonales: 0,
+          doors: 0,
           color: validColor,
           colorChapa: validColor,
           gate: storedGate,
@@ -897,14 +896,13 @@ export function Cotizador({
       localStorage.setItem('sanser_wall_right', config.wallRight ? '1' : '0')
       localStorage.setItem('sanser_wall_front', config.wallFront ? '1' : '0')
       localStorage.setItem('sanser_wall_back', config.wallBack ? '1' : '0')
-      localStorage.setItem('sanser_doors_count', (config.doorsCount || 0).toString())
       localStorage.setItem('sanser_gate', config.gate ? '1' : '0')
       localStorage.setItem('sanser_gate_back', config.gateBack ? '1' : '0')
       localStorage.setItem('sanser_color_chapa', config.colorChapa ?? config.color ?? 'cincalum')
     } catch (e) {
       console.error("Error al guardar localStorage", e)
     }
-  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.doorsCount, config.color, config.colorChapa, config.gate, config.gateBack])
+  }, [hydrated, config.width, config.length, config.height, config.wallLeft, config.wallRight, config.wallFront, config.wallBack, config.color, config.colorChapa, config.gate, config.gateBack])
 
   const fetchCSV = useCallback(async (forceRefresh = false) => {
     setIsLoadingPrices(true)
@@ -973,7 +971,12 @@ export function Cotizador({
   }, [fetchCSV])
 
 
-  const configCargada = useRef(guardado ? JSON.stringify({ ...DEFAULT_CONFIG, ...guardado }) : null)
+  // Sólo un presupuesto guardado desde el cotizador interno trae ítems que hay
+  // que respetar. Los leads del configurador público no: se recalculan desde su
+  // configuración (sin puertas peatonales) al abrirlos.
+  const configCargada = useRef(
+    guardado && Array.isArray(guardado.items) ? JSON.stringify(config) : null,
+  )
 
   useEffect(() => {
     // Presupuesto reabierto: mientras no cambien las medidas, mandan los valores
@@ -1752,7 +1755,7 @@ export function Cotizador({
       : ""
 
     const { supTotalCerramientos } = getSuperficies(config)
-    const doorsCount = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
+    const doorsCount = getDoorsCount(config)
 
     const desgloseItems = items
       .filter(i => (i.price * i.quantity > 0) || !i.description.includes("Transporte"))
@@ -2518,27 +2521,19 @@ export function Cotizador({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        const currentVal = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
-                        const nextVal = Math.max(0, currentVal - 1)
-                        setConfig({ ...config, doorsCount: nextVal, puertasPeatonales: nextVal, doors: nextVal })
-                      }}
-                      disabled={Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0)) <= 0}
+                      onClick={() => setConfig(prev => withDoorsCount(prev, getDoorsCount(prev) - 1))}
+                      disabled={getDoorsCount(config) <= 0}
                       className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                       title="Quitar puerta"
                     >
                       -
                     </button>
                     <span className="w-8 text-center font-mono font-bold text-sm text-foreground">
-                      {Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))}
+                      {getDoorsCount(config)}
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        const currentVal = Math.max(0, Number(config.doorsCount ?? config.puertasPeatonales ?? 0))
-                        const nextVal = Math.min(10, currentVal + 1)
-                        setConfig({ ...config, doorsCount: nextVal, puertasPeatonales: nextVal, doors: nextVal })
-                      }}
+                      onClick={() => setConfig(prev => withDoorsCount(prev, Math.min(10, getDoorsCount(prev) + 1)))}
                       className="size-8 rounded border border-input bg-background flex items-center justify-center font-bold text-sm text-foreground hover:bg-muted transition-colors cursor-pointer"
                       title="Agregar puerta"
                     >
