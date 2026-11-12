@@ -5,12 +5,17 @@ import { cn } from "@/lib/utils"
 import {
   COLOR_HEX,
   COLOR_LABEL,
+  EXTREMO_DESCRIPTION,
   LATERAL_DESCRIPTION,
   LATERAL_LABEL,
   LIMITS,
   SHEET_LABEL,
   TYPE_LABEL,
+  getFondo,
+  getFrente,
   getLateral,
+  withFondo,
+  withFrente,
   withLateral,
   type LateralSide,
   type LateralType,
@@ -273,10 +278,12 @@ function LateralPicker({
   label,
   value,
   onChange,
+  descriptions = LATERAL_DESCRIPTION,
 }: {
   label: string
   value: LateralType
   onChange: (v: LateralType) => void
+  descriptions?: Record<LateralType, string>
 }) {
   const options: { value: LateralType; label: string }[] = [
     { value: "abierto", label: "Abierto" },
@@ -317,7 +324,7 @@ function LateralPicker({
           </button>
         ))}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{LATERAL_DESCRIPTION[value]}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{descriptions[value]}</p>
     </div>
   )
 }
@@ -332,6 +339,16 @@ export function Controls({ config, update, updateMany }: Props) {
       wallRight: next.wallRight,
       walls: next.walls,
     })
+  }
+
+  const setFrente = (value: LateralType) => {
+    const next = withFrente(config, value)
+    updateMany({ frente: next.frente, wallFront: next.wallFront })
+  }
+
+  const setFondo = (value: LateralType) => {
+    const next = withFondo(config, value)
+    updateMany({ fondo: next.fondo, wallBack: next.wallBack })
   }
 
   return (
@@ -445,17 +462,17 @@ export function Controls({ config, update, updateMany }: Props) {
             value={getLateral(config, "derecho")}
             onChange={(v) => setLateral("derecho", v)}
           />
-          <Toggle
+          <LateralPicker
             label="Frente / Frontal"
-            desc="Chapa en el tímpano frontal"
-            checked={Boolean(config.wallFront)}
-            onChange={(v) => update("wallFront", v)}
+            value={getFrente(config)}
+            onChange={setFrente}
+            descriptions={EXTREMO_DESCRIPTION}
           />
-          <Toggle
+          <LateralPicker
             label="Fondo / Trasero"
-            desc="Chapa en el tímpano trasero"
-            checked={Boolean(config.wallBack)}
-            onChange={(v) => update("wallBack", v)}
+            value={getFondo(config)}
+            onChange={setFondo}
+            descriptions={EXTREMO_DESCRIPTION}
           />
         </div>
       </Group>

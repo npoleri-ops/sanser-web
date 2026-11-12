@@ -41,6 +41,8 @@ import {
   COLOR_LABEL,
   LATERAL_LABEL,
   TYPE_LABEL,
+  getFondo,
+  getFrente,
   getLateral,
   type RoofColor,
   type ShedType,
@@ -118,16 +120,14 @@ function resumenParaCalculo(lead: Lead): string | null {
   // y el viejo (`wallLeft`/`wallRight`/`walls`).
   const lateralIzquierdo = getLateral(config, "izquierdo")
   const lateralDerecho = getLateral(config, "derecho")
-  const frente = Boolean(config.wallFront)
-  const fondo = Boolean(config.wallBack)
+  const frente = getFrente(config)
+  const fondo = getFondo(config)
   const puertasRaw = Number(
     config.doorsCount ?? config.puertasPeatonales ?? config.doors ?? 0,
   )
   const puertas = Number.isFinite(puertasRaw)
     ? Math.max(0, Math.trunc(puertasRaw))
     : 0
-
-  const cerrado = (valor: boolean) => (valor ? "Cerrado" : "Abierto")
 
   return [
     "*RESUMEN PARA CÁLCULO*",
@@ -140,8 +140,8 @@ function resumenParaCalculo(lead: Lead): string | null {
     "*Laterales y cerramientos:*",
     `• Lateral izquierdo: ${LATERAL_LABEL[lateralIzquierdo]}`,
     `• Lateral derecho: ${LATERAL_LABEL[lateralDerecho]}`,
-    `• Frente: ${cerrado(frente)}`,
-    `• Fondo: ${cerrado(fondo)}`,
+    `• Frente: ${LATERAL_LABEL[frente]}`,
+    `• Fondo: ${LATERAL_LABEL[fondo]}`,
     "",
     "*Puertas y portones:*",
     `• Puertas peatonales: ${puertas}`,

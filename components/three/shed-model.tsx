@@ -3,7 +3,15 @@
 import { useMemo, useRef } from "react"
 import { useFrame } from "@react-three/fiber"
 import * as THREE from "three"
-import { COLOR_HEX, PITCH_DEG, type ShedConfig, computeMateriales, getLateral } from "@/lib/shed-config"
+import {
+  COLOR_HEX,
+  PITCH_DEG,
+  type ShedConfig,
+  computeMateriales,
+  getFondo,
+  getFrente,
+  getLateral,
+} from "@/lib/shed-config"
 
 // Shared unit geometry -> every beam reuses it (scaled), keeping draw setup cheap.
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1)
@@ -240,7 +248,12 @@ interface Built {
   roof: Seg[] // purlins + bracing that reveal with roof
   panels: { pos: [number, number, number]; rot: [number, number, number]; w: number; l: number }[]
   walls: { pos: [number, number, number]; rot: [number, number, number]; shape: THREE.Shape }[]
-  muros: { pos: [number, number, number]; size: [number, number, number] }[]
+  muros: {
+    pos: [number, number, number]
+    rot: [number, number, number]
+    shape: THREE.Shape
+    depth: number
+  }[]
   flanges: { pos: [number, number, number]; w: number; h: number; d: number }[]
   flashings: { pos: [number, number, number]; rotZ: number; h: number }[]
   doors?: { pos: [number, number, number]; rot: [number, number, number] }[]
@@ -262,6 +275,8 @@ function useBuilt(config: ShedConfig): Built {
     const isVarillas = type === "gable_varillas" || type === "shed_varillas"
     const lateralIzquierdo = getLateral(config, "izquierdo")
     const lateralDerecho = getLateral(config, "derecho")
+    const frente = getFrente(config)
+    const fondo = getFondo(config)
 
     // ── Varillas: espesores visibles que representan Ø16 y Ø12 ──
     // Varillas redondas: cordones exteriores Ø16 y diagonales interiores Ø12
@@ -538,11 +553,10 @@ function useBuilt(config: ShedConfig): Built {
     roof.push([v(-outX, topFn(-outX) - 0.15, -outL), v(-outX, topFn(-outX) - 0.15, outL), chordT])
     roof.push([v(outX, topFn(outX) - 0.15, -outL), v(outX, topFn(outX) - 0.15, outL), chordT])
     // cross bracing on side walls (first bay each side)
-    const legacyWalls = Boolean(config.walls && !config.wallLeft && !config.wallRight)
     const hasLeftWall = lateralIzquierdo === "chapa"
     const hasRightWall = lateralDerecho === "chapa"
-    const hasFrontWall = Boolean(config.wallFront)
-    const hasBackWall = Boolean(config.wallBack || (legacyWalls && !config.gateBack))
+    const hasFrontWall = frente === "chapa"
+    const hasBackWall = fondo === "chapa"
 
     if (framesZ.length >= 2) {
       const z0 = framesZ[0]
@@ -610,23 +624,8 @@ function useBuilt(config: ShedConfig): Built {
 
     const walls: Built["walls"] = []
     const muros: Built["muros"] = []
-
-    // Muro existente de mampostería: reemplaza a la columna y llega hasta el
-    // cordón inferior de la cabreada (altura libre real de apoyo del techo).
     const muroThickness = isVarillas ? colSection : 0.4
     const muroLargo = 2 * wallZ + wallThickness * 2
-    if (lateralIzquierdo === "muro") {
-      muros.push({
-        pos: [-halfW, eaveL / 2, 0],
-        size: [muroThickness, eaveL, muroLargo],
-      })
-    }
-    if (lateralDerecho === "muro") {
-      muros.push({
-        pos: [halfW, eaveR / 2, 0],
-        size: [muroThickness, eaveR, muroLargo],
-      })
-    }
 
     const makeRect = (w: number, h: number) => {
       const shape = new THREE.Shape()
@@ -677,7 +676,86 @@ function useBuilt(config: ShedConfig): Built {
       headerShape.lineTo(x, Math.max(H, topFn(x)) + wallVerticalOverlap)
     }
     headerShape.closePath()
-    
+
+    const makeMuroRect = (w: number, h: number) => {
+      const shape = new THREE.Shape()
+      shape.moveTo(-w / 2, 0)
+      shape.lineTo(w / 2, 0)
+      shape.lineTo(w / 2, h)
+      shape.lineTo(-w / 2, h)
+      shape.closePath()
+      return shape
+    }
+
+    // Igual que el cerramiento de chapa pero sin el solape superior: el muro
+    // existente llega justo hasta la cara inferior del techo.
+    const makeMuroWallShape = (xStart: number, xEnd: number) => {
+      const shape = new THREE.Shape()
+      shape.moveTo(xStart, 0)
+      shape.lineTo(xEnd, 0)
+      const segments = 24
+      for (let i = 0; i <= segments; i++) {
+        const u = 1 - (i / segments)
+        const x = THREE.MathUtils.lerp(xStart, xEnd, u)
+        shape.lineTo(x, Math.max(H, topFn(x)))
+      }
+      shape.closePath()
+      return shape
+    }
+
+    const makeMuroHeaderShape = () => {
+      const shape = new THREE.Shape()
+      shape.moveTo(-gateW / 2, gateH)
+      shape.lineTo(gateW / 2, gateH)
+      const segments = 12
+      for (let i = 0; i <= segments; i++) {
+        const u = 1 - (i / segments)
+        const x = THREE.MathUtils.lerp(-gateW / 2, gateW / 2, u)
+        shape.lineTo(x, Math.max(H, topFn(x)))
+      }
+      shape.closePath()
+      return shape
+    }
+
+    // Muros existentes de mampostería: reemplazan a las columnas y llegan
+    // hasta la altura libre donde apoyan las cabreadas.
+    if (lateralIzquierdo === "muro") {
+      muros.push({
+        pos: [-halfW + muroThickness / 2, 0, 0],
+        rot: [0, -Math.PI / 2, 0],
+        shape: makeMuroRect(muroLargo, eaveL),
+        depth: muroThickness,
+      })
+    }
+    if (lateralDerecho === "muro") {
+      muros.push({
+        pos: [halfW - muroThickness / 2, 0, 0],
+        rot: [0, Math.PI / 2, 0],
+        shape: makeMuroRect(muroLargo, eaveR),
+        depth: muroThickness,
+      })
+    }
+    if (frente === "muro") {
+      const z = wallZ - muroThickness / 2
+      if (config.gate) {
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(-wallX, -gateW / 2), depth: muroThickness })
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(gateW / 2, wallX), depth: muroThickness })
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroHeaderShape(), depth: muroThickness })
+      } else {
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(-wallX, wallX), depth: muroThickness })
+      }
+    }
+    if (fondo === "muro") {
+      const z = -wallZ - muroThickness / 2
+      if (config.gateBack) {
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(-wallX, -gateW / 2), depth: muroThickness })
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(gateW / 2, wallX), depth: muroThickness })
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroHeaderShape(), depth: muroThickness })
+      } else {
+        muros.push({ pos: [0, 0, z], rot: [0, 0, 0], shape: makeMuroWallShape(-wallX, wallX), depth: muroThickness })
+      }
+    }
+
     if (hasFrontWall) {
       if (config.gate) {
         walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
@@ -686,7 +764,7 @@ function useBuilt(config: ShedConfig): Built {
       } else {
         walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
       }
-    } else if (config.gate) {
+    } else if (config.gate && frente !== "muro") {
       // Front Gate Side panels + Header
       walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
       walls.push({ pos: [0, 0, wallZ], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
@@ -701,7 +779,7 @@ function useBuilt(config: ShedConfig): Built {
       } else {
         walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(-wallX, wallX) })
       }
-    } else if (config.gateBack) {
+    } else if (config.gateBack && fondo !== "muro") {
       // Back Gate Side panels + Header
       walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(-wallX, -gateW / 2) })
       walls.push({ pos: [0, 0, -wallZ - wallThickness], rot: [0, 0, 0], shape: makeWallShape(gateW / 2, wallX) })
@@ -794,14 +872,60 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
         transparent: animated,
         opacity: animated ? 0 : 1,
       })
-    const makeMuro = () =>
-      new THREE.MeshStandardMaterial({
-        color: "#8f8d86",
+    const makeMuro = () => {
+      // Textura de mampostería: ruido muy leve + juntas horizontales. Las UV
+      // de ExtrudeGeometry están en metros, así que una repetición por metro
+      // deja una junta cada 25 cm sin generar geometría extra.
+      const canvas = document.createElement("canvas")
+      canvas.width = 256
+      canvas.height = 256
+      const ctx = canvas.getContext("2d")
+      if (ctx) {
+        ctx.fillStyle = "#8f8d86"
+        ctx.fillRect(0, 0, 256, 256)
+
+        for (let i = 0; i < 700; i++) {
+          const x = Math.random() * 256
+          const y = Math.random() * 256
+          ctx.fillStyle = Math.random() > 0.5 ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"
+          ctx.fillRect(x, y, 2, 2)
+        }
+
+        ctx.strokeStyle = "rgba(58,56,52,0.35)"
+        ctx.lineWidth = 3
+        for (let y = 0; y <= 256; y += 64) {
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(256, y)
+          ctx.stroke()
+        }
+
+        ctx.strokeStyle = "rgba(255,255,255,0.08)"
+        ctx.lineWidth = 1
+        for (let y = 2; y <= 256; y += 64) {
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(256, y)
+          ctx.stroke()
+        }
+      }
+
+      const texture = new THREE.CanvasTexture(canvas)
+      texture.wrapS = THREE.RepeatWrapping
+      texture.wrapT = THREE.RepeatWrapping
+      texture.repeat.set(1, 1)
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.needsUpdate = true
+
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        color: "#ffffff",
         metalness: 0.02,
         roughness: 0.95,
         transparent: animated,
         opacity: animated ? 0 : 1,
       })
+    }
     return { bases: make(), columns: make(), trusses: make(), purlins: make(), muro: makeMuro() }
   }, [animated])
 
@@ -1013,8 +1137,8 @@ export function ShedModel({ config, animated = false, showSlab = true, onCycle, 
 
       <group ref={gMuros} visible={visColumnas}>
         {built.muros.map((m, i) => (
-          <mesh key={`muro${i}`} position={m.pos} material={mats.muro} castShadow receiveShadow>
-            <boxGeometry args={m.size} />
+          <mesh key={`muro${i}`} position={m.pos} rotation={m.rot} material={mats.muro} castShadow receiveShadow>
+            <extrudeGeometry args={[m.shape, { depth: m.depth, bevelEnabled: false }]} />
           </mesh>
         ))}
       </group>

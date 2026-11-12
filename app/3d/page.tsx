@@ -58,6 +58,8 @@ function parseShedConfig(params: Record<string, string | undefined>) {
     params.lateralDer ?? params.lateralDerecho,
     paredDer,
   )
+  const frente = parseLateral(params.frente, paredFrente)
+  const fondo = parseLateral(params.fondo, paredFondo)
 
   // Mapear explícitamente: params.puertas, params.puerta, params.doors, params.doorsCount
   const rawPuertas = params.puertas ?? params.puerta ?? params.doors ?? params.doorsCount
@@ -77,11 +79,13 @@ function parseShedConfig(params: Record<string, string | undefined>) {
     color,
     lateralIzquierdo,
     lateralDerecho,
+    frente,
+    fondo,
     walls: lateralIzquierdo === "chapa" || lateralDerecho === "chapa",
     wallLeft: lateralIzquierdo === "chapa",
     wallRight: lateralDerecho === "chapa",
-    wallFront: paredFrente,
-    wallBack: paredFondo,
+    wallFront: frente === "chapa",
+    wallBack: fondo === "chapa",
     doorsCount: puertas,
     gate: porton,
     gateBack: portonTrasero,
